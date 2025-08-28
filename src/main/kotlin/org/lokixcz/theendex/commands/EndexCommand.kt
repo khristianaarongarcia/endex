@@ -58,7 +58,46 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 plugin.reloadEndex(sender)
                 return true
             }
+            "track" -> {
+                if (!sender.hasPermission("theendex.admin")) {
+                    sender.sendMessage("${ChatColor.RED}No permission.")
+                    return true
+                }
+                val sub = args.getOrNull(1)?.lowercase()
+                if (sub == "dump") {
+                    // Reflect resourceTracker
+                    try {
+                        val f = plugin.javaClass.getDeclaredField("resourceTracker"); f.isAccessible = true
+                        val rt = f.get(plugin) as? org.lokixcz.theendex.tracking.ResourceTracker
+                        if (rt == null) {
+                            sender.sendMessage("${ChatColor.RED}Resource tracking is disabled.")
+                        } else {
+                            val top = rt.top(15)
+                            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Top gathered materials (since startup):")
+                            if (top.isEmpty()) sender.sendMessage("${ChatColor.GRAY}(no data yet)")
+                            for ((mat, amt) in top) {
+                                sender.sendMessage("${ChatColor.AQUA}${mat.name}${ChatColor.GRAY}: ${amt}")
+                            }
+                            sender.sendMessage("${ChatColor.GRAY}Totals persisted in tracking.yml (updated periodically)")
+                        }
+                    } catch (_: Throwable) {
+                        sender.sendMessage("${ChatColor.RED}Unable to read tracker.")
+                    }
+                    return true
+                }
+                sender.sendMessage("${ChatColor.RED}Usage: /endex track dump")
+                return true
+            }
         }
+        // Try addon router
+        val routed = try {
+            val method = plugin.javaClass.methods.firstOrNull { it.name == "registerAddonSubcommand" }
+            // Quick reflection to reach router via exposed methods
+            val routerField = plugin.javaClass.getDeclaredField("addonCommandRouter"); routerField.isAccessible = true
+            val router = routerField.get(plugin) as? org.lokixcz.theendex.addon.AddonCommandRouter
+            router?.dispatch(sender, label, args)
+        } catch (_: Throwable) { null }
+        if (routed == true) return true
         sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use /endex help")
         return true
     }

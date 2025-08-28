@@ -1,0 +1,22 @@
+# Gradle build outputs and caches
+.gradle/
+**/build/
+out/
+
+# IDE configs (keep repo editor-agnostic)
+.idea/
+*.iml
+.vscode/
+
+# Dev server & local release artifacts (not part of source)
+MCTestServer/
+run/
+release/
+
+# Logs & OS cruft
+*.log
+.DS_Store
+Thumbs.db
+
+# Editor swap files
+*.swp

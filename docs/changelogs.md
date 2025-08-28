@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+- Addon command router with dynamic addon subcommands, aliases, and tab completion integration under `/endex`.
+- Resource tracking subsystem (block breaks, mob drops, fishing) with periodic persistence to `tracking.yml` and admin `/endex track dump`.
+- API: `getTrackedTotals()` to fetch a snapshot of gathered resources.
+- Crypto Addon: configurable via YAML, commands (`help, info, balance, buy, sell, transfer, shop, admin`).
+- Crypto Addon Shop: YAML-driven (`shop.yml`) with per-item permissions and command actions (console/player).
+- Crypto pricing modes: `fixed` or `market` with sensitivity and mean reversion; `/endex crypto info` shows details.
+- Crypto price history logging to CSV once per minute (market mode) for external graphing.
+
+### Changed
+- Spigot/Modrinth descriptions updated to highlight addons, Crypto Addon, and resource tracking.
+- Documentation expanded: Developers API, Addons guide, Commands, and Config guide.
+
+### Compatibility
+- Tested on Paper 1.20.1 API; expected to run on 1.21.x.
+
 ## [1.0.0] - 2025-08-28
 Initial release
 

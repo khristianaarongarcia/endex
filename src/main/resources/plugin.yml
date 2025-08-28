@@ -30,3 +30,18 @@ permissions:
     default: op
   theendex.invest:
     default: true
+  # Crypto addon permissions
+  theendex.crypto.info:
+    default: true
+  theendex.crypto.balance:
+    default: true
+  theendex.crypto.buy:
+    default: true
+  theendex.crypto.sell:
+    default: true
+  theendex.crypto.transfer:
+    default: true
+  theendex.crypto.shop:
+    default: true
+  theendex.crypto.admin:
+    default: op

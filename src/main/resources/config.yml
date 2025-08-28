@@ -56,7 +56,23 @@ history-export:
   enabled: true
   folder: history
 
+# Resource tracking (detect gathered resources on the server)
+tracking:
+  resources:
+    enabled: true
+    # When true, update market supply immediately when resources are gathered
+    apply-to-market: false
+    # Event sources to listen for
+    sources:
+      block-break: true
+      mob-drops: true
+      fishing: true
+
 # Events configuration
 # Cap on stacked event multipliers (effective price multiplier will not exceed this value)
 events:
   multiplier-cap: 10.0
+
+# Logging options
+logging:
+  verbose: false

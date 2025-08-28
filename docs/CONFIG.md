@@ -62,3 +62,23 @@ After editing, run `/endex reload` or restart the server.
 - To switch to SQLite later, set `storage.sqlite: true` and restart. The plugin will migrate data from YAML if the DB is empty.
 - Use `/market price <material>` to inspect live prices and current event multipliers.
 - Use `/endex reload` after changing config, `events.yml`, or editing `market.yml`.
+
+---
+
+## Addon configuration (Crypto)
+
+If you install the Crypto Addon, its configuration lives under:
+- `plugins/TheEndex/addons/settings/crypto/config.yml`
+
+Key settings (excerpt):
+- `enabled`: true|false
+- `name`, `symbol`, `decimals`
+- `price.mode`: `fixed` or `market`
+- `price.fixed`, `price.base`, `price.min`, `price.max`, `price.sensitivity`
+- `fees.buyPercent`, `fees.sellPercent`, `fees.transferPercent`
+- `limits.dailyBuyCap`, `limits.dailySellCap`, `limits.tradeCooldownSeconds`
+- `aliases`: list of alias commands (e.g., `cc`, `crypto`)
+
+Shop GUI (YAML) for the addon:
+- `plugins/TheEndex/addons/settings/crypto/shop.yml`
+- Define inventory `title`, `size`, and `items` with per-item `slot`, `material`, `name`, `lore`, `price`, `commands`, `run-as`, and optional `permission`.

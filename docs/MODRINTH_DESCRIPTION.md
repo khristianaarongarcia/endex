@@ -1,6 +1,6 @@
 ![The Endex Banner](https://i.postimg.cc/FKKnJybw/EXNDEX-BANNER.png)
 
-# The Endex
+# The Endex | Dynamic Market & Addons [1.20.1 - 1.21.8]
 
 Dynamic, demand-driven market with GUI, events, and Vault economy
 
@@ -17,6 +17,9 @@ The Endex introduces a dynamic, demand-driven market to your server. Prices reac
 - Player preferences: remembers amount, sort, category, search, and last page across sessions.
 - History insights: ASCII sparkline trends in chat/GUI and CSV history export for analysis.
 - Administrative tooling: safe reloads, event control, blacklists, CSV export, and version reporting.
+- Addon framework: drop-in jars with auto command routing, aliases, and tab completion.
+- Crypto Addon (optional): YAML-driven shop, per-item permissions, fixed/market pricing with mean reversion, `/endex crypto info`.
+- Resource tracking: track gathered materials (block breaks, mob drops, fishing), periodic persistence, and `/endex track dump`.
 
 ## Gameplay Mechanics
 - Periodic price updates use a sensitivity-based formula reflecting recent demand and supply.
@@ -57,6 +60,7 @@ The Endex introduces a dynamic, demand-driven market to your server. Prices reac
 - theendex.sell — default: true
 - theendex.invest — default: true
 - theendex.admin — default: op
+- Crypto addon: `theendex.crypto.*` (info, balance, buy, sell, transfer, shop, admin)
 
 ## Configuration Highlights
 - Versioned configuration with automated migration on startup and reload.

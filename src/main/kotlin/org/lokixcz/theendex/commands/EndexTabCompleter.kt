@@ -3,14 +3,34 @@ package org.lokixcz.theendex.commands
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
+import org.bukkit.command.PluginCommand
 
 class EndexTabCompleter : TabCompleter {
     private val base = listOf("help", "market")
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): MutableList<String> {
-        val sub = if (sender.hasPermission("theendex.admin")) base + "reload" else base
-        return when (args.size) {
-            1 -> sub.filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
-            else -> mutableListOf()
+        val addonSubs = try {
+            val pc = command as? PluginCommand
+            val endex = pc?.plugin as? org.lokixcz.theendex.Endex
+            val routerField = endex?.javaClass?.getDeclaredField("addonCommandRouter"); routerField?.isAccessible = true
+            val router = routerField?.get(endex) as? org.lokixcz.theendex.addon.AddonCommandRouter
+            router?.registeredSubcommands()?.toList() ?: emptyList()
+        } catch (_: Throwable) { emptyList() }
+        val sub = (if (sender.hasPermission("theendex.admin")) base + "reload" else base) + addonSubs
+        when (args.size) {
+            1 -> return sub.filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
+            else -> {
+                // Delegate to addon completer if the first arg is a registered addon subcommand
+                val first = args[0].lowercase()
+                return try {
+                    val pc = command as? PluginCommand
+                    val endex = pc?.plugin as? org.lokixcz.theendex.Endex
+                    val routerField = endex?.javaClass?.getDeclaredField("addonCommandRouter"); routerField?.isAccessible = true
+                    val router = routerField?.get(endex) as? org.lokixcz.theendex.addon.AddonCommandRouter
+                    if (router != null && router.registeredSubcommands().contains(first)) {
+                        (router.complete(sender, first, args.copyOfRange(1, args.size)) ?: emptyList()).toMutableList()
+                    } else mutableListOf()
+                } catch (_: Throwable) { mutableListOf() }
+            }
         }
     }
 }

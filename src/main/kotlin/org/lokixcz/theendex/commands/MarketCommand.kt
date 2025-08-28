@@ -11,6 +11,8 @@ import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.invest.InvestmentsManager
 import kotlin.math.max
 import org.lokixcz.theendex.gui.MarketGUI
+import org.lokixcz.theendex.api.events.PreBuyEvent
+import org.lokixcz.theendex.api.events.PreSellEvent
 
 class MarketCommand(private val plugin: Endex) : CommandExecutor {
     private val investments by lazy { InvestmentsManager(plugin) }
@@ -108,11 +110,9 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             return true
         }
         val mat = Material.matchMaterial(args[1].uppercase())
-        val amt = args[2].toIntOrNull()?.takeIf { it > 0 }
-        if (mat == null || amt == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material or amount.")
-            return true
-        }
+        if (mat == null) { sender.sendMessage("${ChatColor.RED}Invalid material or amount."); return true }
+        var amount: Int = args[2].toIntOrNull()?.takeIf { it > 0 }
+            ?: run { sender.sendMessage("${ChatColor.RED}Invalid material or amount."); return true }
         val item = plugin.marketManager.get(mat)
         if (item == null) {
             sender.sendMessage("${ChatColor.RED}${mat} is not tracked by the market.")
@@ -120,8 +120,14 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         }
 
         val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
-    val unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat))
-        val subtotal = unit * amt
+        var unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat))
+        // Fire pre-buy event (modifiable)
+        val pre = PreBuyEvent(mat, amount, unit)
+        org.bukkit.Bukkit.getPluginManager().callEvent(pre)
+        if (pre.isCancelled) { sender.sendMessage("${ChatColor.RED}Purchase cancelled by server policy."); return true }
+        amount = pre.amount
+        unit = pre.unitPrice
+        val subtotal = unit * amount
         val tax = subtotal * (taxPct / 100.0)
         val total = subtotal + tax
 
@@ -139,7 +145,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
 
         // Give items
         val stack = ItemStack(mat)
-        var remaining = amt
+        var remaining = amount
         while (remaining > 0) {
             val toGive = max(1, minOf(remaining, stack.maxStackSize))
             val give = stack.clone().apply { amount = toGive }
@@ -151,8 +157,8 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             remaining -= toGive
         }
 
-        plugin.marketManager.addDemand(mat, amt.toDouble())
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amt ${mat} for ${format(total)} (tax ${format(tax)} at ${taxPct}%).")
+        plugin.marketManager.addDemand(mat, amount.toDouble())
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amount ${mat} for ${format(total)} (tax ${format(tax)} at ${taxPct}%).")
         return true
     }
 
@@ -174,27 +180,30 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             return true
         }
         val mat = Material.matchMaterial(args[1].uppercase())
-        val amt = args[2].toIntOrNull()?.takeIf { it > 0 }
-        if (mat == null || amt == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material or amount.")
-            return true
-        }
+        if (mat == null) { sender.sendMessage("${ChatColor.RED}Invalid material or amount."); return true }
+        var amount: Int = args[2].toIntOrNull()?.takeIf { it > 0 }
+            ?: run { sender.sendMessage("${ChatColor.RED}Invalid material or amount."); return true }
         val item = plugin.marketManager.get(mat)
         if (item == null) {
             sender.sendMessage("${ChatColor.RED}${mat} is not tracked by the market.")
             return true
         }
 
-        // Check and remove items from inventory
-        val removed = removeItems(sender, mat, amt)
-        if (removed < amt) {
-            sender.sendMessage("${ChatColor.RED}You only have $removed of $amt required ${mat}.")
+        val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
+        var unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat))
+        // Fire pre-sell event (modifiable)
+        val pre = PreSellEvent(mat, amount, unit)
+        org.bukkit.Bukkit.getPluginManager().callEvent(pre)
+        if (pre.isCancelled) { sender.sendMessage("${ChatColor.RED}Sale cancelled by server policy."); return true }
+        amount = pre.amount
+        unit = pre.unitPrice
+        // Now remove items based on possibly adjusted amount
+        val removed = removeItems(sender, mat, amount)
+        if (removed < amount) {
+            sender.sendMessage("${ChatColor.RED}You only have $removed of $amount required ${mat}.")
             return true
         }
-
-        val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
-    val unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat))
-        val subtotal = unit * amt
+        val subtotal = unit * amount
         val tax = subtotal * (taxPct / 100.0)
         val payout = subtotal - tax
 
@@ -205,8 +214,8 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             return true
         }
 
-        plugin.marketManager.addSupply(mat, amt.toDouble())
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Sold $amt ${mat} for ${format(payout)} (tax ${format(tax)} at ${taxPct}%).")
+        plugin.marketManager.addSupply(mat, amount.toDouble())
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Sold $amount ${mat} for ${format(payout)} (tax ${format(tax)} at ${taxPct}%).")
         return true
     }
 

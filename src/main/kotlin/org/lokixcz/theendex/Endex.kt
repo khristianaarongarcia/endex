@@ -34,15 +34,33 @@ class Endex : JavaPlugin() {
         private set
     lateinit var eventManager: EventManager
         private set
+    private var addonManager: org.lokixcz.theendex.addon.AddonManager? = null
+    private var addonCommandRouter: org.lokixcz.theendex.addon.AddonCommandRouter? = null
+    private var resourceTracker: org.lokixcz.theendex.tracking.ResourceTracker? = null
 
     private var priceTask: BukkitTask? = null
     private var backupTask: BukkitTask? = null
     private var eventsTask: BukkitTask? = null
+    private var trackingSaveTask: BukkitTask? = null
     private val expectedConfigVersion = 1
+    private lateinit var logx: org.lokixcz.theendex.util.EndexLogger
 
     override fun onEnable() {
         // Ensure config exists
         saveDefaultConfig()
+        // Initialize logger utility with config
+        logx = org.lokixcz.theendex.util.EndexLogger(this)
+        logx.verbose = try { config.getBoolean("logging.verbose", false) } catch (_: Throwable) { false }
+        // Print banner
+        runCatching {
+            val stream = getResource("banner.txt")
+            if (stream != null) {
+                val ver = description.version
+                val date = java.time.ZonedDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                val lines = stream.bufferedReader().readLines().map { it.replace("%VERSION%", ver).replace("%DATE%", date) }
+                logx.banner(lines)
+            }
+        }
 
         // Migrate config if needed, then warn if mismatch persists
         val migrated = checkAndMigrateConfig()
@@ -50,17 +68,23 @@ class Endex : JavaPlugin() {
         try {
             val got = config.getInt("config-version", -1)
             if (got != expectedConfigVersion) {
-                logger.warning("The Endex config-version mismatch (expected $expectedConfigVersion, found $got). Consider backing up and regenerating config.yml.")
+                logx.warn("Config-version mismatch (expected $expectedConfigVersion, found $got). Consider backing up and regenerating config.yml.")
             }
         } catch (_: Throwable) {}
 
         // Initialize market manager and load data
         val useSqlite = config.getBoolean("storage.sqlite", false)
-        marketManager = if (useSqlite) MarketManager(this, org.lokixcz.theendex.market.SqliteStore(this)) else MarketManager(this)
+    marketManager = if (useSqlite) MarketManager(this, org.lokixcz.theendex.market.SqliteStore(this)) else MarketManager(this)
         marketManager.load()
+    logx.info("Market loaded (storage=${if (useSqlite) "sqlite" else "yaml"})")
+
+        // Register public API service for other plugins
+        try {
+            server.servicesManager.register(org.lokixcz.theendex.api.EndexAPI::class.java, org.lokixcz.theendex.api.EndexAPIImpl(this), this, org.bukkit.plugin.ServicePriority.Normal)
+        } catch (_: Throwable) {}
 
         // Setup Vault economy if present
-        setupEconomy()
+    setupEconomy()
 
         // Schedule periodic tasks
         scheduleTasks()
@@ -80,36 +104,92 @@ class Endex : JavaPlugin() {
         server.pluginManager.registerEvents(marketGUI, this)
 
         // Events
-        eventManager = EventManager(this)
+    eventManager = EventManager(this)
         eventManager.load()
         eventsTask = Bukkit.getScheduler().runTaskTimer(this, Runnable { eventManager.tickExpire() }, 20L, 20L * 30) // every 30s
+    logx.debug("Event manager initialized and tick task scheduled")
+
+        // Resource tracking
+        try {
+            if (config.getBoolean("tracking.resources.enabled", true)) {
+                val rt = org.lokixcz.theendex.tracking.ResourceTracker(this)
+                rt.applyToMarket = config.getBoolean("tracking.resources.apply-to-market", false)
+                rt.blockBreak = config.getBoolean("tracking.resources.sources.block-break", true)
+                rt.mobDrops = config.getBoolean("tracking.resources.sources.mob-drops", true)
+                rt.fishing = config.getBoolean("tracking.resources.sources.fishing", true)
+                rt.enabled = true
+                // Load previous totals
+                runCatching { rt.loadFromDisk() }
+                rt.start()
+                resourceTracker = rt
+                logx.info("Resource tracking enabled (sources: block-break=${rt.blockBreak}, mob-drops=${rt.mobDrops}, fishing=${rt.fishing})")
+                // Schedule periodic persistence (every 5 minutes)
+                trackingSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this, Runnable {
+                    try { resourceTracker?.saveToDisk() } catch (t: Throwable) { logx.warn("Failed saving tracking.yml: ${t.message}") }
+                }, 20L * 60L * 5, 20L * 60L * 5)
+            } else {
+                logx.debug("Resource tracking disabled by config")
+            }
+        } catch (t: Throwable) { logx.warn("Failed to initialize resource tracking: ${t.message}") }
+
+        // Addons
+        try {
+            // Initialize router FIRST so addons can register their commands/aliases during init()
+            addonCommandRouter = org.lokixcz.theendex.addon.AddonCommandRouter(this)
+            addonManager = org.lokixcz.theendex.addon.AddonManager(this).also {
+                it.ensureFolder()
+                it.loadAll()
+            }
+            logx.info("Addons loaded and command router ready")
+        } catch (t: Throwable) {
+            logx.warn("Addon loading failed: ${t.message}")
+        }
     }
 
     override fun onDisable() {
+        // Unregister API service
+    try { server.servicesManager.unregister(org.lokixcz.theendex.api.EndexAPI::class.java) } catch (_: Throwable) {}
+        // Disable addons
+    try { addonManager?.disableAll() } catch (_: Throwable) {}
+        addonCommandRouter = null
         // Save market state on shutdown
         if (this::marketManager.isInitialized) {
             try {
                 marketManager.save()
             } catch (t: Throwable) {
-                logger.severe("Failed to save market on disable: ${t.message}")
+                logx.error("Failed to save market on disable: ${t.message}")
             }
         }
+        // Persist resource tracking
+        try { trackingSaveTask?.cancel(); trackingSaveTask = null } catch (_: Throwable) {}
+        try { resourceTracker?.saveToDisk() } catch (_: Throwable) {}
+    }
+
+    // API for addons to register subcommands and aliases
+    fun registerAddonSubcommand(name: String, handler: org.lokixcz.theendex.addon.AddonSubcommandHandler) {
+        val ok = try { addonCommandRouter?.registerSubcommand(name, handler); true } catch (_: Throwable) { false }
+        if (ok) logx.debug("Registered addon subcommand '$name'") else logx.warn("Failed to register addon subcommand '$name' (router not ready)")
+    }
+    fun registerAddonAlias(alias: String, targetSubcommand: String): Boolean {
+        val registered = addonCommandRouter?.registerAlias(alias, targetSubcommand) ?: false
+        if (registered) logx.debug("Registered addon alias '/$alias' -> '$targetSubcommand'") else logx.warn("Failed to register addon alias '/$alias'")
+        return registered
     }
 
     private fun setupEconomy() {
         val pm = server.pluginManager
         if (pm.getPlugin("Vault") == null) {
-            logger.warning("Vault not found. Economy features (buy/sell) will be disabled.")
+            logx.warn("Vault not found. Economy features (buy/sell) will be disabled.")
             economy = null
             return
         }
         val rsp = server.servicesManager.getRegistration(Economy::class.java)
         if (rsp == null) {
-            logger.warning("Vault Economy provider not found. Economy features will be disabled.")
+            logx.warn("Vault Economy provider not found. Economy features will be disabled.")
             economy = null
         } else {
             economy = rsp.provider
-            logger.info("Hooked into Vault economy: ${economy?.name}")
+            logx.info("Hooked into Vault economy: ${economy?.name}")
         }
     }
 
@@ -126,19 +206,22 @@ class Endex : JavaPlugin() {
         priceTask = Bukkit.getScheduler().runTaskTimer(this, Runnable {
             try {
                 marketManager.updatePrices(sensitivity, historyLength)
+                logx.debug("Prices updated with sensitivity=$sensitivity history=$historyLength")
                 if (config.getBoolean("save-on-each-update", true)) {
                     marketManager.save()
+                    logx.debug("Market saved after update")
                 }
             } catch (t: Throwable) {
-                logger.severe("Price update failed: ${t.message}")
+                logx.error("Price update failed: ${t.message}")
             }
         }, 20L * seconds, 20L * seconds)
 
         backupTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this, Runnable {
             try {
                 marketManager.backup()
+                logx.debug("Market backup created")
             } catch (t: Throwable) {
-                logger.severe("Market backup failed: ${t.message}")
+                logx.error("Market backup failed: ${t.message}")
             }
         }, 20L * 60L * autosaveMinutes, 20L * 60L * autosaveMinutes)
     }
@@ -157,18 +240,18 @@ class Endex : JavaPlugin() {
         try {
             val got = config.getInt("config-version", -1)
             if (got != expectedConfigVersion) {
-                logger.warning("The Endex config-version mismatch after reload (expected $expectedConfigVersion, found $got). Consider backing up and regenerating config.yml.")
+                logx.warn("Config-version mismatch after reload (expected $expectedConfigVersion, found $got). Consider backing up and regenerating config.yml.")
             }
         } catch (_: Throwable) {}
-        try { eventManager.load() } catch (t: Throwable) { logger.warning("Failed to reload events: ${t.message}") }
+        try { eventManager.load() } catch (t: Throwable) { logx.warn("Failed to reload events: ${t.message}") }
 
         // Reload market data from disk to apply any edits
-        try { marketManager.load() } catch (t: Throwable) { logger.warning("Failed to reload market: ${t.message}") }
+    try { marketManager.load() } catch (t: Throwable) { logx.warn("Failed to reload market: ${t.message}") }
 
         // Reschedule tasks with new settings
         scheduleTasks()
         sender?.sendMessage("§6[The Endex] §aReload complete.")
-        logger.info("Reloaded The Endex configuration and tasks.")
+        logx.info("Reloaded The Endex configuration and tasks.")
     }
 
     private fun checkAndMigrateConfig(): Boolean {
@@ -184,9 +267,9 @@ class Endex : JavaPlugin() {
             val backup = File(dataFolder, "config.yml.bak-$ts")
             try {
                 Files.copy(cfgFile.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING)
-                logger.info("Backed up existing config.yml to ${backup.name}")
+                logx.info("Backed up existing config.yml to ${backup.name}")
             } catch (t: Throwable) {
-                logger.warning("Failed to backup config.yml: ${t.message}")
+                logx.warn("Failed to backup config.yml: ${t.message}")
             }
 
             // Load defaults from resource
@@ -215,10 +298,10 @@ class Endex : JavaPlugin() {
 
             // Save merged config
             fresh.save(cfgFile)
-            logger.info("Migrated config.yml from version $got to $expectedConfigVersion")
+            logx.info("Migrated config.yml from version $got to $expectedConfigVersion")
             true
         } catch (t: Throwable) {
-            logger.severe("Config migration failed: ${t.message}")
+            logx.error("Config migration failed: ${t.message}")
             false
         }
     }

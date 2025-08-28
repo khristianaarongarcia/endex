@@ -4,6 +4,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.plugin.java.JavaPlugin
+import org.lokixcz.theendex.api.events.PriceUpdateEvent
 import java.io.File
 import java.io.FileWriter
 import java.time.Instant
@@ -208,7 +209,12 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
         val clampedSensitivity = sensitivity.coerceIn(0.0, 1.0)
         for (item in items.values) {
             val delta = (item.demand - item.supply) * clampedSensitivity
-            val newPrice = (item.currentPrice * (1.0 + delta)).coerceIn(item.minPrice, item.maxPrice)
+            val target = (item.currentPrice * (1.0 + delta)).coerceIn(item.minPrice, item.maxPrice)
+
+            // Fire event allowing plugins to modify or cancel the price change
+            val ev = PriceUpdateEvent(item.material, item.currentPrice, target)
+            Bukkit.getPluginManager().callEvent(ev)
+            val newPrice = if (ev.isCancelled) item.currentPrice else ev.newPrice.coerceIn(item.minPrice, item.maxPrice)
 
             // record history
             val point = PricePoint(Instant.now(), newPrice)

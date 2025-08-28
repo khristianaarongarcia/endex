@@ -1,3 +1,24 @@
+## Public API (for developers)
+
+The Endex exposes a lightweight API via the Bukkit ServicesManager. Example usage:
+
+```kotlin
+val api = server.servicesManager.load(org.lokixcz.theendex.api.EndexAPI::class.java)
+if (api != null) {
+  val mats = api.listMaterials()
+  val diamond = org.bukkit.Material.DIAMOND
+  val cur = api.getCurrentPrice(diamond)
+}
+```
+
+You can also listen to Bukkit events:
+
+```kotlin
+@EventHandler fun onPriceUpdate(e: org.lokixcz.theendex.api.events.PriceUpdateEvent) { /* inspect/modify/cancel */ }
+@EventHandler fun onPreBuy(e: org.lokixcz.theendex.api.events.PreBuyEvent) { /* adjust unitPrice or amount */ }
+@EventHandler fun onPreSell(e: org.lokixcz.theendex.api.events.PreSellEvent) { /* enforce rules */ }
+```
+
 # The Endex
 
 Dynamic, demand-driven market for Minecraft (Paper). Supports 1.20.1+ with Vault economy. Browse, buy, sell, invest, and run time-limited market events.
@@ -10,6 +31,9 @@ Dynamic, demand-driven market for Minecraft (Paper). Supports 1.20.1+ with Vault
 - Storage: YAML by default or SQLite with auto-migration from existing YAML
 - Investments: passive APR-based investment certificates
 - Backups and CSV history export for analysis
+- Addon framework: drop-in jars with subcommands, aliases, and tab completion (see docs/ADDONS.md)
+- Resource tracking: observe gathered resources server-wide; admin `/endex track dump`; API `getTrackedTotals()`
+- Crypto Addon (optional): `/endex crypto ...`, YAML-driven `shop.yml`, per-item permissions, fixed/market pricing, price history CSV
 
 ## Quick start
 1. Build the plugin
@@ -37,6 +61,8 @@ Highlights:
 - `/endex market` to open GUI
 - `/endex reload` to reload config, events, and market data
 - `/endex version` to show plugin version and storage mode
+- `/endex track dump` to dump top gathered resources (if tracking enabled)
+- Addon aliases like `/cc` can be registered by addons for convenience
 - Event admin: `/market event [list|<name>|end <name>|clear]`
 
 ## Storage: YAML vs SQLite
@@ -47,6 +73,7 @@ Highlights:
 - Kotlin, Paper API 1.20.1 target, Java 17 toolchain
 - Shadow jar is produced (no classifier) and copied to `MCTestServer/plugins`
 - Run a local test server via the run task: `./gradlew.bat runServer`
+- Public API: see `docs/DEVELOPERS.md` (now includes `getTrackedTotals()`)
 
 ## License
 This project is provided as-is for your server. External dependencies (Paper API, Vault API, sqlite-jdbc) retain their own licenses.
