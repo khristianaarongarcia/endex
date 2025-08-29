@@ -31,11 +31,12 @@ class EventManager(private val plugin: Endex) {
             val affected = m["affected_item"]?.toString() ?: "*"
             val category = (m["affected_category"] as? String)
             val multiplier = (m["multiplier"] as? Number)?.toDouble() ?: 1.0
+            val weight = (m["weight"] as? Number)?.toDouble()
             val duration = (m["duration_minutes"] as? Number)?.toLong() ?: 30L
             val broadcast = (m["broadcast"] as? Boolean) ?: true
             val startMsg = m["start_message"]?.toString()
             val endMsg = m["end_message"]?.toString()
-            definedEvents += MarketEvent(name, affected, category, multiplier, duration, broadcast, startMsg, endMsg)
+            definedEvents += MarketEvent(name, affected, category, multiplier, weight, duration, broadcast, startMsg, endMsg)
         }
         loadActive()
     }
@@ -71,9 +72,29 @@ class EventManager(private val plugin: Endex) {
     }
 
     fun multiplierFor(mat: Material): Double {
-        var mul = 1.0
-        active.forEach { a -> if (isAffected(a.event, mat)) mul *= a.event.multiplier }
         val cap = plugin.config.getDouble("events.multiplier-cap", 10.0).coerceAtLeast(1.0)
+        val mode = plugin.config.getString("events.stacking.mode")?.lowercase() ?: "multiplicative" // multiplicative|weighted-sum
+        val defaultWeight = plugin.config.getDouble("events.stacking.default-weight", 1.0).coerceIn(0.0, 1.0)
+        val maxStack = plugin.config.getInt("events.stacking.max-active", 0).coerceAtLeast(0) // 0 => unlimited
+
+        val applicable = active.filter { isAffected(it.event, mat) }
+        val limited = if (maxStack > 0) applicable.take(maxStack) else applicable
+
+        if (mode == "weighted-sum") {
+            // Interpret event.multiplier as the incremental delta above 1x, and combine via weighted sum.
+            // combined = 1 + sum_i( (m_i - 1) * w_i ) subject to cap
+            var combined = 1.0
+            for (a in limited) {
+                val m = a.event.multiplier
+                val w = (a.event.weight ?: defaultWeight).coerceIn(0.0, 1.0)
+                combined += (m - 1.0) * w
+            }
+            return combined.coerceAtMost(cap)
+        }
+
+        // Default multiplicative stacking with cap
+        var mul = 1.0
+        for (a in limited) mul *= a.event.multiplier
         return mul.coerceAtMost(cap)
     }
 

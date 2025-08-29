@@ -11,6 +11,7 @@ import net.milkbowl.vault.economy.Economy
 import org.lokixcz.theendex.gui.MarketGUI
 import org.lokixcz.theendex.gui.PlayerPrefsStore
 import org.lokixcz.theendex.events.EventManager
+import org.lokixcz.theendex.web.WebServer
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
 import java.io.File
@@ -37,6 +38,8 @@ class Endex : JavaPlugin() {
     private var addonManager: org.lokixcz.theendex.addon.AddonManager? = null
     private var addonCommandRouter: org.lokixcz.theendex.addon.AddonCommandRouter? = null
     private var resourceTracker: org.lokixcz.theendex.tracking.ResourceTracker? = null
+    private var inventorySnapshots: org.lokixcz.theendex.tracking.InventorySnapshotService? = null
+    private var webServer: WebServer? = null
 
     private var priceTask: BukkitTask? = null
     private var backupTask: BukkitTask? = null
@@ -132,6 +135,19 @@ class Endex : JavaPlugin() {
             }
         } catch (t: Throwable) { logx.warn("Failed to initialize resource tracking: ${t.message}") }
 
+        // Optional inventory snapshots for web holdings (online-only)
+        try {
+            val invSvc = org.lokixcz.theendex.tracking.InventorySnapshotService(this)
+            if (invSvc.enabled()) {
+                inventorySnapshots = invSvc
+                logx.info("Inventory snapshot service enabled (web.holdings.inventory.*)")
+            } else {
+                logx.debug("Inventory snapshot service disabled by config (web.holdings.inventory.enabled=false)")
+            }
+        } catch (t: Throwable) {
+            logx.warn("Failed to initialize inventory snapshot service: ${t.message}")
+        }
+
         // Addons
         try {
             // Initialize router FIRST so addons can register their commands/aliases during init()
@@ -144,9 +160,32 @@ class Endex : JavaPlugin() {
         } catch (t: Throwable) {
             logx.warn("Addon loading failed: ${t.message}")
         }
+
+        // Web Server
+        try {
+            if (config.getBoolean("web.enabled", true)) {
+                val port = config.getInt("web.port", 3434)
+                webServer = WebServer(this)
+                webServer?.start(port)
+                logx.info("Web server started on port $port")
+            } else {
+                logx.debug("Web server disabled by config")
+            }
+        } catch (t: Throwable) {
+            logx.warn("Failed to start web server: ${t.message}")
+        }
     }
 
     override fun onDisable() {
+        // Stop web server
+        try { 
+            webServer?.stop() 
+            webServer = null
+            logx.info("Web server stopped")
+        } catch (t: Throwable) { 
+            logx.warn("Failed to stop web server: ${t.message}")
+        }
+        
         // Unregister API service
     try { server.servicesManager.unregister(org.lokixcz.theendex.api.EndexAPI::class.java) } catch (_: Throwable) {}
         // Disable addons
@@ -175,6 +214,10 @@ class Endex : JavaPlugin() {
         if (registered) logx.debug("Registered addon alias '/$alias' -> '$targetSubcommand'") else logx.warn("Failed to register addon alias '/$alias'")
         return registered
     }
+
+    // Getter for web server
+    fun getWebServer(): WebServer? = webServer
+    fun getInventorySnapshotService(): org.lokixcz.theendex.tracking.InventorySnapshotService? = inventorySnapshots
 
     private fun setupEconomy() {
         val pm = server.pluginManager
@@ -211,6 +254,8 @@ class Endex : JavaPlugin() {
                     marketManager.save()
                     logx.debug("Market saved after update")
                 }
+                // Refresh open Market GUIs so players see updated data
+                try { marketGUI.refreshAllOpen() } catch (_: Throwable) {}
             } catch (t: Throwable) {
                 logx.error("Price update failed: ${t.message}")
             }
@@ -250,6 +295,21 @@ class Endex : JavaPlugin() {
 
         // Reschedule tasks with new settings
         scheduleTasks()
+        
+        // Restart web server with new config
+        try {
+            webServer?.stop()
+            webServer = null
+            if (config.getBoolean("web.enabled", true)) {
+                val port = config.getInt("web.port", 3434)
+                webServer = WebServer(this)
+                webServer?.start(port)
+                logx.info("Web server restarted on port $port")
+            }
+        } catch (t: Throwable) {
+            logx.warn("Failed to restart web server during reload: ${t.message}")
+        }
+        
         sender?.sendMessage("§6[The Endex] §aReload complete.")
         logx.info("Reloaded The Endex configuration and tasks.")
     }

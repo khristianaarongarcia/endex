@@ -15,6 +15,7 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
 import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.market.PricePoint
+import org.lokixcz.theendex.market.MarketItem
 import java.util.*
 
 class MarketGUI(private val plugin: Endex) : Listener {
@@ -27,8 +28,9 @@ class MarketGUI(private val plugin: Endex) : Listener {
     private data class State(
         var page: Int = 0,
         var amountIdx: Int = 0,
-        var sort: SortBy = SortBy.NAME,
-        var category: Category = Category.ALL,
+        var sort: SortBy = SortBy.NAME, // default A–Z
+        var category: Category = Category.ALL, // default show all categories
+        var groupBy: Boolean = true, // default grouped view in GUI as well
         var search: String = "",
         var inDetails: Boolean = false,
         var detailOf: Material? = null
@@ -60,54 +62,87 @@ class MarketGUI(private val plugin: Endex) : Listener {
             }
         }
 
-        val totalPages = if (items.isEmpty()) 1 else ((items.size - 1) / pageSize + 1)
+        // Build entries, optionally with category headers when viewing ALL
+        data class Entry(val header: String? = null, val item: MarketItem? = null)
+        val entries: List<Entry> = if (state.groupBy && state.category == Category.ALL) {
+            val grouped = items.groupBy { catNameFor(it.material) }
+            val cats = grouped.keys.sortedWith(String.CASE_INSENSITIVE_ORDER)
+            val list = mutableListOf<Entry>()
+            for (c in cats) {
+                val sorted = grouped[c]?.sortedBy { prettyName(it.material).lowercase() } ?: emptyList()
+                if (sorted.isEmpty()) continue
+                list += Entry(header = c)
+                list += sorted.map { Entry(item = it) }
+            }
+            list
+        } else {
+            items.map { Entry(item = it) }
+        }
+
+        val totalPages = if (entries.isEmpty()) 1 else ((entries.size - 1) / pageSize + 1)
         if (state.page > totalPages - 1) state.page = totalPages - 1
         val from = state.page * pageSize
-        val to = (from + pageSize).coerceAtMost(items.size)
-        val pageItems = if (from in 0..items.size) items.subList(from, to) else emptyList()
+        val to = (from + pageSize).coerceAtMost(entries.size)
+        val pageEntries = if (from in 0..entries.size) entries.subList(from, to) else emptyList()
 
         val inv: Inventory = Bukkit.createInventory(player, 54, "$titleBase ${ChatColor.DARK_GRAY}[${state.sort.name}] ${ChatColor.GRAY}(${state.page + 1}/$totalPages)")
 
-        pageItems.forEachIndexed { idx, mi ->
-            val display = ItemStack(mi.material.takeIf { it != Material.AIR } ?: Material.PAPER)
-            val meta: ItemMeta = display.itemMeta
-            meta.setDisplayName("${ChatColor.AQUA}${prettyName(mi.material)}")
+        pageEntries.forEachIndexed { idx, en ->
+            if (en.header != null) {
+                val display = ItemStack(Material.PURPLE_STAINED_GLASS_PANE)
+                val meta: ItemMeta = display.itemMeta
+                meta.setDisplayName("${ChatColor.LIGHT_PURPLE}${en.header}")
+                meta.lore = listOf("${ChatColor.DARK_GRAY}Category section")
+                display.itemMeta = meta
+                inv.setItem(idx, display)
+            } else {
+                val mi = en.item ?: return@forEachIndexed
+                val display = ItemStack(mi.material.takeIf { it != Material.AIR } ?: Material.PAPER)
+                val meta: ItemMeta = display.itemMeta
+                meta.setDisplayName("${ChatColor.AQUA}${prettyName(mi.material)}")
 
-            val mul = plugin.eventManager.multiplierFor(mi.material)
-            val current = mi.currentPrice
-            val list = mi.history.toList()
-            val prev = if (list.size >= 2) list[list.lastIndex - 1].price else current
-            val diff = current - prev
-            val pct = if (prev != 0.0) (diff / prev * 100.0) else 0.0
-            val arrow = when {
-                diff > 0.0001 -> "${ChatColor.GREEN}↑"
-                diff < -0.0001 -> "${ChatColor.RED}↓"
-                else -> "${ChatColor.YELLOW}→"
+                val mul = plugin.eventManager.multiplierFor(mi.material)
+                val current = mi.currentPrice
+                val list = mi.history.toList()
+                val prev = if (list.size >= 2) list[list.lastIndex - 1].price else current
+                val diff = current - prev
+                val pct = if (prev != 0.0) (diff / prev * 100.0) else 0.0
+                val arrow = when {
+                    diff > 0.0001 -> "${ChatColor.GREEN}↑"
+                    diff < -0.0001 -> "${ChatColor.RED}↓"
+                    else -> "${ChatColor.YELLOW}→"
+                }
+                // Show last cycle demand/supply in percent impact terms
+                val ds = mi.lastDemand - mi.lastSupply
+                val sens = plugin.config.getDouble("price-sensitivity", 0.05)
+                val estPct = ds * sens * 100.0
+
+                val last5 = mi.history.takeLast(5).map { String.format("%.2f", it.price) }
+                val bal = plugin.economy?.getBalance(player) ?: 0.0
+                val invCount = player.inventory.contents.filterNotNull().filter { it.type == mi.material }.sumOf { it.amount }
+                val loreCore = mutableListOf<String>()
+                loreCore += "${ChatColor.GRAY}Price: ${ChatColor.GREEN}${format(current)} ${ChatColor.GRAY}(${arrow} ${format(diff)}, ${formatPct(pct)})"
+                loreCore += "${ChatColor.DARK_GRAY}Last cycle: ${ChatColor.GRAY}Demand ${format(mi.lastDemand)} / Supply ${format(mi.lastSupply)} (${formatPct(estPct)})"
+                if (mul != 1.0) loreCore += "${ChatColor.DARK_AQUA}Event: x${format(mul)} ${ChatColor.GRAY}Eff: ${ChatColor.GREEN}${format(current*mul)}"
+                loreCore += "${ChatColor.DARK_GRAY}Min ${format(mi.minPrice)}  Max ${format(mi.maxPrice)}"
+                loreCore += "${ChatColor.GRAY}History: ${last5.joinToString(" ${ChatColor.DARK_GRAY}| ${ChatColor.GRAY}")}"
+                loreCore += "${ChatColor.DARK_GRAY}Left: Buy  Right: Sell  Amount: ${amounts[state.amountIdx]}"
+                loreCore += "${ChatColor.DARK_GRAY}Shift/Middle-click: Details"
+                loreCore += "${ChatColor.GRAY}You have: ${ChatColor.AQUA}$invCount ${mi.material}"
+                loreCore += "${ChatColor.GRAY}Balance: ${ChatColor.GOLD}${format(bal)}"
+                meta.lore = loreCore
+                display.itemMeta = meta
+                inv.setItem(idx, display)
             }
-
-            val last5 = mi.history.takeLast(5).map { String.format("%.2f", it.price) }
-            val bal = plugin.economy?.getBalance(player) ?: 0.0
-            val invCount = player.inventory.contents.filterNotNull().filter { it.type == mi.material }.sumOf { it.amount }
-            val loreCore = mutableListOf<String>()
-            loreCore += "${ChatColor.GRAY}Price: ${ChatColor.GREEN}${format(current)} ${ChatColor.GRAY}(${arrow} ${format(diff)}, ${formatPct(pct)})"
-            if (mul != 1.0) loreCore += "${ChatColor.DARK_AQUA}Event: x${format(mul)} ${ChatColor.GRAY}Eff: ${ChatColor.GREEN}${format(current*mul)}"
-            loreCore += "${ChatColor.DARK_GRAY}Min ${format(mi.minPrice)}  Max ${format(mi.maxPrice)}"
-            loreCore += "${ChatColor.GRAY}History: ${last5.joinToString(" ${ChatColor.DARK_GRAY}| ${ChatColor.GRAY}")}"
-            loreCore += "${ChatColor.DARK_GRAY}Left: Buy  Right: Sell  Amount: ${amounts[state.amountIdx]}"
-            loreCore += "${ChatColor.DARK_GRAY}Shift/Middle-click: Details"
-            loreCore += "${ChatColor.GRAY}You have: ${ChatColor.AQUA}$invCount ${mi.material}"
-            loreCore += "${ChatColor.GRAY}Balance: ${ChatColor.GOLD}${format(bal)}"
-            meta.lore = loreCore
-            display.itemMeta = meta
-            inv.setItem(idx, display)
         }
 
         // Controls (last row)
         inv.setItem(45, namedItem(Material.ARROW, "${ChatColor.YELLOW}Previous Page"))
-    inv.setItem(46, namedItem(Material.BOOK, "${ChatColor.AQUA}Category: ${state.category.name} ${ChatColor.GRAY}(click)"))
-    inv.setItem(48, namedItem(Material.OAK_SIGN, "${ChatColor.AQUA}Search: ${if (state.search.isBlank()) "${ChatColor.DARK_GRAY}<none>" else state.search} ${ChatColor.GRAY}(Left: set, Right: clear)"))
-    inv.setItem(49, namedItem(Material.HOPPER, "${ChatColor.AQUA}Amount: ${amounts[state.amountIdx]} ${ChatColor.GRAY}(click)"))
-    inv.setItem(50, namedItem(Material.COMPARATOR, "${ChatColor.LIGHT_PURPLE}Sort: ${state.sort.name} ${ChatColor.GRAY}(click)"))
+        inv.setItem(46, namedItem(Material.BOOK, "${ChatColor.AQUA}Category: ${state.category.name} ${ChatColor.GRAY}(click)"))
+        inv.setItem(47, namedItem(Material.LECTERN, "${ChatColor.LIGHT_PURPLE}Group: ${if (state.groupBy) "Category A–Z (ON)" else "Off"} ${ChatColor.GRAY}(click)"))
+        inv.setItem(48, namedItem(Material.OAK_SIGN, "${ChatColor.AQUA}Search: ${if (state.search.isBlank()) "${ChatColor.DARK_GRAY}<none>" else state.search} ${ChatColor.GRAY}(Left: set, Right: clear)"))
+        inv.setItem(49, namedItem(Material.HOPPER, "${ChatColor.AQUA}Amount: ${amounts[state.amountIdx]} ${ChatColor.GRAY}(click)"))
+        inv.setItem(50, namedItem(Material.COMPARATOR, "${ChatColor.LIGHT_PURPLE}Sort: ${state.sort.name} ${ChatColor.GRAY}(click)"))
         inv.setItem(53, namedItem(Material.ARROW, "${ChatColor.YELLOW}Next Page"))
 
         player.openInventory(inv)
@@ -151,6 +186,11 @@ class MarketGUI(private val plugin: Endex) : Listener {
                     Category.MOB_DROPS -> Category.BLOCKS
                     Category.BLOCKS -> Category.ALL
                 }
+                persist(player, state)
+                open(player, 0)
+            }
+            47 -> { // grouping toggle
+                state.groupBy = !state.groupBy
                 persist(player, state)
                 open(player, 0)
             }
@@ -223,12 +263,23 @@ class MarketGUI(private val plugin: Endex) : Listener {
     private fun format(n: Double): String = String.format("%.2f", n)
     private fun formatPct(n: Double): String = String.format("%.2f%%", n)
     private fun prettyName(mat: Material): String = mat.name.lowercase().split('_').joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } }
+    private fun catNameFor(mat: Material): String {
+        val n = mat.name
+        return when {
+            n.contains("_ORE") || n.endsWith("_INGOT") || n.endsWith("_BLOCK") -> "Ores"
+            listOf("WHEAT","SEEDS","CARROT","POTATO","BEETROOT","MELON","PUMPKIN","SUGAR","BAMBOO","COCOA").any { n.contains(it) } -> "Farming"
+            n in setOf("ROTTEN_FLESH","BONE","STRING","SPIDER_EYE","ENDER_PEARL","GUNPOWDER","BLAZE_ROD","GHAST_TEAR","SLIME_BALL","LEATHER","FEATHER") -> "Mob Drops"
+            mat.isBlock -> "Blocks"
+            else -> "Misc"
+        }
+    }
 
     private fun persist(player: Player, state: State) {
         plugin.prefsStore.save(player.uniqueId, mapOf(
             "amountIdx" to state.amountIdx,
             "sort" to state.sort.name,
             "category" to state.category.name,
+            "groupBy" to state.groupBy,
             "search" to state.search,
             "page" to state.page
         ))
@@ -239,15 +290,33 @@ class MarketGUI(private val plugin: Endex) : Listener {
         val amountIdx = (m["amountIdx"] as? Int) ?: 0
         val sort = runCatching { SortBy.valueOf((m["sort"] as? String ?: "NAME")) }.getOrDefault(SortBy.NAME)
         val category = runCatching { Category.valueOf((m["category"] as? String ?: "ALL")) }.getOrDefault(Category.ALL)
+        val groupBy = (m["groupBy"] as? Boolean) ?: true
         val search = (m["search"] as? String) ?: ""
         val page = (m["page"] as? Int) ?: 0
-        val s = State(page, amountIdx, sort, category, search)
+        val s = State(page, amountIdx, sort, category, groupBy, search)
         states[player.uniqueId] = s
         return s
     }
 
     // Ensure state is loaded before opening
     override fun toString(): String = "MarketGUI"
+
+    // Public: Refresh GUI for a player if our GUI is open
+    fun refreshOpenFor(player: Player) {
+        val title = player.openInventory.title
+        val state = states[player.uniqueId] ?: return
+        Bukkit.getScheduler().runTask(plugin, Runnable {
+            when {
+                title.startsWith(titleBase) -> open(player, state.page)
+                state.inDetails && state.detailOf != null && title.contains("Endex:") -> openDetails(player, state.detailOf!!)
+            }
+        })
+    }
+
+    // Public: Refresh all viewers who currently have the Endex GUI open
+    fun refreshAllOpen() {
+        plugin.server.onlinePlayers.forEach { p -> refreshOpenFor(p) }
+    }
 
     // Details view
     private fun openDetails(player: Player, mat: Material) {

@@ -15,7 +15,20 @@ class EndexTabCompleter : TabCompleter {
             val router = routerField?.get(endex) as? org.lokixcz.theendex.addon.AddonCommandRouter
             router?.registeredSubcommands()?.toList() ?: emptyList()
         } catch (_: Throwable) { emptyList() }
-        val sub = (if (sender.hasPermission("theendex.admin")) base + "reload" else base) + addonSubs
+        
+        // Build command list based on permissions
+        val commands = mutableListOf<String>()
+        commands.addAll(base)
+        
+        if (sender.hasPermission("theendex.admin")) {
+            commands.add("reload")
+        }
+        
+        if (sender.hasPermission("theendex.web")) {
+            commands.add("web")
+        }
+        
+        val sub = commands + addonSubs
         when (args.size) {
             1 -> return sub.filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
             else -> {

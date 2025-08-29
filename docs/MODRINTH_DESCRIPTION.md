@@ -1,14 +1,49 @@
-![The Endex Banner](https://i.postimg.cc/FKKnJybw/EXNDEX-BANNER.png)
+![The Endex Banner](https://i.imgur.com/onDbDSW.png)
 
 # The Endex | Dynamic Market & Addons [1.20.1 - 1.21.8]
 
-Dynamic, demand-driven market with GUI, events, and Vault economy
+Bring a living economy to your server. Prices move with player demand and supply, with a slick Market GUI, timed events, optional web dashboard, and an addon framework.
+
+## New in 1.1.0
+- Web UI item icons loaded from your resource pack (`/icon/{material}`) with smart fallbacks and caching
+- Addons tab in the web UI (+ `/api/addons`)
+- Developer HTTP API reference: `docs/API.md` (endpoints, auth, SSE/WS)
+- Improved logs and ETag behavior; fewer icon 404s across packs
+- Inventory-aware pricing (optional) with smoothing and impact caps
+- Web Combined Holdings (Invest + Inv) and admin holdings endpoint `{uuid}`
+
+### Dynamic Pricing
+Prices respond to demand/supply with clamping and rolling history. Optional inventory‑aware pricing gently adapts to how many items players hold online (baseline and caps configurable).
+
+
+### Market GUI
+Paginated inventory with sorting, filters, search, and details view. Shows last‑cycle demand/supply and estimated impact; auto‑refreshes on updates.
+
+![Market GUI GIF](https://i.imgur.com/2NVDOxj.gif)
+
+![GUI Screenshot 1](https://i.imgur.com/SY0ZO4F.png)
+![GUI Screenshot 2](https://i.imgur.com/fdWGBho.png)
+
+### Events & Shocks
+Stackable multipliers with broadcasts and persistence across restarts.
+
+![Events GIF](https://i.imgur.com/Qa5Hrhw.gif)
+
+### Addon Framework
+Drop-in addons with auto command routing, aliases, and tab completion.
+
+
+### Web Dashboard (Optional)
+REST API, live updates (WS/SSE), charts, real item icons from your resource pack with caching, and Combined Holdings showing both Invest (DB) and Inv (live inventory) with badges.
+
+![Web Dashboard GIF](https://i.imgur.com/2hXIQfx.gif)
+
 
 ## Overview
-The Endex introduces a dynamic, demand-driven market to your server. Prices react to player behavior through a transparent demand/supply model, while a polished GUI and robust command set make trading simple and engaging. Admins retain full control via configurable parameters, market events, blacklists, and safe reloads. Data can be stored in human-readable YAML or SQLite, with automated migration and versioned configuration.
+The Endex introduces a dynamic, demand-driven market to your server. Prices react to player behavior through demand/supply and (optionally) players’ online inventories. A polished GUI and robust command set make trading simple and engaging. Admins retain full control via configurable parameters, market events, blacklists, and safe reloads. Data can be stored in YAML or SQLite, with automated migration and versioned configuration.
 
 ## Key Features
-- Dynamic pricing driven by demand/supply with clamping and rolling history.
+- Dynamic pricing driven by demand/supply with clamping and rolling history; optional inventory‑aware pricing.
 - Full-featured market GUI: pagination, sorting, category filters, text search, and a details view.
 - Vault economy integration with configurable transaction tax.
 - Market events and shocks: stackable multipliers with a configurable cap; broadcasts and persistence across restarts.
@@ -20,9 +55,10 @@ The Endex introduces a dynamic, demand-driven market to your server. Prices reac
 - Addon framework: drop-in jars with auto command routing, aliases, and tab completion.
 - Crypto Addon (optional): YAML-driven shop, per-item permissions, fixed/market pricing with mean reversion, `/endex crypto info`.
 - Resource tracking: track gathered materials (block breaks, mob drops, fishing), periodic persistence, and `/endex track dump`.
+- Web dashboard (optional): WS/SSE live updates, real item icons from your resource pack, and Combined Holdings showing Invest (DB) plus Inv (live inventory) with badges.
 
 ## Gameplay Mechanics
-- Periodic price updates use a sensitivity-based formula reflecting recent demand and supply.
+- Periodic price updates use a sensitivity-based formula reflecting recent demand and supply; optional inventory pressure compares average per-player stock to a configurable baseline.
 - Prices are clamped between per-item minimums and maximums; demand/supply reset each cycle.
 - Blacklisted items are excluded from trading and display.
 - Events apply temporary multipliers to effective buy/sell prices (display and transaction) and can stack up to a defined cap.
@@ -67,6 +103,30 @@ The Endex introduces a dynamic, demand-driven market to your server. Prices reac
 - Adjustable price update interval, sensitivity, history length, and autosave frequency.
 - Transaction tax, item blacklist, category settings, and event multiplier caps.
 - Storage selection (YAML or SQLite) with path configuration and automatic seeding.
+ - Inventory-aware pricing:
+
+```yaml
+price-inventory:
+  enabled: true
+  sensitivity: 0.02
+  per-player-baseline: 64
+  max-impact-percent: 10.0
+```
+
+ - Web combined holdings & roles:
+
+```yaml
+web:
+  roles:
+    default: TRADER
+    trader-permission: endex.web.trade
+    admin-view-permission: endex.web.admin
+  holdings:
+    inventory:
+      enabled: true
+      include-enderchest: false
+      cache-seconds: 15
+```
 
 ## Compatibility
 - Server: Paper/Spigot 1.20.1 to latest (built against API 1.20.1).
@@ -82,7 +142,7 @@ The Endex introduces a dynamic, demand-driven market to your server. Prices reac
 For questions, feedback, or issue reports, please use the resource discussion and include the output of `/endex version` along with any relevant logs.
 
 <p align="center">
-  <a href="https://discord.gg/vS8xsvWaSU">
+  <a href="https://discord.gg/ujFRXksUBE">
     <img src="https://i.postimg.cc/5tz22qFS/discord-icon-png-0-1.jpg" alt="Join our Discord!" width="64" height="64" />
   </a>
   <br/>

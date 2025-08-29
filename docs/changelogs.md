@@ -4,13 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
-- Addon command router with dynamic addon subcommands, aliases, and tab completion integration under `/endex`.
-- Resource tracking subsystem (block breaks, mob drops, fishing) with periodic persistence to `tracking.yml` and admin `/endex track dump`.
-- API: `getTrackedTotals()` to fetch a snapshot of gathered resources.
-- Crypto Addon: configurable via YAML, commands (`help, info, balance, buy, sell, transfer, shop, admin`).
-- Crypto Addon Shop: YAML-driven (`shop.yml`) with per-item permissions and command actions (console/player).
-- Crypto pricing modes: `fixed` or `market` with sensitivity and mean reversion; `/endex crypto info` shows details.
-- Crypto price history logging to CSV once per minute (market mode) for external graphing.
+- Inventory-aware pricing (optional): price update formula now supports gentle pressure from online players' inventories with per-player baseline, sensitivity, and max per-cycle impact caps. Config: `price-inventory.*`.
+- Inventory Snapshot Service: online-only scans with TTL cache; aggregates per-material totals; optional ender chest inclusion.
+- Web Combined Holdings: new `/api/holdings/combined` endpoint and UI badges to show Invest (database) and Inv (live inventory) quantities together.
+- Admin holdings view: `/api/holdings/{uuid}` (requires `web.roles.admin-view-permission`).
+- Inventory totals API: `/api/inventory-totals` exposes online per-material totals when enabled.
+- `GET /api/session` now reports `invHoldingsEnabled` so the web UI can switch to combined mode.
+- Config: `web.roles.*` (trader/admin) and `web.holdings.inventory.*` (enable, include-enderchest, cache-seconds).
+
+### Changed
+- Pricing model blends trade demand/supply delta with inventory pressure; retains EMA smoothing and per-item clamps.
+- Web holdings view renders combined quantities with [Inv]/[Invest] badges and clarifies that PnL is based on invested quantity.
+- Documentation updated: Spigot and Modrinth descriptions aligned; config and API docs expanded.
+
+### Fixed
+- Javalin path parameter syntax updated to `{uuid}` (was `:uuid`) in web routes.
+- Kotlin nullability around permission strings in web layer.
 
 ### Changed
 - Spigot/Modrinth descriptions updated to highlight addons, Crypto Addon, and resource tracking.
@@ -42,3 +51,27 @@ Initial release
 
 ### Notes
 - On Paper, the SQLite driver is fetched automatically via `plugin.yml` libraries (smaller plugin JAR). On plain Spigot, use YAML storage by default or install the SQLite driver manually if enabling SQLite.
+
+## [1.1.0] - 2025-08-29
+### Added
+- Web UI item icons served from resource packs with `/icon/{material}` endpoint (public, ETag caching)
+- Resource pack extraction/usage via `web.icons.*` with support for both `item/items` and `block/blocks` folders
+- Aliases for tricky materials (e.g., PUMPKIN, CACTUS) to reduce 404s across pack variations
+- Addons tab in the UI and `/api/addons` endpoint (auth required)
+- Developer HTTP API documentation (`docs/API.md`) and reverse proxy guide (`docs/REVERSE_PROXY.md`)
+
+### Changed
+- Improved client error fallback for missing icons (initials badge)
+- More informative server logs (actual paths tried for missing icons when `logging.verbose=true`)
+
+### Fixed
+- Kotlin string interpolation in logs and headers (no longer prints `$vars` literally)
+- Javalin route syntax for path params (now uses `/icon/{material}`)
+
+### Compatibility
+- Built against Paper API 1.20.1; expected to work on newer Paper versions
+
+### Highlights
+- HTTP API reference: see `docs/API.md`
+- Reverse proxy examples (HTTPS): `docs/REVERSE_PROXY.md`
+- Config keys for icons and addons: `docs/CONFIG.md`

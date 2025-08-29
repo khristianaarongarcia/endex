@@ -24,7 +24,26 @@ save-on-each-update: true
 # When true, use SQLite (market.db) instead of YAML for items/history.
 # First run with SQLite migrates existing market.yml into the database.
 storage:
-  sqlite: false
+  sqlite: true
+
+# Price smoothing and volatility guards
+price-smoothing:
+  enabled: true
+  # Exponential moving average factor (0.0-1.0). Higher = follow target faster.
+  ema-alpha: 0.3
+  # Max percent change allowed per tick (0 disables clamping)
+  max-change-percent: 15.0
+
+# Inventory-driven price influence (optional)
+# If enabled, the average per-player stock (from online inventories) will influence prices.
+price-inventory:
+  enabled: true
+  # Strength of inventory pressure per cycle (0.0-1.0 typical range 0.01-0.10)
+  sensitivity: 0.02
+  # Baseline units per online player; above this pushes price down, below pushes up
+  per-player-baseline: 64
+  # Limit inventory impact per cycle in percent to avoid shocks
+  max-impact-percent: 10.0
 
 ## Initial seeding behavior (applies only if market.yml does not exist)
 # When true, seed the market with ALL Materials (except AIR/LEGACY), respecting blacklist-items
@@ -72,6 +91,63 @@ tracking:
 # Cap on stacked event multipliers (effective price multiplier will not exceed this value)
 events:
   multiplier-cap: 10.0
+
+# Web interface for stock market trading
+web:
+  enabled: true
+  # Bind address for the web server (use 127.0.0.1 to restrict to local machine, or 0.0.0.0 to listen on all interfaces)
+  host: 127.0.0.1
+  port: 3434
+  session-duration-hours: 2
+  # Client polling interval in milliseconds (for REST polling UI)
+  poll-ms: 1000
+  # Default number of history points the web API returns
+  history-limit: 120
+  # Optional Server-Sent Events (SSE) live updates (advanced). If enabled, /api/sse is available.
+  sse:
+    enabled: false
+  # Optional WebSocket live updates (recommended). If enabled, /api/ws is available.
+  websocket:
+    enabled: true
+  # Simple per-session rate limiting for API endpoints
+  rate-limit:
+    enabled: true
+    requests: 30
+    per-seconds: 10
+    # Exempt the built-in web UI from rate limiting to reduce visible 429s while keeping API protected
+    exempt-ui: true
+
+  # Roles and permissions for the web interface
+  roles:
+    # Default role when a player opens the web link (TRADER or VIEWER)
+    default: TRADER
+    # Players with this permission can trade via web (role elevated to TRADER)
+    trader-permission: endex.web.trade
+    # Players with this permission can view other players' holdings via /api/holdings/{uuid}
+    admin-view-permission: endex.web.admin
+
+  # Use actual Minecraft item/block icons in the web UI by extracting a resource pack
+  icons:
+    # Master toggle for icons in the web UI
+    enabled: false
+    # Where to get the resource pack from. Accepts:
+    #  - Path to a .zip file (e.g., plugins/TheEndex/packs/vanilla.zip)
+    #  - Path to a folder containing either a "textures" dir or "assets/minecraft/textures"
+    #  - A direct URL to a .zip (http/https)
+    # If blank and a previously extracted pack exists in plugins/TheEndex/resourcepack, that will be used.
+    source: ""
+
+  # Addons list for the web UI Addons tab (purely display/navigation for now)
+  addons: []
+
+  # Inventory snapshot settings for web holdings (online-only; lightweight and cached)
+  holdings:
+    inventory:
+      enabled: true
+      # Include Ender Chest items in inventory counts
+      include-enderchest: false
+      # Cache duration for per-player snapshots (seconds)
+      cache-seconds: 15
 
 # Logging options
 logging:

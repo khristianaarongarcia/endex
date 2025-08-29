@@ -4,9 +4,14 @@ import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.plugin.java.JavaPlugin
+import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.api.events.PriceUpdateEvent
 import java.io.File
 import java.io.FileWriter
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.Callable
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -97,6 +102,8 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
                 currentPrice = current,
                 demand = demand,
                 supply = supply,
+                lastDemand = section.getDouble("last_demand", 0.0),
+                lastSupply = section.getDouble("last_supply", 0.0),
                 history = ArrayDeque()
             )
 
@@ -136,6 +143,8 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
                 currentPrice = current,
                 demand = demand,
                 supply = supply,
+                lastDemand = section.getDouble("last_demand", 0.0),
+                lastSupply = section.getDouble("last_supply", 0.0),
                 history = ArrayDeque()
             )
 
@@ -173,6 +182,8 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
             yaml.set("$path.current_price", item.currentPrice)
             yaml.set("$path.demand", item.demand)
             yaml.set("$path.supply", item.supply)
+            yaml.set("$path.last_demand", item.lastDemand)
+            yaml.set("$path.last_supply", item.lastSupply)
 
             val hist = item.history.map { mapOf("time" to it.time.toString(), "price" to it.price) }
             yaml.set("$path.history", hist)
@@ -207,9 +218,47 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
 
     fun updatePrices(sensitivity: Double, historyLength: Int) {
         val clampedSensitivity = sensitivity.coerceIn(0.0, 1.0)
+        val smoothingEnabled = plugin.config.getBoolean("price-smoothing.enabled", true)
+        val alpha = plugin.config.getDouble("price-smoothing.ema-alpha", 0.3).coerceIn(0.0, 1.0)
+        val maxPct = plugin.config.getDouble("price-smoothing.max-change-percent", 15.0).coerceAtLeast(0.0)
+
+        // Inventory-driven price influence (optional)
+        val invEnabled = plugin.config.getBoolean("price-inventory.enabled", true)
+        val invSens = plugin.config.getDouble("price-inventory.sensitivity", 0.02).coerceAtLeast(0.0)
+        val invBaselinePerPlayer = plugin.config.getInt("price-inventory.per-player-baseline", 64).coerceAtLeast(1)
+        val invSvc = (plugin as? Endex)?.getInventorySnapshotService()
+        val totals: Map<org.bukkit.Material, Int> = if (invEnabled && (invSvc?.enabled() == true)) invSvc.snapshotTotals() else emptyMap()
+        val onlineCount = if (invEnabled && (invSvc?.enabled() == true)) invSvc.onlinePlayerCount().coerceAtLeast(1) else 1
+
         for (item in items.values) {
-            val delta = (item.demand - item.supply) * clampedSensitivity
-            val target = (item.currentPrice * (1.0 + delta)).coerceIn(item.minPrice, item.maxPrice)
+            val hadActivity = (item.demand != 0.0) || (item.supply != 0.0)
+            // Trade-driven delta (buy/sell)
+            val tradeDelta = (item.demand - item.supply) * clampedSensitivity
+            // Inventory-driven delta (higher average stock => negative pressure)
+            val invQty = totals[item.material] ?: 0
+            val avgPerPlayer = invQty.toDouble() / onlineCount.toDouble()
+            val invPressure = (avgPerPlayer - invBaselinePerPlayer) / invBaselinePerPlayer.toDouble()
+            val invDeltaRaw = -invPressure * invSens
+            // Cap inventory influence per cycle to avoid shocks
+            val invMaxPct = plugin.config.getDouble("price-inventory.max-impact-percent", 10.0).coerceAtLeast(0.0)
+            val invDelta = invDeltaRaw.coerceIn(-invMaxPct / 100.0, invMaxPct / 100.0)
+            val delta = tradeDelta + invDelta
+            val rawTarget = (item.currentPrice * (1.0 + delta)).coerceIn(item.minPrice, item.maxPrice)
+
+            // Apply EMA smoothing towards target if enabled
+            val smoothed = if (smoothingEnabled) {
+                val ema = item.currentPrice * (1.0 - alpha) + rawTarget * alpha
+                ema
+            } else rawTarget
+
+            // Clamp per-tick percent change if configured
+            val clamped = if (maxPct > 0.0 && item.currentPrice > 0.0) {
+                val maxUp = item.currentPrice * (1.0 + maxPct / 100.0)
+                val maxDown = item.currentPrice * (1.0 - maxPct / 100.0)
+                smoothed.coerceIn(maxDown, maxUp)
+            } else smoothed
+
+            val target = clamped.coerceIn(item.minPrice, item.maxPrice)
 
             // Fire event allowing plugins to modify or cancel the price change
             val ev = PriceUpdateEvent(item.material, item.currentPrice, target)
@@ -223,7 +272,11 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
             while (item.history.size > historyLength) item.history.removeFirst()
 
             item.currentPrice = newPrice
-            // reset demand/supply after each cycle
+            // store last cycle demand/supply only if there was activity; otherwise, retain previous
+            if (hadActivity) {
+                item.lastDemand = item.demand
+                item.lastSupply = item.supply
+            }
             item.demand = 0.0
             item.supply = 0.0
         }
@@ -328,14 +381,38 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
 
     private fun exportHistoryCsv() {
         try {
-            if (!historyDir().exists()) historyDir().mkdirs()
-            for ((mat, item) in items) {
-                val f = File(historyDir(), "${mat.name}.csv")
-                FileWriter(f, false).use { w ->
-                    w.appendLine("time,price")
-                    for (p in item.history) {
-                        w.appendLine("${p.time},${p.price}")
+            // Take a consistent snapshot of histories on the main thread to avoid concurrent modification
+            val future = Bukkit.getScheduler().callSyncMethod(plugin, Callable {
+                items.map { (mat, item) -> mat to item.history.toList() }
+            })
+            val snapshot = try {
+                future.get(5, TimeUnit.SECONDS)
+            } catch (t: Throwable) {
+                plugin.logger.warning("Failed to snapshot histories for CSV export: ${t.message}")
+                return
+            }
+
+            val dir = historyDir()
+            if (!dir.exists()) dir.mkdirs()
+
+            for ((mat, hist) in snapshot) {
+                try {
+                    val tmp = File(dir, "${mat.name}.csv.tmp")
+                    val fin = File(dir, "${mat.name}.csv")
+                    FileWriter(tmp, false).use { w ->
+                        w.appendLine("time,price")
+                        for (p in hist) {
+                            w.appendLine("${p.time},${p.price}")
+                        }
                     }
+                    try {
+                        Files.move(tmp.toPath(), fin.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+                    } catch (moveErr: Throwable) {
+                        // Fallback if ATOMIC_MOVE not supported on FS
+                        if (!tmp.renameTo(fin)) throw moveErr
+                    }
+                } catch (perItemErr: Throwable) {
+                    plugin.logger.warning("CSV export failed for ${mat.name}: ${perItemErr.message}")
                 }
             }
         } catch (t: Throwable) {

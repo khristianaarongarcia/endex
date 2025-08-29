@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "org.lokixcz"
-version = "1.0.0"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
@@ -16,14 +16,36 @@ repositories {
     maven("https://jitpack.io")
 }
 
+// Configuration for an optional fully shaded Spigot artifact
+configurations {
+    create("spigotShade")
+}
+
 dependencies {
     // Target Paper API 1.20.1 for broad compatibility; runtime can be newer servers
     compileOnly("io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT")
+    // Keep Kotlin stdlib shaded to avoid runtime dependency mismatch
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     // Vault API (provided by Vault plugin at runtime)
     compileOnly("com.github.MilkBowl:VaultAPI:1.7.1")
     // SQLite JDBC (provided at runtime via Paper library loader; do not shade)
     compileOnly("org.xerial:sqlite-jdbc:3.46.0.0")
+    // Web stack provided at runtime via Paper's library loader to keep our jar slim
+    compileOnly("io.javalin:javalin:5.6.1")
+    compileOnly("com.fasterxml.jackson.core:jackson-databind:2.15.2")
+    compileOnly("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
+
+    // Dependencies for the optional Spigot shaded jar (all-in-one)
+    add("spigotShade", "io.javalin:javalin:5.6.1")
+    add("spigotShade", "com.fasterxml.jackson.core:jackson-databind:2.15.2")
+    add("spigotShade", "com.fasterxml.jackson.core:jackson-annotations:2.15.2")
+    add("spigotShade", "com.fasterxml.jackson.core:jackson-core:2.15.2")
+    add("spigotShade", "com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
+    add("spigotShade", "org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    add("spigotShade", "org.jetbrains.kotlin:kotlin-stdlib")
+    add("spigotShade", "org.jetbrains.kotlin:kotlin-stdlib-common")
+    // Include SQLite so Spigot can use SQLite mode without extra setup (increases size)
+    add("spigotShade", "org.xerial:sqlite-jdbc:3.46.0.0")
 }
 
 tasks {
@@ -81,4 +103,26 @@ val copyToRelease by tasks.registering(Copy::class) {
 
 tasks.build {
     finalizedBy(copyToRelease)
+}
+
+// Optional: produce an all-in-one Spigot jar with shaded dependencies
+val shadowJarSpigot by tasks.registering(com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) {
+    archiveBaseName.set("TheEndex")
+    archiveClassifier.set("spigot")
+    from(sourceSets.main.get().output)
+    configurations = listOf(project.configurations.getByName("spigotShade"))
+    // Try to keep size reasonable by stripping unused classes
+    minimize()
+}
+
+// Copy the spigot jar to release folder as well
+val copySpigotToRelease by tasks.registering(Copy::class) {
+    dependsOn(shadowJarSpigot)
+    val jarFile = shadowJarSpigot.flatMap { it.archiveFile }
+    from(jarFile)
+    into(layout.projectDirectory.dir("release"))
+}
+
+tasks.build {
+    finalizedBy(copySpigotToRelease)
 }

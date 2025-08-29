@@ -15,6 +15,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
             sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.AQUA}/endex help${ChatColor.GRAY} or ${ChatColor.AQUA}/endex market${ChatColor.GRAY} to open the GUI.")
             return true
         }
+        
         when (args[0].lowercase()) {
             "help" -> {
                 sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Commands:")
@@ -32,8 +33,12 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                     sender.sendMessage("${ChatColor.AQUA}/endex reload${ChatColor.GRAY} — Reload configs and market data")
                     sender.sendMessage("${ChatColor.AQUA}/market event [list|<name>|end <name>|clear]${ChatColor.GRAY} — Manage events")
                 }
+                if (sender.hasPermission("theendex.web")) {
+                    sender.sendMessage("${ChatColor.AQUA}/endex web${ChatColor.GRAY} — Open web trading interface")
+                }
                 return true
             }
+            
             "market" -> {
                 if (sender is Player) {
                     plugin.marketGUI.open(sender)
@@ -42,6 +47,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 }
                 return true
             }
+            
             "version" -> {
                 val ver = plugin.description.version ?: "unknown"
                 val useSqlite = plugin.config.getBoolean("storage.sqlite", false)
@@ -50,6 +56,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.AQUA}/endex help${ChatColor.GRAY} for commands.")
                 return true
             }
+            
             "reload" -> {
                 if (!sender.hasPermission("theendex.admin")) {
                     sender.sendMessage("${ChatColor.RED}No permission.")
@@ -58,6 +65,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 plugin.reloadEndex(sender)
                 return true
             }
+            
             "track" -> {
                 if (!sender.hasPermission("theendex.admin")) {
                     sender.sendMessage("${ChatColor.RED}No permission.")
@@ -65,7 +73,6 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 }
                 val sub = args.getOrNull(1)?.lowercase()
                 if (sub == "dump") {
-                    // Reflect resourceTracker
                     try {
                         val f = plugin.javaClass.getDeclaredField("resourceTracker"); f.isAccessible = true
                         val rt = f.get(plugin) as? org.lokixcz.theendex.tracking.ResourceTracker
@@ -84,21 +91,56 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                         sender.sendMessage("${ChatColor.RED}Unable to read tracker.")
                     }
                     return true
+                } else {
+                    sender.sendMessage("${ChatColor.RED}Usage: /endex track dump")
+                    return true
                 }
-                sender.sendMessage("${ChatColor.RED}Usage: /endex track dump")
+            }
+            
+            "web" -> {
+                if (sender !is Player) {
+                    sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+                    return true
+                }
+                
+                if (!sender.hasPermission("theendex.web")) {
+                    sender.sendMessage("${ChatColor.RED}You don't have permission to use the web interface.")
+                    return true
+                }
+                
+                val webServer = plugin.getWebServer()
+                if (webServer == null) {
+                    sender.sendMessage("${ChatColor.RED}Web server is not available.")
+                    return true
+                }
+                
+                val url = webServer.createSession(sender)
+                val clickableLink = net.kyori.adventure.text.Component.text("Click here to open The Endex Trading Interface")
+                    .color(net.kyori.adventure.text.format.NamedTextColor.AQUA)
+                    .decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED)
+                    .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl(url))
+                    .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                        net.kyori.adventure.text.Component.text("Open trading interface in your browser")
+                    ))
+                
+                sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Your personal trading session:")
+                sender.sendMessage(clickableLink)
+                sender.sendMessage("${ChatColor.GRAY}Session expires in 2 hours. URL: ${ChatColor.WHITE}$url")
+                
+                return true
+            }
+            
+            else -> {
+                // Try addon router
+                val routed = try {
+                    val routerField = plugin.javaClass.getDeclaredField("addonCommandRouter"); routerField.isAccessible = true
+                    val router = routerField.get(plugin) as? org.lokixcz.theendex.addon.AddonCommandRouter
+                    router?.dispatch(sender, label, args)
+                } catch (_: Throwable) { null }
+                if (routed == true) return true
+                sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use /endex help")
                 return true
             }
         }
-        // Try addon router
-        val routed = try {
-            val method = plugin.javaClass.methods.firstOrNull { it.name == "registerAddonSubcommand" }
-            // Quick reflection to reach router via exposed methods
-            val routerField = plugin.javaClass.getDeclaredField("addonCommandRouter"); routerField.isAccessible = true
-            val router = routerField.get(plugin) as? org.lokixcz.theendex.addon.AddonCommandRouter
-            router?.dispatch(sender, label, args)
-        } catch (_: Throwable) { null }
-        if (routed == true) return true
-        sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use /endex help")
-        return true
     }
 }

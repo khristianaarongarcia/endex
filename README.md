@@ -1,6 +1,8 @@
 ## Public API (for developers)
 
-The Endex exposes a lightweight API via the Bukkit ServicesManager. Example usage:
+The Endex exposes a lightweight Bukkit API and an HTTP API.
+
+### Bukkit API example
 
 ```kotlin
 val api = server.servicesManager.load(org.lokixcz.theendex.api.EndexAPI::class.java)
@@ -19,6 +21,10 @@ You can also listen to Bukkit events:
 @EventHandler fun onPreSell(e: org.lokixcz.theendex.api.events.PreSellEvent) { /* enforce rules */ }
 ```
 
+### HTTP API
+
+See `docs/API.md` for the full HTTP API: endpoints, parameters, auth, ETag, SSE/WS, and the `/icon/{material}` icon endpoint.
+
 # The Endex
 
 Dynamic, demand-driven market for Minecraft (Paper). Supports 1.20.1+ with Vault economy. Browse, buy, sell, invest, and run time-limited market events.
@@ -32,6 +38,7 @@ Dynamic, demand-driven market for Minecraft (Paper). Supports 1.20.1+ with Vault
 - Investments: passive APR-based investment certificates
 - Backups and CSV history export for analysis
 - Addon framework: drop-in jars with subcommands, aliases, and tab completion (see docs/ADDONS.md)
+- Web UI item icons served from a resource pack (configurable via `web.icons.*`)
 - Resource tracking: observe gathered resources server-wide; admin `/endex track dump`; API `getTrackedTotals()`
 - Crypto Addon (optional): `/endex crypto ...`, YAML-driven `shop.yml`, per-item permissions, fixed/market pricing, price history CSV
 
@@ -46,7 +53,7 @@ Dynamic, demand-driven market for Minecraft (Paper). Supports 1.20.1+ with Vault
 ## Configuration
 - Default config is generated at `plugins/TheEndex/config.yml`
 - Edit safely and then run `/endex reload`
-- See `docs/CONFIG.md` for all options (update interval, sensitivity, storage = sqlite, events, investments, history export, blacklist, etc.)
+- See `docs/CONFIG.md` for all options (update interval, sensitivity, storage = sqlite, events, investments, history export, blacklist, web icons, addons, etc.)
 
 Config versioning:
 - This build expects `config-version: 1` at the top of `config.yml`. If it differs, a warning is logged with guidance to back up and regenerate from defaults.
@@ -77,24 +84,77 @@ Highlights:
 
 ## License
 This project is provided as-is for your server. External dependencies (Paper API, Vault API, sqlite-jdbc) retain their own licenses.
-# The Endex (Minecraft Market Plugin)
+<!-- Top blurb -->
+# The Endex
 
-Foundation-stage Paper plugin (Kotlin) targeting 1.20.1+ servers.
+Dynamic, demand-driven market for Minecraft (Paper). Prices react to player behavior and can optionally account for online players' inventories. Includes a rich Market GUI, timed events, an optional web dashboard, and an addon framework.
+
+## Highlights
+- Dynamic pricing with sensitivity, smoothing, and per-item clamps
+- Inventory-aware pricing (optional) using safe, online-only snapshots
+- Market GUI with search, categories, sorting, details panel, and tiny sparkline
+- Investments (buy, list, redeem-all) and time-limited events
+- Web dashboard (optional) with real item icons and Combined Holdings (Invest + Inv)
+- YAML or SQLite storage with migration; CSV history export
+- Addon framework + optional Crypto Addon
+
+## Quick start
+1. Build
+   - Windows PowerShell
+     - `./gradlew.bat clean build -x test --no-daemon`
+   - The shaded jar is produced and copied to `MCTestServer/plugins` and `release/` automatically.
+2. Install
+   - Copy the jar from `release/` (or `build/libs`) to your server `plugins/` folder.
+3. Run and open the market
+   - Start Paper (Java 17) with Vault installed
+   - `/market` or `/endex market`
+
+## Docs
+- Commands: `docs/COMMANDS.md`
+- Config: `docs/CONFIG.md`
+- API: `docs/API.md`
+- Events guide: `docs/EVENTS.md`
+- Addons: `docs/ADDONS.md`, developers: `docs/DEVELOPERS.md`
+- Reverse proxy (HTTPS): `docs/REVERSE_PROXY.md`
+- Changelog: `docs/changelogs.md`
+
+## Configuration quick bits
+- Inventory-aware pricing
+
+```yaml
+price-inventory:
+  enabled: true
+  sensitivity: 0.02
+  per-player-baseline: 64
+  max-impact-percent: 10.0
+```
+
+- Web combined holdings & roles
+
+```yaml
+web:
+  roles:
+    default: TRADER
+    trader-permission: endex.web.trade
+    admin-view-permission: endex.web.admin
+  holdings:
+    inventory:
+      enabled: true
+      include-enderchest: false
+      cache-seconds: 15
+```
 
 ## Build options
 
 You need either the Gradle Wrapper (gradlew/gradlew.bat) or a local Gradle install.
 
-### 1) Using IntelliJ IDEA (no system Gradle required)
-- Open the project in IntelliJ IDEA.
-- Open the Gradle tool window.
-- Run the `wrapper` task (Gradle group: build setup). This generates `gradlew`, `gradlew.bat`, and `gradle/wrapper/*`.
-- Then run:
-  - `build` task to produce the jar at `build/libs`.
-  - Optionally `runServer` to start a Paper test server (downloads server jar automatically).
+### 1) Using IntelliJ IDEA
+- Open the project
+- Open the Gradle tool window
+- Run the `wrapper` task (if needed), then `build`
+- Optionally run `runServer` to launch a local Paper test server
 
 ### 2) Using a local Gradle install (Windows PowerShell)
-If you have Gradle installed:
 ```powershell
 # Generate wrapper scripts (creates gradlew.bat and wrapper jar)
 gradle wrapper
@@ -102,36 +162,13 @@ gradle wrapper
 # Build the plugin
 gradle clean build
 ```
-After generating the wrapper once, you can use:
+Then prefer the wrapper:
 ```powershell
-# Using the wrapper
 ./gradlew.bat clean build
 ```
 
-If you don't have Gradle installed, you can install it with winget:
-```powershell
-winget install Gradle.Gradle
-```
-
-## Install to a server
-- Copy the built jar from `build/libs` into your Paper server's `plugins/` folder.
-- Start the server; the plugin will create `plugins/TheEndex/` with `config.yml` and `market.yml`.
-
-## Configuration
-See `src/main/resources/config.yml` for:
-- `update-interval-seconds`, `price-sensitivity`, `history-length`, `autosave-minutes`.
-- `seed-items` list for initial tracked materials.
-- `include-default-important-items`: when true, adds a curated set of common commodities on first run.
-- `blacklist-items`: materials that must never be tracked (overrides seeds/curated).
-- `transaction-tax-percent`: percent fee applied to buy/sell.
-
-## Commands
-- `/market` – shows usage
-- `/market price <MATERIAL>` – shows current price (Phase 1)
-- Other subcommands (buy/sell/top) are placeholders until Phase 2.
-
-## Notes
-If `gradlew.bat` is missing, it means the wrapper scripts and jar were not generated or committed. Run the `wrapper` task once (see above) to generate them.
+## License
+See individual dependency licenses. This plugin is provided as-is.
 # The Endex (Minecraft Market Plugin)
 
 Foundation build for a dynamic item market.

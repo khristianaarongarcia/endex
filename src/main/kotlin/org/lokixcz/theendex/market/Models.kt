@@ -16,5 +16,7 @@ data class MarketItem(
     var currentPrice: Double,
     var demand: Double = 0.0,
     var supply: Double = 0.0,
+    var lastDemand: Double = 0.0,
+    var lastSupply: Double = 0.0,
     val history: ArrayDeque<PricePoint> = ArrayDeque()
 )

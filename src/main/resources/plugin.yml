@@ -7,6 +7,9 @@ softdepend: [ Vault ]
 description: Dynamic, demand-driven market with GUI, events, and Vault economy
 libraries:
   - org.xerial:sqlite-jdbc:3.46.0.0
+  - io.javalin:javalin:5.6.1
+  - com.fasterxml.jackson.core:jackson-databind:2.15.2
+  - com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2
 
 commands:
   endex:
@@ -29,6 +32,8 @@ permissions:
   theendex.admin:
     default: op
   theendex.invest:
+    default: true
+  theendex.web:
     default: true
   # Crypto addon permissions
   theendex.crypto.info:

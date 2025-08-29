@@ -58,6 +58,34 @@ After editing, run `/endex reload` or restart the server.
 - multiplier-cap: 10.0
   - Cap on stacked event multipliers (effective price will not exceed this value due to events).
 
+For full event configuration, stacking modes, and admin commands, see `docs/EVENTS.md`.
+
+### price-inventory
+- enabled: false
+  - When true, the price update formula also considers online players' inventories.
+- sensitivity: 0.02
+  - Scales the pressure from inventory surplus/deficit vs the baseline.
+- per-player-baseline: 64
+  - Average per online player amount considered "neutral"; above pushes down, below nudges up.
+- max-impact-percent: 10.0
+  - Caps the per-cycle percent change attributable to inventory pressure.
+
+### web.roles
+- default: TRADER
+  - Default web role for authenticated sessions.
+- trader-permission: endex.web.trade
+  - Bukkit permission required for trading via web UI.
+- admin-view-permission: endex.web.admin
+  - Bukkit permission required to view another player's holdings via `/api/holdings/{uuid}`.
+
+### web.holdings.inventory
+- enabled: true
+  - Enables live inventory snapshots for the web Combined Holdings view and optional `/api/inventory-totals`.
+- include-enderchest: false
+  - When true, scans online players' ender chests in addition to their main inventories.
+- cache-seconds: 15
+  - TTL for per-player inventory snapshots to keep scans lightweight.
+
 ## Tips
 - To switch to SQLite later, set `storage.sqlite: true` and restart. The plugin will migrate data from YAML if the DB is empty.
 - Use `/market price <material>` to inspect live prices and current event multipliers.
