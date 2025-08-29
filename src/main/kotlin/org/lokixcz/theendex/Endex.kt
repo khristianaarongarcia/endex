@@ -148,6 +148,15 @@ class Endex : JavaPlugin() {
             logx.warn("Failed to initialize inventory snapshot service: ${t.message}")
         }
 
+        // Initialize Web Server instance EARLY so addons can register web routes
+        try {
+            if (webServer == null) {
+                webServer = WebServer(this) // don't start yet; allows addons to register routes
+            }
+        } catch (t: Throwable) {
+            logx.warn("Failed to initialize web server instance: ${t.message}")
+        }
+
         // Addons
         try {
             // Initialize router FIRST so addons can register their commands/aliases during init()
@@ -165,8 +174,15 @@ class Endex : JavaPlugin() {
         try {
             if (config.getBoolean("web.enabled", true)) {
                 val port = config.getInt("web.port", 3434)
-                webServer = WebServer(this)
+                if (webServer == null) webServer = WebServer(this)
                 webServer?.start(port)
+                // Dynamically register loaded addons into the web Addons tab
+                try {
+                    val names = addonManager?.loadedAddonNames() ?: emptyList()
+                    if (names.isNotEmpty()) {
+                        names.forEach { n -> runCatching { webServer?.registerAddonNav(n) } }
+                    }
+                } catch (_: Throwable) {}
                 logx.info("Web server started on port $port")
             } else {
                 logx.debug("Web server disabled by config")
@@ -296,14 +312,20 @@ class Endex : JavaPlugin() {
         // Reschedule tasks with new settings
         scheduleTasks()
         
-        // Restart web server with new config
+        // Restart web server with new config (reuse same instance to preserve addon routes)
         try {
             webServer?.stop()
-            webServer = null
             if (config.getBoolean("web.enabled", true)) {
                 val port = config.getInt("web.port", 3434)
-                webServer = WebServer(this)
+                if (webServer == null) webServer = WebServer(this)
                 webServer?.start(port)
+                // Re-register addon nav entries dynamically after restart
+                try {
+                    val names = addonManager?.loadedAddonNames() ?: emptyList()
+                    if (names.isNotEmpty()) {
+                        names.forEach { n -> runCatching { webServer?.registerAddonNav(n) } }
+                    }
+                } catch (_: Throwable) {}
                 logx.info("Web server restarted on port $port")
             }
         } catch (t: Throwable) {

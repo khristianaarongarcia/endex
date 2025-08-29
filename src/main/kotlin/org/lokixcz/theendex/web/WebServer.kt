@@ -22,6 +22,10 @@ import java.util.zip.ZipInputStream
 
 class WebServer(private val plugin: Endex) {
     private var app: Javalin? = null
+    // Allow addons to register additional routes (applied on start and immediately if running)
+    private val addonRouteConfigurers: MutableList<(Javalin) -> Unit> = mutableListOf()
+    // Addon navigation entries for the UI (e.g., "Crypto")
+    private val addonNav: MutableSet<String> = linkedSetOf()
     private val sessionManager = SessionManager()
     private val objectMapper = ObjectMapper().registerModule(KotlinModule.Builder().build())
     private val logger = EndexLogger(plugin)
@@ -60,6 +64,12 @@ class WebServer(private val plugin: Endex) {
             prepareIcons()
             
             setupRoutes()
+
+            // Apply any addon-registered routes after core routes are set up
+            val a = app
+            if (a != null) {
+                try { addonRouteConfigurers.forEach { cfg -> runCatching { cfg(a) } } } catch (_: Throwable) {}
+            }
             
             logger.info("Web server started on $host:$port")
             logger.info("Market interface available at: http://$host:$port")
@@ -568,12 +578,7 @@ class WebServer(private val plugin: Endex) {
             ctx.contentType("image/png").result(file!!.inputStream())
         }
 
-        // Addons list for navbar
-        app.get("/api/addons") { ctx ->
-            val session = validateSession(ctx) ?: return@get
-            val list = runCatching { plugin.config.getStringList("web.addons") }.getOrDefault(emptyList())
-            ctx.json(list)
-        }
+        // (Removed) /api/addons endpoint was used by deprecated Addons tab
 
         // Simple API docs
         app.get("/docs") { ctx ->
@@ -659,6 +664,45 @@ class WebServer(private val plugin: Endex) {
                 runCatching { c.send(payload) }.onFailure { synchronized(wsClients) { wsClients.remove(c) } }
             }
         }
+    }
+
+    // --- Addon integration helpers ---
+    // Add a route configurer; if server already running, apply immediately as well
+    fun addAddonRoutes(configurer: (Javalin) -> Unit) {
+        addonRouteConfigurers.add(configurer)
+        val a = app
+        if (a != null) runCatching { configurer(a) }
+    }
+    // Convenience for simple read-only JSON GET endpoints that require no request context.
+    fun addGet(path: String, jsonProvider: () -> Any) {
+        addAddonRoutes { a -> a.get(path) { ctx ->
+            try { ctx.json(jsonProvider()) } catch (t: Throwable) { ctx.status(500).json(mapOf("error" to (t.message ?: "server error"))) }
+        } }
+    }
+
+    // Addon GET with optional session validation. If requireSession=true and session is invalid, responds 403.
+    fun addGet(path: String, requireSession: Boolean, handler: (WebSession?) -> Any) {
+        addAddonRoutes { a -> a.get(path) { ctx ->
+            val session = if (requireSession) validateSession(ctx) else null
+            if (requireSession && session == null) return@get
+            if (session != null && !checkRateLimit(ctx, session.token)) return@get
+            try { ctx.json(handler(session)) } catch (t: Throwable) { ctx.status(500).json(mapOf("error" to (t.message ?: "server error"))) }
+        } }
+    }
+
+    // Addon POST with session validation and body passthrough.
+    fun addPost(path: String, handler: (WebSession, String) -> Any) {
+        addAddonRoutes { a -> a.post(path) { ctx ->
+            val session = validateSession(ctx) ?: return@post
+            if (!checkRateLimit(ctx, session.token)) return@post
+            val body = runCatching { ctx.body() }.getOrDefault("")
+            try { ctx.json(handler(session, body)) } catch (t: Throwable) { ctx.status(500).json(mapOf("error" to (t.message ?: "server error"))) }
+        } }
+    }
+
+    // Allow addons to register a display name that appears under the Addons tab.
+    fun registerAddonNav(name: String) {
+        if (name.isNotBlank()) addonNav.add(name)
     }
 
     // Simple categorization for UI grouping
@@ -848,16 +892,33 @@ class WebServer(private val plugin: Endex) {
                         <!-- Item List -->
                         <div class="panel item-list">
                             <h2 class="panel-title">Market Items</h2>
-                            <div class="items-navbar">
-                                <button id="tab-normal" class="tab active">Normal</button>
-                                <button id="tab-addons" class="tab">Addons</button>
-                            </div>
                             <div class="search-bar">
-                                <input type="text" id="search-input" placeholder="Search items..." class="search-input">
-                                <label class="watchlist-toggle"><input type="checkbox" id="favorites-only"> Favorites only</label>
-                                <label class="watchlist-toggle" style="margin-left: 12px;"><input type="checkbox" id="group-by-category" checked> Group by category (A–Z)</label>
+                                <div class="search-row">
+                                    <input type="text" id="search-input" placeholder="Search items..." class="search-input">
+                                    <label class="watchlist-toggle"><input type="checkbox" id="favorites-only"> Favorites only</label>
+                                    <label class="watchlist-toggle"><input type="checkbox" id="group-by-category" checked> Group by category (A–Z)</label>
+                                    <button id="toggle-filters" class="filters-btn" type="button">Filters ▸</button>
+                                </div>
+                                <div class="filters-row" id="filters-row" style="display:none;">
+                                    <select id="filter-category" class="filter-select">
+                                        <option value="ALL">All categories</option>
+                                    </select>
+                                    <input type="number" id="filter-min-price" class="price-input" step="0.01" placeholder="Min $">
+                                    <input type="number" id="filter-max-price" class="price-input" step="0.01" placeholder="Max $">
+                                    <select id="filter-trend" class="filter-select">
+                                        <option value="any">Any trend</option>
+                                        <option value="up">Up only</option>
+                                        <option value="down">Down only</option>
+                                    </select>
+                                    <select id="sort-by" class="filter-select">
+                                        <option value="name">Sort: Name</option>
+                                        <option value="price">Sort: Price</option>
+                                        <option value="change">Sort: Change</option>
+                                        <option value="volume">Sort: Volume</option>
+                                    </select>
+                                    <label class="watchlist-toggle" style="justify-self:start"><input type="checkbox" id="sort-desc"> Descending</label>
+                                </div>
                             </div>
-                            <div class="addons-subnav" id="addons-subnav" style="display:none"></div>
                             <div class="items-container" id="items-container">
                                 <div class="loading">Loading market data...</div>
                             </div>
@@ -1170,12 +1231,9 @@ class WebServer(private val plugin: Endex) {
             grid-area: items;
         }
         
-        .search-bar {
-            margin-bottom: 20px;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
+        .search-bar { margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px }
+        .search-row { display:flex; flex-wrap: wrap; gap: 10px; align-items: center }
+        .filters-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; align-items: center }
         
         .search-input {
             width: 100%;
@@ -1187,6 +1245,8 @@ class WebServer(private val plugin: Endex) {
             font-size: 14px;
             transition: all 0.3s ease;
         }
+        .filters-btn { padding:8px 12px; background: rgba(15,15,35,0.5); color:#e8e9ea; border:1px solid rgba(255,255,255,0.1); border-radius:8px; cursor:pointer; }
+        .filters-btn.active { border-color:#a78bfa; box-shadow:0 0 10px rgba(167,139,250,0.25) }
         
         .search-input:focus {
             outline: none;
@@ -1617,12 +1677,7 @@ class WebServer(private val plugin: Endex) {
             box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
         }
         .item-icon-img { width:36px; height:36px; border-radius:8px; object-fit:cover; box-shadow: 0 6px 16px rgba(124,58,237,0.35); }
-        .items-navbar { display:flex; gap:8px; margin-bottom:10px }
-        .items-navbar .tab { padding:6px 12px; background: rgba(15,15,35,0.5); color:#e8e9ea; border:1px solid rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; font-size:12px }
-        .items-navbar .tab.active { border-color:#a78bfa; box-shadow:0 0 10px rgba(167,139,250,0.25) }
-        .addons-subnav { display:flex; gap:8px; margin: 8px 0 12px }
-        .addons-subnav .addon-tab { padding:6px 10px; background: rgba(15,15,35,0.4); color:#c4b5fd; border:1px solid rgba(255,255,255,0.08); border-radius:6px; cursor:pointer; font-size:12px }
-        .addons-subnav .addon-tab.active { border-color:#a78bfa; }
+    .filter-select, .price-input { padding:8px 10px; background: rgba(15,15,35,0.5); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#e8e9ea; font-size:12px }
         /* Holdings / Receipts */
         .list-container { max-height: 260px; overflow-y:auto }
     .row { display:flex; justify-content: space-between; padding:10px; border-bottom:1px solid rgba(255,255,255,0.06) }
@@ -1650,9 +1705,13 @@ class WebServer(private val plugin: Endex) {
                 this.ws = null;
                 this.pollTimer = null;
                 this.iconsEnabled = false;
-                this.currentTab = 'normal';
-                this.addons = [];
-                this.selectedAddon = null;
+                // filter/sort state
+                this.filterCategory = 'ALL';
+                this.filterMinPrice = null;
+                this.filterMaxPrice = null;
+                this.filterTrend = 'any';
+                this.sortBy = 'name';
+                this.sortDesc = false;
                 this.marketStats = {
                     totalItems: 0,
                     avgPrice: 0,
@@ -1685,16 +1744,10 @@ class WebServer(private val plugin: Endex) {
                 this.updateMarketStats();
                 this.setupEventListeners();
                 this.initChart();
-                
                 this.hideLoading();
-                
-                if (this.wsEnabled) {
-                    this.startWebSocket();
-                } else if (this.sseEnabled) {
-                    this.startSse();
-                } else {
-                    this.startPolling();
-                }
+                if (this.wsEnabled) this.startWebSocket();
+                else if (this.sseEnabled) this.startSse();
+                else this.startPolling();
             }
 
             startPolling() {
@@ -1711,6 +1764,25 @@ class WebServer(private val plugin: Endex) {
                 };
                 step();
                 this.pollTimer = setInterval(step, this.pollMs);
+            }
+            stopPolling() {
+                if (this.pollTimer) {
+                    clearInterval(this.pollTimer);
+                    this.pollTimer = null;
+                }
+            }
+            stopSse() {
+                try { if (this.sse) { this.sse.close(); } } catch(_) {}
+                this.sse = null;
+            }
+            stopWs() {
+                try { if (this.ws) { this.ws.close(); } } catch(_) {}
+                this.ws = null;
+            }
+            stopLiveFeeds() {
+                this.stopPolling();
+                this.stopSse();
+                this.stopWs();
             }
             
             async loadSession() {
@@ -1777,10 +1849,16 @@ class WebServer(private val plugin: Endex) {
 
             async loadItems() {
                 try {
-                    const response = await fetch(`/api/items?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
+                    // Fetch market items and crypto ticker in parallel; crypto may fail independently
+                    const [response, cryptoTicker] = await Promise.all([
+                        fetch(`/api/items?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } }),
+                        this.loadCryptoPseudoItem()
+                    ]);
                     const items = await response.json();
                     if (response.ok) {
-                        this.items = items;
+                        this.items = Array.isArray(items) ? items.slice() : [];
+                        if (cryptoTicker) this.items.push(cryptoTicker);
+                        this.populateCategories();
                         this.renderItems();
                         if (this.selectedItem) {
                             const currentMat = this.selectedItem.material;
@@ -1794,45 +1872,64 @@ class WebServer(private val plugin: Endex) {
                 }
             }
 
-            async loadAddons() {
+            async loadCryptoPseudoItem() {
                 try {
-                    const resp = await fetch(`/api/addons?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
-                    if (!resp.ok) throw new Error('Failed to load addons');
-                    const data = await resp.json();
-                    this.addons = Array.isArray(data) ? data : (data.addons || []);
-                    const last = localStorage.getItem('endex.selectedAddon');
-                    if (last && this.addons.includes(last)) this.selectedAddon = last;
-                } catch (e) {
-                    console.error('Addons load failed', e);
-                    this.addons = [];
-                }
+                    const r = await fetch(`/api/crypto/tickers?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
+                    if (!r.ok) return null;
+                    const arr = await r.json();
+                    if (!Array.isArray(arr) || arr.length === 0) return null;
+                    const t = arr[0] || {};
+                    const price = parseFloat(t.price || '0');
+                    const symbol = (t.symbol || 'CRYPTO').toUpperCase();
+                    const name = t.name || symbol;
+                    return {
+                        material: 'CRYPTO',
+                        displayName: `${'$'}{name}`,
+                        category: 'Addons',
+                        basePrice: price || 0,
+                        currentPrice: price || 0,
+                        effectivePrice: price || 0,
+                        multiplier: 1.0,
+                        volume: 0
+                    };
+                } catch(_) { return null; }
             }
 
-            renderAddonsSubnav() {
-                const sub = document.getElementById('addons-subnav');
-                if (!sub) return;
-                sub.innerHTML = '';
-                if (!this.addons || this.addons.length === 0) {
-                    sub.innerHTML = '<div class="empty">No addons configured</div>';
-                    return;
-                }
-                this.addons.forEach(name => {
-                    const btn = document.createElement('button');
-                    btn.className = 'addon-tab' + (name === this.selectedAddon ? ' active' : '');
-                    btn.textContent = name;
-                    btn.addEventListener('click', () => {
-                        this.selectedAddon = name;
-                        localStorage.setItem('endex.selectedAddon', name);
-                        Array.from(sub.querySelectorAll('.addon-tab')).forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        // Placeholder: hook into addon-specific content here
-                    });
-                    sub.appendChild(btn);
-                });
+            async refreshCryptoTicker() {
+                try {
+                    const item = await this.loadCryptoPseudoItem();
+                    if (!item) return;
+                    const idx = this.items.findIndex(i => i.material === 'CRYPTO');
+                    if (idx >= 0) this.items[idx] = item; else this.items.push(item);
+                    this.renderItems();
+                    if (this.selectedItem && this.selectedItem.material === 'CRYPTO') {
+                        this.selectedItem = item;
+                        this.updateSelectedItemInfo();
+                        this.updateTradeTotals();
+                        this.updateTradingButtons();
+                    }
+                } catch(_) {}
             }
+
+            // Addons UI removed
             
             async loadHistory(material, incremental = false) {
                 try {
+                    // Handle CRYPTO pseudo-item via its own endpoint
+                    if (material === 'CRYPTO') {
+                        const r = await fetch(`/api/crypto/history?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
+                        const data = await r.json();
+                        if (r.ok && Array.isArray(data)) {
+                            this.selectedItemHistory = data;
+                            this.lastHistoryTs = (data.length > 0) ? data[data.length - 1].timestamp : null;
+                            if (this.selectedItemHistory.length > this.historyLimit) {
+                                this.selectedItemHistory.splice(0, this.selectedItemHistory.length - this.historyLimit);
+                            }
+                            this.updateChart();
+                        }
+                        return;
+                    }
+
                     let url = `/api/history?session=${'$'}{this.sessionToken}&material=${'$'}{encodeURIComponent(material)}&limit=${'$'}{this.historyLimit}`;
                     if (incremental && this.lastHistoryTs) {
                         url += `&since=${'$'}{this.lastHistoryTs}`;
@@ -1867,6 +1964,17 @@ class WebServer(private val plugin: Endex) {
                 } catch (_) { /* ignore */ }
             }
 
+            populateCategories() {
+                try {
+                    const sel = document.getElementById('filter-category');
+                    if (!sel) return;
+                    const cats = Array.from(new Set(this.items.map(i => i.category || 'Other'))).sort((a,b)=>a.localeCompare(b));
+                    const current = sel.value || 'ALL';
+                    sel.innerHTML = '<option value="ALL">All categories</option>' + cats.map(c => `<option value="${'$'}{c}">${'$'}{c}</option>`).join('');
+                    if (Array.from(sel.options).some(o => o.value === current)) sel.value = current; else sel.value = 'ALL';
+                } catch(_) {}
+            }
+
             startSse() {
                 try {
                     this.sse = new EventSource(`/api/sse?session=${'$'}{this.sessionToken}`);
@@ -1883,6 +1991,8 @@ class WebServer(private val plugin: Endex) {
                                     // pull incremental history
                                     this.loadHistory(this.selectedItem.material, true);
                                 }
+                                // Refresh crypto ticker alongside SSE item tick
+                                this.refreshCryptoTicker();
                             }
                         } catch (e) {}
                     });
@@ -1913,14 +2023,15 @@ class WebServer(private val plugin: Endex) {
                                 if (this.selectedItem) {
                                     this.loadHistory(this.selectedItem.material, true);
                                 }
+                                // Refresh crypto ticker alongside WS item tick
+                                this.refreshCryptoTicker();
                             }
                         } catch(_) {}
                     };
                     this.ws.onclose = () => {
                         // fallback to SSE or polling
                         this.ws = null;
-                        if (this.sseEnabled) this.startSse();
-                        else { this.startPolling(); }
+                        if (this.sseEnabled) this.startSse(); else { this.startPolling(); }
                     };
                     this.ws.onerror = () => { try { this.ws.close(); } catch(_) {} };
                 } catch(_) {
@@ -1949,77 +2060,97 @@ class WebServer(private val plugin: Endex) {
                 const search = document.getElementById('search-input').value.toLowerCase();
                 const favOnly = document.getElementById('favorites-only').checked;
                 const groupBy = document.getElementById('group-by-category')?.checked || false;
+                const catSel = document.getElementById('filter-category');
+                const minP = parseFloat(document.getElementById('filter-min-price')?.value || '');
+                const maxP = parseFloat(document.getElementById('filter-max-price')?.value || '');
+                const trend = (document.getElementById('filter-trend')?.value || 'any');
+                const sortBy = (document.getElementById('sort-by')?.value || 'name');
+                const sortDesc = !!document.getElementById('sort-desc')?.checked;
 
                 // Filter
-                let filteredItems = this.items.filter(item => 
+                let filteredItems = this.items.filter(item =>
                     item.displayName.toLowerCase().includes(search) ||
                     item.material.toLowerCase().includes(search)
                 ).filter(item => !favOnly || this.watchlist.has(item.material));
 
-                if (filteredItems.length === 0) {
+                // Category filter
+                const category = (catSel && catSel.value) ? catSel.value : 'ALL';
+                if (category !== 'ALL') filteredItems = filteredItems.filter(i => (i.category || 'Other') === category);
+                // Price range
+                if (!isNaN(minP)) filteredItems = filteredItems.filter(i => (i.effectivePrice || 0) >= minP);
+                if (!isNaN(maxP)) filteredItems = filteredItems.filter(i => (i.effectivePrice || 0) <= maxP);
+                // Trend filter
+                filteredItems = filteredItems.filter(i => {
+                    const ch = (i.basePrice > 0) ? ((i.effectivePrice - i.basePrice) / i.basePrice * 100) : 0;
+                    if (trend === 'up') return ch > 0; if (trend === 'down') return ch < 0; return true;
+                });
+
+                if (!filteredItems || filteredItems.length === 0) {
                     container.innerHTML = '<div class="loading">No items match your search</div>';
                     return;
                 }
 
-                // Sort items A–Z by displayName (stable)
-                filteredItems = filteredItems.slice().sort((a,b) => a.displayName.localeCompare(b.displayName));
-
-                // Render
-                if (!groupBy) {
-                    container.innerHTML = filteredItems.map(item => this.renderItemCard(item)).join('');
-                    // re-apply selection highlight if any
-                    if (this.selectedItem) {
-                        const sel = container.querySelector(`[data-material="${'$'}{this.selectedItem.material}"]`);
-                        if (sel) sel.classList.add('selected');
+                // Sort
+                filteredItems = filteredItems.slice().sort((a, b) => {
+                    if (sortBy === 'name') return a.displayName.localeCompare(b.displayName);
+                    if (sortBy === 'price') return (a.effectivePrice - b.effectivePrice);
+                    if (sortBy === 'change') {
+                        const ca = (a.basePrice>0)?((a.effectivePrice-a.basePrice)/a.basePrice*100):0;
+                        const cb = (b.basePrice>0)?((b.effectivePrice-b.basePrice)/b.basePrice*100):0;
+                        return ca - cb;
                     }
-                    return;
-                }
+                    if (sortBy === 'volume') return (a.volume||0) - (b.volume||0);
+                    return 0;
+                });
+                if (sortDesc) filteredItems.reverse();
 
-                // Group by category, sort categories A–Z
-                const groups = new Map();
-                for (const it of filteredItems) {
-                    const cat = it.category || 'Misc';
-                    if (!groups.has(cat)) groups.set(cat, []);
-                    groups.get(cat).push(it);
-                }
-                const cats = Array.from(groups.keys()).sort((a,b) => a.localeCompare(b));
-                const html = [];
-                for (const cat of cats) {
-                    html.push(`<div class="category-header">${'$'}{cat}</div>`);
-                    const itemsHtml = groups.get(cat).map(i => this.renderItemCard(i)).join('');
-                    html.push(itemsHtml);
-                }
-                container.innerHTML = html.join('');
-                if (this.selectedItem) {
-                    const sel = container.querySelector(`[data-material="${'$'}{this.selectedItem.material}"]`);
-                    if (sel) sel.classList.add('selected');
-                }
-            }
-
-            renderItemCard(item) {
-                const priceChange = ((item.effectivePrice - item.basePrice) / item.basePrice * 100);
-                const changeClass = priceChange > 0 ? 'positive' : priceChange < 0 ? 'negative' : 'neutral';
-                const changeSymbol = priceChange > 0 ? '▲' : priceChange < 0 ? '▼' : '●';
-                const initials = item.displayName.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
-                const starred = this.watchlist.has(item.material);
-                const iconHtml = this.iconsEnabled
-                    ? `<img class=\"item-icon-img\" src=\"/icon/${'$'}{item.material}\" onerror=\"this.outerHTML='<div class\\'item-icon\\'>${'$'}{initials}</div>'\"/>`
-                    : `<div class=\"item-icon\">${'$'}{initials}</div>`;
-                return `
-                    <div class="item-card" data-material="${'$'}{item.material}">
-                        <div class="fav-star ${'$'}{starred ? 'filled' : ''}" data-star="${'$'}{item.material}">${'$'}{starred ? '★' : '☆'}</div>
-                        <div class="item-header">
-                            ${'$'}{iconHtml}
-                            <div>
-                                <div class="item-name">${'$'}{item.displayName}</div>
-                                <div class="item-price">${'$'}${'$'}{item.effectivePrice.toFixed(2)}</div>
+                const renderCard = (item) => {
+                    const priceChange = ((item.effectivePrice - item.basePrice) / item.basePrice * 100);
+                    const changeClass = priceChange > 0 ? 'positive' : priceChange < 0 ? 'negative' : 'neutral';
+                    const changeSymbol = priceChange > 0 ? '▲' : priceChange < 0 ? '▼' : '●';
+                    const initials = item.displayName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+                    const starred = this.watchlist.has(item.material);
+                    const iconHtml = this.iconsEnabled
+                        ? `<img class="item-icon-img" src="/icon/${'$'}{item.material}" onerror="this.outerHTML='<div class\\'item-icon\\'>${'$'}{initials}</div>'"/>`
+                        : `<div class="item-icon">${'$'}{initials}</div>`;
+                    const isSelected = this.selectedItem && this.selectedItem.material === item.material;
+                    return `
+                        <div class="item-card ${'$'}{isSelected ? 'selected' : ''}" data-material="${'$'}{item.material}">
+                            <div class="fav-star ${'$'}{starred ? 'filled' : ''}" data-star="${'$'}{item.material}">${'$'}{starred ? '★' : '☆'}</div>
+                            <div class="item-header">
+                                ${'$'}{iconHtml}
+                                <div>
+                                    <div class="item-name">${'$'}{item.displayName}</div>
+                                    <div class="item-price">${'$'}${'$'}{item.effectivePrice.toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <div class="item-change ${'$'}{changeClass}">
+                                ${'$'}{changeSymbol} ${'$'}{Math.abs(priceChange).toFixed(1)}%
                             </div>
                         </div>
-                        <div class="item-change ${'$'}{changeClass}">
-                            ${'$'}{changeSymbol} ${'$'}{Math.abs(priceChange).toFixed(1)}%
-                        </div>
-                    </div>
-                `;
+                    `;
+                };
+
+                if (groupBy) {
+                    const groups = new Map();
+                    filteredItems.forEach(it => {
+                        const cat = it.category || 'Other';
+                        if (!groups.has(cat)) groups.set(cat, []);
+                        groups.get(cat).push(it);
+                    });
+                    const categories = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
+                    container.innerHTML = categories.map(cat => {
+                        const itemsHtml = groups.get(cat).map(renderCard).join('');
+                        return `
+                            <div class="category-section">
+                                <div class="category-header">${'$'}{cat}</div>
+                                <div class="category-items">${'$'}{itemsHtml}</div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    container.innerHTML = filteredItems.map(renderCard).join('');
+                }
             }
             
             setupEventListeners() {
@@ -2051,31 +2182,39 @@ class WebServer(private val plugin: Endex) {
                 
                 // Favorites-only toggle
                 document.getElementById('favorites-only').addEventListener('change', () => this.renderItems());
-                // Tabs logic
-                const tabNormal = document.getElementById('tab-normal');
-                const tabAddons = document.getElementById('tab-addons');
-                const addonsSub = document.getElementById('addons-subnav');
-                if (tabNormal && tabAddons && addonsSub) {
-                    tabNormal.addEventListener('click', () => {
-                        if (this.currentTab === 'normal') return;
-                        this.currentTab = 'normal';
-                        tabNormal.classList.add('active');
-                        tabAddons.classList.remove('active');
-                        addonsSub.style.display = 'none';
-                        this.renderItems();
-                    });
-                    tabAddons.addEventListener('click', async () => {
-                        if (this.currentTab === 'addons') return;
-                        this.currentTab = 'addons';
-                        tabAddons.classList.add('active');
-                        tabNormal.classList.remove('active');
-                        addonsSub.style.display = 'flex';
-                        await this.loadAddons();
-                        this.renderAddonsSubnav();
-                        const c = document.getElementById('items-container');
-                        c.innerHTML = '<div class="loading">Select an addon from above</div>';
+                // Filters toggle
+                const filtersBtn = document.getElementById('toggle-filters');
+                const filtersRow = document.getElementById('filters-row');
+                try {
+                    const open = localStorage.getItem('endex.filters.open') === '1';
+                    if (open) { filtersRow.style.display = 'grid'; filtersBtn.classList.add('active'); filtersBtn.textContent = 'Filters ▾'; }
+                } catch(_) {}
+                if (filtersBtn && filtersRow) {
+                    filtersBtn.addEventListener('click', () => {
+                        const showing = filtersRow.style.display !== 'none';
+                        if (showing) {
+                            filtersRow.style.display = 'none';
+                            filtersBtn.classList.remove('active');
+                            filtersBtn.textContent = 'Filters ▸';
+                            try { localStorage.setItem('endex.filters.open', '0'); } catch(_) {}
+                        } else {
+                            filtersRow.style.display = 'grid';
+                            filtersBtn.classList.add('active');
+                            filtersBtn.textContent = 'Filters ▾';
+                            try { localStorage.setItem('endex.filters.open', '1'); } catch(_) {}
+                        }
                     });
                 }
+                // Populate filters & wire change handlers
+                this.populateCategories();
+                const refilter = () => this.renderItems();
+                const ids = ['filter-category','filter-min-price','filter-max-price','filter-trend','sort-by','sort-desc'];
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.addEventListener('change', refilter);
+                    if (id.includes('price')) el.addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(refilter, 300); });
+                });
                 // Grouping toggle
                 const gbc = document.getElementById('group-by-category');
                 if (gbc) {
@@ -2329,7 +2468,9 @@ class WebServer(private val plugin: Endex) {
                 if (!this.selectedItem) return;
                 
                 const quantityInput = document.getElementById(`${'$'}{type}-quantity`);
-                const amount = parseInt(quantityInput?.value || '0');
+                const amount = this.selectedItem.material === 'CRYPTO'
+                    ? parseFloat(quantityInput?.value || '0')
+                    : parseInt(quantityInput?.value || '0');
                 
                 if (!amount || amount <= 0) {
                     this.showNotification('Please enter a valid quantity', 'error');
@@ -2342,13 +2483,15 @@ class WebServer(private val plugin: Endex) {
                 button.textContent = 'Processing...';
                 
                 try {
-                    const response = await fetch(`/api/${'$'}{type}?session=${'$'}{this.sessionToken}`, {
+                    const isCrypto = this.selectedItem.material === 'CRYPTO';
+                    const endpoint = isCrypto ? `/api/crypto/${'$'}{type}` : `/api/${'$'}{type}`;
+                    const body = isCrypto
+                        ? JSON.stringify({ amount: amount })
+                        : JSON.stringify({ material: this.selectedItem.material, amount: amount });
+                    const response = await fetch(`${'$'}{endpoint}?session=${'$'}{this.sessionToken}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-Endex-UI': '1' },
-                        body: JSON.stringify({
-                            material: this.selectedItem.material,
-                            amount: amount
-                        })
+                        body
                     });
                     
                     const data = await response.json();
@@ -2385,12 +2528,21 @@ class WebServer(private val plugin: Endex) {
             async loadHoldings() {
                 try {
                     const ep = this.invHoldingsEnabled ? '/api/holdings/combined' : '/api/holdings';
-                    const r = await fetch(`${'$'}{ep}?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
+                    const [r, rc] = await Promise.all([
+                        fetch(`${'$'}{ep}?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } }),
+                        fetch(`/api/crypto/holdings?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } })
+                    ]);
                     const list = await r.json();
-                    if (Array.isArray(list)) {
+                    const crypto = rc.ok ? await rc.json() : [];
+                    const combined = Array.isArray(list) ? list.slice() : [];
+                    if (Array.isArray(crypto) && crypto.length > 0) {
+                        // Represent crypto as a pseudo-item row
+                        combined.push({ material: 'CRYPTO', quantity: parseFloat(crypto[0].balance || '0'), avgCost: 0, currentPrice: parseFloat((window.cryptoHistoryData?.slice(-1)[0]?.price) || '0') });
+                    }
+                    if (Array.isArray(combined)) {
                         this.holdings = new Map();
-                        list.forEach(row => this.holdings.set(row.material, { quantity: row.quantity, avgCost: row.avgCost, currentPrice: row.currentPrice }));
-                        this.renderHoldings(list);
+                        combined.forEach(row => this.holdings.set(row.material, { quantity: row.quantity, avgCost: row.avgCost, currentPrice: row.currentPrice }));
+                        this.renderHoldings(combined);
                     }
                 } catch(_) {}
             }
@@ -2417,9 +2569,18 @@ class WebServer(private val plugin: Endex) {
 
             async loadReceipts() {
                 try {
-                    const r = await fetch(`/api/receipts?session=${'$'}{this.sessionToken}&limit=50`, { headers: { 'X-Endex-UI': '1' } });
-                    const list = await r.json();
-                    if (Array.isArray(list)) this.renderReceipts(list);
+                    const [r1, r2] = await Promise.all([
+                        fetch(`/api/receipts?session=${'$'}{this.sessionToken}&limit=50`, { headers: { 'X-Endex-UI': '1' } }),
+                        fetch(`/api/crypto/receipts?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } })
+                    ]);
+                    const list = await r1.json();
+                    const clist = r2.ok ? await r2.json() : [];
+                    const merged = Array.isArray(list) ? list.slice() : [];
+                    if (Array.isArray(clist) && clist.length > 0) {
+                        // show raw entries for crypto audit lines at top
+                        clist.slice(-10).forEach(e => merged.unshift({ time: Math.floor(Date.now()/1000), material: 'CRYPTO', type: 'INFO', amount: 0, unitPrice: 0, total: 0, raw: e.entry }));
+                    }
+                    if (Array.isArray(merged)) this.renderReceipts(merged);
                 } catch(_) {}
             }
 

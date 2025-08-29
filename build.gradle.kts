@@ -84,6 +84,9 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
 // After building, copy jar into local test server plugins folder, overwriting existing jar
 val copyToTestServer by tasks.registering(Copy::class) {
     dependsOn(tasks.named("shadowJar"))
+    // Prevent Gradle from scanning destination dir (plugins/) which may contain
+    // transient/unreadable files (e.g., SQLite -journal). See Gradle 8 docs.
+    doNotTrackState("Destination contains runtime-generated files (e.g., market.db-journal)")
     val jarFile = tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar").flatMap { it.archiveFile }
     from(jarFile)
     into(layout.projectDirectory.dir("MCTestServer/plugins"))
@@ -125,4 +128,35 @@ val copySpigotToRelease by tasks.registering(Copy::class) {
 
 tasks.build {
     finalizedBy(copySpigotToRelease)
+}
+
+// Copy Crypto addon jar to the test server's plugin data folder (TheEndex/addons)
+val copyCryptoToTestServer by tasks.registering(Copy::class) {
+    // Ensure crypto addon jar is built
+    dependsOn(project(":addons:crypto").tasks.named("jar"))
+    // Same as above: avoid scanning plugin data folder which can have transient files
+    doNotTrackState("Destination contains runtime-generated files (plugin data)")
+    // Grab the produced jar from the crypto addon subproject
+    val cryptoJar = project(":addons:crypto").tasks.named<org.gradle.jvm.tasks.Jar>("jar").flatMap { it.archiveFile }
+    from(cryptoJar)
+    into(layout.projectDirectory.dir("MCTestServer/plugins/TheEndex/addons"))
+}
+
+// Copy Crypto addon jar to release/TheEndex/addons for distribution
+val copyCryptoToRelease by tasks.registering(Copy::class) {
+    dependsOn(project(":addons:crypto").tasks.named("jar"))
+    val cryptoJar = project(":addons:crypto").tasks.named<org.gradle.jvm.tasks.Jar>("jar").flatMap { it.archiveFile }
+    from(cryptoJar)
+    into(layout.projectDirectory.dir("release/TheEndex/addons"))
+}
+
+tasks.build {
+    finalizedBy(copyCryptoToTestServer)
+    finalizedBy(copyCryptoToRelease)
+}
+
+// Convenience task to distribute only addon jars without building the main plugin
+tasks.register("distributeAddons") {
+    dependsOn(copyCryptoToTestServer)
+    dependsOn(copyCryptoToRelease)
 }

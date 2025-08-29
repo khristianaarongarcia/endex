@@ -69,4 +69,6 @@ class AddonManager(private val plugin: Endex) {
         for (cl in classLoaders) runCatching { cl.close() }
         classLoaders.clear()
     }
+
+    fun loadedAddonNames(): List<String> = loadedAddons.values.map { runCatching { it.name() }.getOrDefault("addon") }
 }
