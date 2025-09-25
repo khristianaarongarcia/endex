@@ -2,6 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/addons/crypto/endex.addons.crypto.main.iml" filepath="$PROJECT_DIR$/.idea/modules/addons/crypto/endex.addons.crypto.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/addons/sample-addon/endex.addons.sample-addon.main.iml" filepath="$PROJECT_DIR$/.idea/modules/addons/sample-addon/endex.addons.sample-addon.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/endex.main.iml" filepath="$PROJECT_DIR$/.idea/modules/endex.main.iml" />
     </modules>
   </component>

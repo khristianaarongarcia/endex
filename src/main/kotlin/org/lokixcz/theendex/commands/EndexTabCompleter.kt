@@ -6,7 +6,7 @@ import org.bukkit.command.TabCompleter
 import org.bukkit.command.PluginCommand
 
 class EndexTabCompleter : TabCompleter {
-    private val base = listOf("help", "market")
+    private val base = listOf("help", "market", "webui")
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): MutableList<String> {
         val addonSubs = try {
             val pc = command as? PluginCommand
@@ -22,6 +22,7 @@ class EndexTabCompleter : TabCompleter {
         
         if (sender.hasPermission("theendex.admin")) {
             commands.add("reload")
+            // webui already in base; keep for clarity
         }
         
         if (sender.hasPermission("theendex.web")) {
@@ -34,6 +35,9 @@ class EndexTabCompleter : TabCompleter {
             else -> {
                 // Delegate to addon completer if the first arg is a registered addon subcommand
                 val first = args[0].lowercase()
+                if (first == "webui" && args.size == 2 && sender.hasPermission("theendex.admin")) {
+                    return listOf("export", "reload").filter { it.startsWith(args[1], true) }.toMutableList()
+                }
                 return try {
                     val pc = command as? PluginCommand
                     val endex = pc?.plugin as? org.lokixcz.theendex.Endex

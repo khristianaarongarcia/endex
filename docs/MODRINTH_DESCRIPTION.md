@@ -4,13 +4,12 @@
 
 Bring a living economy to your server. Prices move with player demand and supply, with a slick Market GUI, timed events, optional web dashboard, and an addon framework.
 
-## New in 1.1.0
-- Web UI item icons loaded from your resource pack (`/icon/{material}`) with smart fallbacks and caching
-- Addons tab in the web UI (+ `/api/addons`)
-- Developer HTTP API reference: `docs/API.md` (endpoints, auth, SSE/WS)
-- Improved logs and ETag behavior; fewer icon 404s across packs
-- Inventory-aware pricing (optional) with smoothing and impact caps
-- Web Combined Holdings (Invest + Inv) and admin holdings endpoint `{uuid}`
+## New in 1.2.0
+- Customizable Web UI override (`web.custom.*`): export & edit `index.html` and static assets.
+- Unified single-page market view with advanced filters (category, trend, price bounds, sorting, collapsible panel).
+- Removed legacy Addons tab (addon content can appear as items or via custom routes).
+- Stability & performance improvements to live updates and layout.
+- Previous 1.1.x features retained: resource-pack icons, Combined Holdings, inventory-aware pricing.
 
 ### Dynamic Pricing
 Prices respond to demand/supply with clamping and rolling history. Optional inventory‑aware pricing gently adapts to how many items players hold online (baseline and caps configurable).
@@ -56,6 +55,7 @@ The Endex introduces a dynamic, demand-driven market to your server. Prices reac
 - Crypto Addon (optional): YAML-driven shop, per-item permissions, fixed/market pricing with mean reversion, `/endex crypto info`.
 - Resource tracking: track gathered materials (block breaks, mob drops, fishing), periodic persistence, and `/endex track dump`.
 - Web dashboard (optional): WS/SSE live updates, real item icons from your resource pack, and Combined Holdings showing Invest (DB) plus Inv (live inventory) with badges.
+ - Customizable Web UI override: enable filesystem override of `index.html` & static assets via `web.custom.*` with export & reload admin commands; unified single-page market (legacy Addons tab removed).
 
 ## Gameplay Mechanics
 - Periodic price updates use a sensitivity-based formula reflecting recent demand and supply; optional inventory pressure compares average per-player stock to a configurable baseline.

@@ -99,17 +99,19 @@ Last‑cycle demand/supply persist (no more 0% on idle cycles).
 [B]API & Addons[/B]
 Public API service for other plugins: org.lokixcz.theendex.api.EndexAPI
 Addon loader with command routing and aliasing
+Customizable Web UI override (`web.custom.*`) – export default `index.html` and modify; unified market view (legacy Addons tab removed)
 
 [B]Support[/B]
-Issues: https://github.com/khristianaarongarcia/endex/issues
 [URL='https://discord.gg/vS8xsvWaSU']Join our Discord[/URL]
 
 [B]Changelog[/B]
-Latest highlights:
-- Inventory‑aware pricing (optional) with smoothing & per‑cycle impact caps
-- Web Combined Holdings with [Inv]/[Invest] badges; admin holdings view endpoint
-- Web icons improvements, WS live updates, rate‑limit polish
-See docs/changelogs.md for full notes.
+New in 1.2.0:
+- Customizable Web UI override (`web.custom.*`) – export default assets then edit `index.html`, CSS, JS; `/endex webui export|reload` admin commands.
+- Unified single‑page market view (legacy separate Addons tab removed) with improved filters & layout stability.
+- Performance & live update polish (layout reflow reductions, caching tweaks, rate‑limit refinements).
+- Minor icon & holdings panel improvements.
+Retained from 1.1.x: inventory‑aware pricing, Combined Holdings badges, resource‑pack item icons.
+See docs/changelogs.md for full release notes.
 
 [CENTER][URL='https://discord.gg/vS8xsvWaSU'][IMG]https://i.postimg.cc/5tz22qFS/discord-icon-png-0-1.jpg[/IMG][/URL]
 Join our Discord![/CENTER]

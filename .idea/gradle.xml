@@ -8,6 +8,9 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/addons" />
+            <option value="$PROJECT_DIR$/addons/crypto" />
+            <option value="$PROJECT_DIR$/addons/sample-addon" />
           </set>
         </option>
       </GradleProjectSettings>

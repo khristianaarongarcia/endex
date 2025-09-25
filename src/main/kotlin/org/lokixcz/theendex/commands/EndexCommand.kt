@@ -31,6 +31,8 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 base.forEach { sender.sendMessage(it) }
                 if (sender.hasPermission("theendex.admin")) {
                     sender.sendMessage("${ChatColor.AQUA}/endex reload${ChatColor.GRAY} — Reload configs and market data")
+                    sender.sendMessage("${ChatColor.AQUA}/endex webui export${ChatColor.GRAY} — Export (overwrite) embedded web UI to custom folder")
+                    sender.sendMessage("${ChatColor.AQUA}/endex webui reload${ChatColor.GRAY} — Force next load to re-read custom index.html")
                     sender.sendMessage("${ChatColor.AQUA}/market event [list|<name>|end <name>|clear]${ChatColor.GRAY} — Manage events")
                 }
                 if (sender.hasPermission("theendex.web")) {
@@ -64,6 +66,50 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 }
                 plugin.reloadEndex(sender)
                 return true
+            }
+
+            "webui" -> {
+                if (!sender.hasPermission("theendex.admin")) {
+                    sender.sendMessage("${ChatColor.RED}No permission.")
+                    return true
+                }
+                val sub = args.getOrNull(1)?.lowercase()
+                val webServer = plugin.getWebServer()
+                if (webServer == null) {
+                    sender.sendMessage("${ChatColor.RED}Web server not available.")
+                    return true
+                }
+                when (sub) {
+                    "export" -> {
+                        try {
+                            val m = webServer.javaClass.getDeclaredMethod("exportDefaultWebUi", Boolean::class.javaPrimitiveType)
+                            m.isAccessible = true
+                            m.invoke(webServer, true)
+                            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.GREEN}Exported embedded UI to custom folder (force overwrite).")
+                        } catch (t: Throwable) {
+                            sender.sendMessage("${ChatColor.RED}Failed: ${t.message}")
+                        }
+                        return true
+                    }
+                    "reload" -> {
+                        try {
+                            val f = webServer.javaClass.getDeclaredField("customReload"); f.isAccessible = true
+                            val current = f.getBoolean(webServer)
+                            f.setBoolean(webServer, true)
+                            // Force re-read of index next request by clearing cache
+                            val cField = webServer.javaClass.getDeclaredField("cachedCustomIndex"); cField.isAccessible = true; cField.set(webServer, null)
+                            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Custom web UI will be reloaded on next page load (temporary override; config controls persistence). Previous reload=$current")
+                        } catch (t: Throwable) {
+                            sender.sendMessage("${ChatColor.RED}Failed: ${t.message}")
+                        }
+                        return true
+                    }
+                    else -> {
+                        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}/endex webui export ${ChatColor.GRAY}- Export (overwrite) embedded UI to custom root")
+                        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}/endex webui reload ${ChatColor.GRAY}- Force next request to reload custom index.html")
+                        return true
+                    }
+                }
             }
             
             "track" -> {

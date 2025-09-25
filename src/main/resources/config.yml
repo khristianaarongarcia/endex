@@ -140,6 +140,13 @@ web:
   # Addons list for the web UI Addons tab (purely display/navigation for now)
   addons: []
 
+  # Custom Web UI override (advanced)
+  custom:
+    enabled: false           # When true, serve files from plugins/TheEndex/webui instead of embedded UI
+    root: webui               # Relative folder (inside plugin data folder) containing custom index.html
+    reload: false             # When true, do not cache index.html (re-read each request for rapid iteration)
+    export-default: true      # On startup, if enabled and index.html missing, export the built-in UI as a starting point
+
   # Inventory snapshot settings for web holdings (online-only; lightweight and cached)
   holdings:
     inventory:

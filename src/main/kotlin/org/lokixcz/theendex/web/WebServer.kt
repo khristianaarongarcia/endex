@@ -32,6 +32,13 @@ class WebServer(private val plugin: Endex) {
     // Icons support (resource pack extraction and serving)
     private var iconsEnabled: Boolean = false
     private var texturesRoot: File? = null
+    // Custom Web UI override support
+    private var customEnabled: Boolean = false
+    private var customRootDir: File? = null
+    private var customReload: Boolean = false
+    private var customExportDefault: Boolean = false
+    @Volatile private var cachedCustomIndex: String? = null
+    @Volatile private var cachedCustomIndexMtime: Long = 0L
     // rate limiting
     private val rateWindowSeconds by lazy { runCatching { plugin.config.getInt("web.rate-limit.per-seconds", 10) }.getOrDefault(10) }
     private val rateMaxRequests by lazy { runCatching { plugin.config.getInt("web.rate-limit.requests", 120) }.getOrDefault(120) }
@@ -56,12 +63,38 @@ class WebServer(private val plugin: Endex) {
     fun start(port: Int = 3434) {
         try {
             val host = runCatching { plugin.config.getString("web.host", "127.0.0.1") }.getOrDefault("127.0.0.1") ?: "127.0.0.1"
+            // Load custom UI settings before creating Javalin (needed for static files)
+            customEnabled = runCatching { plugin.config.getBoolean("web.custom.enabled", false) }.getOrDefault(false)
+            val customRootName = runCatching { plugin.config.getString("web.custom.root", "webui") }.getOrDefault("webui") ?: "webui"
+            customReload = runCatching { plugin.config.getBoolean("web.custom.reload", false) }.getOrDefault(false)
+            customExportDefault = runCatching { plugin.config.getBoolean("web.custom.export-default", true) }.getOrDefault(true)
+            if (customEnabled) {
+                val base = File(plugin.dataFolder, customRootName)
+                if (!base.exists()) base.mkdirs()
+                customRootDir = base
+            }
             app = Javalin.create { config ->
                 config.showJavalinBanner = false
+                if (customEnabled) {
+                    // Serve any additional static assets (css/js/images) from custom root
+                    val dir = customRootDir?.absolutePath
+                    if (!dir.isNullOrBlank()) {
+                        config.staticFiles.add { sf ->
+                            sf.directory = dir
+                            sf.location = Location.EXTERNAL
+                            sf.precompress = false
+                        }
+                    }
+                }
             }.start(host, port)
             
             // Prepare resource pack icons (if configured)
             prepareIcons()
+
+            // Export default UI scaffold if requested and missing
+            if (customEnabled && customExportDefault) {
+                exportDefaultWebUi(false)
+            }
             
             setupRoutes()
 
@@ -113,7 +146,8 @@ class WebServer(private val plugin: Endex) {
         app.get("/") { ctx ->
             val sessionToken = ctx.queryParam("session")
             if (sessionToken != null && sessionManager.getSession(sessionToken) != null) {
-                ctx.html(getIndexHtml())
+                val override = loadCustomIndexHtml()
+                if (override != null) ctx.html(override) else ctx.html(getIndexHtml())
             } else {
                 ctx.status(403).html(getUnauthorizedHtml())
             }
@@ -802,6 +836,44 @@ class WebServer(private val plugin: Endex) {
                 entry = zis.nextEntry
             }
         }
+    }
+
+    /**
+     * Export the current embedded UI to customRootDir/index.html if it doesn't already exist
+     * or if force=true. Keeps everything in a single file for simplicity; server owners can later
+     * split into multiple assets and rely on static file serving.
+     */
+    private fun exportDefaultWebUi(force: Boolean) {
+        if (!customEnabled) return
+        val dir = customRootDir ?: return
+        val target = File(dir, "index.html")
+        if (target.exists() && !force) return
+        runCatching {
+            target.parentFile?.mkdirs()
+            target.writeText(getIndexHtml(), Charsets.UTF_8)
+            logger.info("Exported default web UI to ${target.relativeToOrSelf(plugin.dataFolder)}")
+        }.onFailure { logger.warn("Failed exporting default web UI: ${it.message}") }
+    }
+
+    /**
+     * Load custom index.html honoring caching / reload flag. Returns null if custom disabled or file absent.
+     */
+    private fun loadCustomIndexHtml(): String? {
+        if (!customEnabled) return null
+        val file = File(customRootDir, "index.html")
+        if (!file.exists()) return null
+        if (!customReload) {
+            // Cached mode
+            if (cachedCustomIndex != null && file.lastModified() == cachedCustomIndexMtime) {
+                return cachedCustomIndex
+            }
+        }
+        val txt = runCatching { file.readText(Charsets.UTF_8) }.getOrNull() ?: return null
+        if (!customReload) {
+            cachedCustomIndex = txt
+            cachedCustomIndexMtime = file.lastModified()
+        }
+        return txt
     }
 
     private fun validateSession(ctx: Context): WebSession? {

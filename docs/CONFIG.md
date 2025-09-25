@@ -86,6 +86,18 @@ For full event configuration, stacking modes, and admin commands, see `docs/EVEN
 - cache-seconds: 15
   - TTL for per-player inventory snapshots to keep scans lightweight.
 
+### web.custom
+- enabled: false
+  - When true, the plugin will attempt to serve an external `index.html` from `<dataFolder>/<root>/` instead of the embedded UI.
+- root: webui
+  - Folder (relative to plugin data folder) containing `index.html` and any static assets (css/js/images).
+- reload: false
+  - If true, disables caching and re-reads `index.html` on every request (development mode). Set false in production.
+- export-default: true
+  - On startup, if `index.html` is missing and this is true, the embedded UI is exported as a starting point.
+
+See `docs/CUSTOM_WEBUI.md` for detailed customization workflow, commands, and safety notes.
+
 ## Tips
 - To switch to SQLite later, set `storage.sqlite: true` and restart. The plugin will migrate data from YAML if the DB is empty.
 - Use `/market price <material>` to inspect live prices and current event multipliers.

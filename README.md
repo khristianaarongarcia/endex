@@ -37,8 +37,9 @@ Dynamic, demand-driven market for Minecraft (Paper). Supports 1.20.1+ with Vault
 - Storage: YAML by default or SQLite with auto-migration from existing YAML
 - Investments: passive APR-based investment certificates
 - Backups and CSV history export for analysis
-- Addon framework: drop-in jars with subcommands, aliases, and tab completion (see docs/ADDONS.md)
+- Addon framework: drop-in jars with subcommands, aliases, and tab completion (see docs/ADDONS.md) — addon content now integrates directly (no separate Addons tab)
 - Web UI item icons served from a resource pack (configurable via `web.icons.*`)
+- Customizable Web UI override (`web.custom.*`) – export & edit `index.html` and assets
 - Resource tracking: observe gathered resources server-wide; admin `/endex track dump`; API `getTrackedTotals()`
 - Crypto Addon (optional): `/endex crypto ...`, YAML-driven `shop.yml`, per-item permissions, fixed/market pricing, price history CSV
 

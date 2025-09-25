@@ -3,30 +3,38 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+*No unreleased changes at this time.*
+
+## [1.2.0] - 2025-09-25
 ### Added
-- Inventory-aware pricing (optional): price update formula now supports gentle pressure from online players' inventories with per-player baseline, sensitivity, and max per-cycle impact caps. Config: `price-inventory.*`.
-- Inventory Snapshot Service: online-only scans with TTL cache; aggregates per-material totals; optional ender chest inclusion.
-- Web Combined Holdings: new `/api/holdings/combined` endpoint and UI badges to show Invest (database) and Inv (live inventory) quantities together.
-- Admin holdings view: `/api/holdings/{uuid}` (requires `web.roles.admin-view-permission`).
-- Inventory totals API: `/api/inventory-totals` exposes online per-material totals when enabled.
-- `GET /api/session` now reports `invHoldingsEnabled` so the web UI can switch to combined mode.
-- Config: `web.roles.*` (trader/admin) and `web.holdings.inventory.*` (enable, include-enderchest, cache-seconds).
+- Custom Web UI override (`web.custom.*`): external `index.html` & static assets, auto-export starter file, optional reload bypass.
+- Admin commands: `/endex webui export`, `/endex webui reload` for managing exported UI.
+- Unified web market view with advanced filters (category, price bounds, trend, sort fields & direction) and collapsible persistent filter panel.
+- Category auto-population & improved watchlist/group toggles.
 
 ### Changed
-- Pricing model blends trade demand/supply delta with inventory pressure; retains EMA smoothing and per-item clamps.
-- Web holdings view renders combined quantities with [Inv]/[Invest] badges and clarifies that PnL is based on invested quantity.
-- Documentation updated: Spigot and Modrinth descriptions aligned; config and API docs expanded.
+- Removed legacy Addons tab and `/api/addons` usage; addons now integrate as items or custom routes.
+- Simplified live update flow (single item stream via WS/SSE/polling).
+- Refactored layout (two-row search + filters) for clarity and responsiveness.
+- Copy tasks marked untracked to prevent Gradle state errors with transient DB journal files.
 
 ### Fixed
-- Javalin path parameter syntax updated to `{uuid}` (was `:uuid`) in web routes.
-- Kotlin nullability around permission strings in web layer.
+- UI tab reversion issue resolved by removing tab abstraction.
+- Async misuse (`await` in sync render) eliminated; stabilized frontend rendering.
+- Ensured Vault economy deductions occur on main thread; corrected SELL handling logic.
 
-### Changed
-- Spigot/Modrinth descriptions updated to highlight addons, Crypto Addon, and resource tracking.
-- Documentation expanded: Developers API, Addons guide, Commands, and Config guide.
+### Removed
+- Addons navigation UI and related frontend logic.
+
+### Documentation
+- Added `docs/CUSTOM_WEBUI.md` and updated config with `web.custom.*` keys.
 
 ### Compatibility
-- Tested on Paper 1.20.1 API; expected to run on 1.21.x.
+- Built against Paper API 1.20.1; expected to operate on 1.21.x.
+
+### Upgrade Notes
+- If you relied on Addons tab navigation, migrate to item-based representation or custom web routes.
+- Enable `web.custom.enabled` to customize UI; restart to export default scaffold.
 
 ## [1.0.0] - 2025-08-28
 Initial release
