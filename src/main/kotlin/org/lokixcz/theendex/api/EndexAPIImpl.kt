@@ -45,11 +45,5 @@ class EndexAPIImpl(private val plugin: Endex) : EndexAPI {
         )
     }
 
-    override fun getTrackedTotals(): Map<Material, Long> {
-        return try {
-            val f = plugin.javaClass.getDeclaredField("resourceTracker"); f.isAccessible = true
-            val rt = f.get(plugin) as? org.lokixcz.theendex.tracking.ResourceTracker
-            rt?.snapshot() ?: emptyMap()
-        } catch (_: Throwable) { emptyMap() }
-    }
+    override fun getTrackedTotals(): Map<Material, Long> = plugin.getResourceTracker()?.snapshot() ?: emptyMap()
 }

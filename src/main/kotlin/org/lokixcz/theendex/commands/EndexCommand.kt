@@ -81,27 +81,13 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 }
                 when (sub) {
                     "export" -> {
-                        try {
-                            val m = webServer.javaClass.getDeclaredMethod("exportDefaultWebUi", Boolean::class.javaPrimitiveType)
-                            m.isAccessible = true
-                            m.invoke(webServer, true)
-                            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.GREEN}Exported embedded UI to custom folder (force overwrite).")
-                        } catch (t: Throwable) {
-                            sender.sendMessage("${ChatColor.RED}Failed: ${t.message}")
-                        }
+                        webServer.forceExportDefaultUiOverwrite()
+                        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.GREEN}Exported embedded UI to custom folder (force overwrite).")
                         return true
                     }
                     "reload" -> {
-                        try {
-                            val f = webServer.javaClass.getDeclaredField("customReload"); f.isAccessible = true
-                            val current = f.getBoolean(webServer)
-                            f.setBoolean(webServer, true)
-                            // Force re-read of index next request by clearing cache
-                            val cField = webServer.javaClass.getDeclaredField("cachedCustomIndex"); cField.isAccessible = true; cField.set(webServer, null)
-                            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Custom web UI will be reloaded on next page load (temporary override; config controls persistence). Previous reload=$current")
-                        } catch (t: Throwable) {
-                            sender.sendMessage("${ChatColor.RED}Failed: ${t.message}")
-                        }
+                        webServer.forceReloadCustomIndex()
+                        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Custom web UI cache cleared; next request will re-read index.html.")
                         return true
                     }
                     else -> {
@@ -120,8 +106,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 val sub = args.getOrNull(1)?.lowercase()
                 if (sub == "dump") {
                     try {
-                        val f = plugin.javaClass.getDeclaredField("resourceTracker"); f.isAccessible = true
-                        val rt = f.get(plugin) as? org.lokixcz.theendex.tracking.ResourceTracker
+                        val rt = plugin.getResourceTracker()
                         if (rt == null) {
                             sender.sendMessage("${ChatColor.RED}Resource tracking is disabled.")
                         } else {
@@ -178,11 +163,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
             
             else -> {
                 // Try addon router
-                val routed = try {
-                    val routerField = plugin.javaClass.getDeclaredField("addonCommandRouter"); routerField.isAccessible = true
-                    val router = routerField.get(plugin) as? org.lokixcz.theendex.addon.AddonCommandRouter
-                    router?.dispatch(sender, label, args)
-                } catch (_: Throwable) { null }
+                val routed = plugin.getAddonCommandRouter()?.dispatch(sender, label, args)
                 if (routed == true) return true
                 sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use /endex help")
                 return true

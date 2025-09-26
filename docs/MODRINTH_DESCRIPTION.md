@@ -4,6 +4,13 @@
 
 Bring a living economy to your server. Prices move with player demand and supply, with a slick Market GUI, timed events, optional web dashboard, and an addon framework.
 
+## New in 1.3.0
+- Security hardening: removed reflective field access in favor of explicit services/getters.
+- Web auth improvement: session token migrated to Authorization header; `?session=` stripped from the URL after initial load.
+- Hashed API tokens: add SHA-256 digests under `web.api.token-hashes`; legacy `web.api.tokens` still accepted (deprecation warning when both used).
+- Documentation updates: refreshed SECURITY.md (mitigations marked) and new CHANGELOG.md.
+- Backward compatible; no config keys removed.
+
 ## New in 1.2.0
 - Customizable Web UI override (`web.custom.*`): export & edit `index.html` and static assets.
 - Unified single-page market view with advanced filters (category, trend, price bounds, sorting, collapsible panel).

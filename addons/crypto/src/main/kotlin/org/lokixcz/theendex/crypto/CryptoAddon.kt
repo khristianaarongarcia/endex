@@ -586,8 +586,7 @@ class CryptoAddon : EndexAddon, Listener {
 
         // Register a basic tab completer for crypto
         try {
-            val f = host.javaClass.getDeclaredField("addonCommandRouter"); f.isAccessible = true
-            val router = f.get(host) as? org.lokixcz.theendex.addon.AddonCommandRouter
+            val router = host.getAddonCommandRouter()
             router?.registerCompleter("crypto", AddonTabCompleter { sender, _, args ->
                 val base = listOf("help","info","balance","buy","sell","transfer","shop","admin")
                 return@AddonTabCompleter when (args.size) {

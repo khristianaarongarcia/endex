@@ -11,9 +11,7 @@ class EndexTabCompleter : TabCompleter {
         val addonSubs = try {
             val pc = command as? PluginCommand
             val endex = pc?.plugin as? org.lokixcz.theendex.Endex
-            val routerField = endex?.javaClass?.getDeclaredField("addonCommandRouter"); routerField?.isAccessible = true
-            val router = routerField?.get(endex) as? org.lokixcz.theendex.addon.AddonCommandRouter
-            router?.registeredSubcommands()?.toList() ?: emptyList()
+            endex?.getAddonCommandRouter()?.registeredSubcommands()?.toList() ?: emptyList()
         } catch (_: Throwable) { emptyList() }
         
         // Build command list based on permissions
@@ -41,8 +39,7 @@ class EndexTabCompleter : TabCompleter {
                 return try {
                     val pc = command as? PluginCommand
                     val endex = pc?.plugin as? org.lokixcz.theendex.Endex
-                    val routerField = endex?.javaClass?.getDeclaredField("addonCommandRouter"); routerField?.isAccessible = true
-                    val router = routerField?.get(endex) as? org.lokixcz.theendex.addon.AddonCommandRouter
+                    val router = endex?.getAddonCommandRouter()
                     if (router != null && router.registeredSubcommands().contains(first)) {
                         (router.complete(sender, first, args.copyOfRange(1, args.size)) ?: emptyList()).toMutableList()
                     } else mutableListOf()

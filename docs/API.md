@@ -4,8 +4,13 @@ Base URL: `http://<host>:<port>` (defaults: 127.0.0.1:3434)
 
 Auth:
 - Provide `?session=TOKEN` from an in-game generated link, or
-- Provide `Authorization: Bearer <TOKEN>` (read-only tokens via `web.api.tokens`), or
-- Provide `?token=TOKEN` (read-only)
+- Provide `Authorization: Bearer <TOKEN>` (read-only tokens via `web.api.tokens` or hashed `web.api.token-hashes`), or
+- Provide `?token=TOKEN` (read-only; legacy pattern, same validation rules)
+
+Hashed API tokens:
+- Configure SHA-256 hex digests under `web.api.token-hashes` (64 char lowercase hex).
+- Example (Linux shell): `echo -n "mytoken123" | sha256sum` -> place the first field in the list.
+- When any hashes are present, plain tokens in `web.api.tokens` are still accepted (backward compat) but a warning is logged; remove them after migrating.
 
 Rate limiting:
 - Configurable per-session. The built-in UI sets `X-Endex-UI: 1` and can be exempted by config.
@@ -151,7 +156,8 @@ web:
     source: "" # zip, folder, or URL; blank reuses extracted pack
   addons: []
   api:
-    tokens: [] # read-only bearer tokens
+    tokens: [] # (legacy / optional) plain read-only bearer tokens
+    token-hashes: [] # preferred: SHA-256 lowercase hex digests of tokens
   holdings:
     inventory:
       enabled: true

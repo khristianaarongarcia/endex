@@ -231,6 +231,11 @@ class Endex : JavaPlugin() {
         return registered
     }
 
+    // --- Explicit accessors to replace reflective field access (security hardening) ---
+    fun getAddonCommandRouter(): org.lokixcz.theendex.addon.AddonCommandRouter? = addonCommandRouter
+    fun getAddonManager(): org.lokixcz.theendex.addon.AddonManager? = addonManager
+    fun getResourceTracker(): org.lokixcz.theendex.tracking.ResourceTracker? = resourceTracker
+
     // Getter for web server
     fun getWebServer(): WebServer? = webServer
     fun getInventorySnapshotService(): org.lokixcz.theendex.tracking.InventorySnapshotService? = inventorySnapshots

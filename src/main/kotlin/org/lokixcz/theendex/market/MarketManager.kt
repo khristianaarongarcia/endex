@@ -26,6 +26,9 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
 
     fun allItems(): Collection<MarketItem> = items.values
 
+    // Explicit accessor to underlying sqlite store (null if YAML mode) – replaces reflective access.
+    fun sqliteStore(): SqliteStore? = db
+
     fun get(material: Material): MarketItem? = items[material]
 
     fun addDemand(material: Material, amount: Double) {

@@ -243,7 +243,7 @@ class WebServer(private val plugin: Endex) {
         app.get("/api/holdings") { ctx ->
             val session = validateSession(ctx) ?: return@get
             if (!checkRateLimit(ctx, session.token)) return@get
-            val db = (plugin.marketManager.javaClass.getDeclaredField("db").apply { isAccessible = true }.get(plugin.marketManager)) as? org.lokixcz.theendex.market.SqliteStore
+            val db = plugin.marketManager.sqliteStore()
             if (db == null) {
                 ctx.json(emptyList<Any>())
                 return@get
@@ -267,7 +267,7 @@ class WebServer(private val plugin: Endex) {
         app.get("/api/holdings/combined") { ctx ->
             val session = validateSession(ctx) ?: return@get
             if (!checkRateLimit(ctx, session.token)) return@get
-            val db = (plugin.marketManager.javaClass.getDeclaredField("db").apply { isAccessible = true }.get(plugin.marketManager)) as? org.lokixcz.theendex.market.SqliteStore
+            val db = plugin.marketManager.sqliteStore()
             val dbMap = if (db != null) db.listHoldings(session.playerUuid.toString()) else emptyMap()
             // Start from DB holdings
             data class Parts(var investQty: Int = 0, var invQty: Int = 0, var avgCost: Double = 0.0)
@@ -309,7 +309,7 @@ class WebServer(private val plugin: Endex) {
             if (player == null || !player.hasPermission(perm)) { ctx.status(403).json(mapOf("error" to "Forbidden")); return@get }
             val targetUuid = runCatching { java.util.UUID.fromString(ctx.pathParam("uuid")!!) }.getOrNull()
             if (targetUuid == null) { ctx.status(400).json(mapOf("error" to "Invalid UUID")); return@get }
-            val db = (plugin.marketManager.javaClass.getDeclaredField("db").apply { isAccessible = true }.get(plugin.marketManager)) as? org.lokixcz.theendex.market.SqliteStore
+            val db = plugin.marketManager.sqliteStore()
             val dbMap = if (db != null) db.listHoldings(targetUuid.toString()) else emptyMap()
             data class Parts(var investQty: Int = 0, var invQty: Int = 0, var avgCost: Double = 0.0)
             val combined = mutableMapOf<org.bukkit.Material, Parts>()
@@ -344,7 +344,7 @@ class WebServer(private val plugin: Endex) {
             val session = validateSession(ctx) ?: return@get
             if (!checkRateLimit(ctx, session.token)) return@get
             val limit = ctx.queryParam("limit")?.toIntOrNull() ?: 50
-            val db = (plugin.marketManager.javaClass.getDeclaredField("db").apply { isAccessible = true }.get(plugin.marketManager)) as? org.lokixcz.theendex.market.SqliteStore
+            val db = plugin.marketManager.sqliteStore()
             if (db == null) { ctx.json(emptyList<Any>()); return@get }
             val list = db.listTrades(session.playerUuid.toString(), limit).map { tr ->
                 mapOf(
@@ -621,7 +621,7 @@ class WebServer(private val plugin: Endex) {
                 <html><head><title>The Endex API Docs</title></head>
                 <body style='font-family:Arial;padding:20px;background:#0f0f23;color:#e8e9ea'>
                 <h1>The Endex API</h1>
-                <p>Authentication: provide <code>?session=TOKEN</code> from in-game link, or an API token via <code>Authorization: Bearer TOKEN</code> or <code>?token=TOKEN</code> (read-only).</p>
+                <p>Authentication: initial in-game link provides <code>?session=TOKEN</code>; the web UI upgrades this to an <code>Authorization: Bearer TOKEN</code> header and strips it from the URL. Legacy <code>?session=</code> remains accepted (incl. WS/SSE). API read-only tokens may use the same header or <code>?token=TOKEN</code>.</p>
                 <ul>
                     <li>GET <code>/api/session</code> — session info, theme/brand, feature flags</li>
                     <li>GET <code>/api/items</code> — current items and prices</li>
@@ -855,6 +855,17 @@ class WebServer(private val plugin: Endex) {
         }.onFailure { logger.warn("Failed exporting default web UI: ${it.message}") }
     }
 
+    // Public wrapper for admin command (avoids reflection)
+    fun forceExportDefaultUiOverwrite() = exportDefaultWebUi(true)
+
+    // Force next load to re-read custom index if present
+    fun forceReloadCustomIndex() {
+        if (!customEnabled) return
+        cachedCustomIndex = null
+        // Temporarily enable reload mode for one cycle if disabled
+        customReload = true
+    }
+
     /**
      * Load custom index.html honoring caching / reload flag. Returns null if custom disabled or file absent.
      */
@@ -877,31 +888,107 @@ class WebServer(private val plugin: Endex) {
     }
 
     private fun validateSession(ctx: Context): WebSession? {
-        // Try player session token
+        // 1. Authorization header (preferred). Accepts player session or API read-only token.
+        ctx.header("Authorization")?.let { auth ->
+            if (auth.startsWith("Bearer ")) {
+                val raw = auth.substring(7).trim()
+                if (raw.isNotBlank()) {
+                    val s = sessionManager.getSession(raw)
+                    if (s != null) return s
+                    if (isConfiguredApiToken(raw)) {
+                        val now = java.time.Instant.now()
+                        return WebSession(
+                            token = raw,
+                            playerUuid = java.util.UUID(0L, 0L),
+                            playerName = "API",
+                            role = "VIEWER",
+                            createdAt = now,
+                            expiresAt = now.plusSeconds(30L * 24L * 3600L)
+                        )
+                    }
+                }
+            }
+        }
+        // 2. Legacy query parameter ?session= (still accepted, used by WS/SSE initial connection)
         ctx.queryParam("session")?.let { t ->
             val s = sessionManager.getSession(t)
             if (s != null) return s
         }
-        // Try API token (read-only)
-        val auth = ctx.header("Authorization")
-        val bearer = if (auth != null && auth.startsWith("Bearer ")) auth.substring(7).trim() else null
-        val token = bearer ?: ctx.queryParam("token")
-        if (!token.isNullOrBlank()) {
-            val allowed = runCatching { plugin.config.getStringList("web.api.tokens") }.getOrDefault(emptyList())
-            if (allowed.contains(token)) {
-                val now = java.time.Instant.now()
-                return WebSession(
-                    token = token,
-                    playerUuid = java.util.UUID(0L, 0L),
-                    playerName = "API",
-                    role = "VIEWER",
-                    createdAt = now,
-                    expiresAt = now.plusSeconds(30L * 24L * 3600L)
-                )
+        // 3. Read-only API token via ?token=
+        ctx.queryParam("token")?.let { token ->
+            if (token.isNotBlank()) {
+                if (isConfiguredApiToken(token)) {
+                    val now = java.time.Instant.now()
+                    return WebSession(
+                        token = token,
+                        playerUuid = java.util.UUID(0L, 0L),
+                        playerName = "API",
+                        role = "VIEWER",
+                        createdAt = now,
+                        expiresAt = now.plusSeconds(30L * 24L * 3600L)
+                    )
+                }
             }
         }
         ctx.status(403).json(mapOf("error" to "Invalid or expired session"))
         return null
+    }
+
+    /**
+     * Returns true if the provided candidate matches a configured API token.
+     * Supports both legacy plain tokens (web.api.tokens) and hashed tokens (web.api.token-hashes).
+     * Hashed tokens must be stored as lowercase hex SHA-256 digests (64 chars).
+     * When at least one hashed token is configured, a warning is emitted if legacy plain tokens are still present.
+     */
+    private fun isConfiguredApiToken(candidate: String): Boolean {
+        if (candidate.isBlank()) return false
+        val plain = runCatching { plugin.config.getStringList("web.api.tokens") }.getOrDefault(emptyList())
+        val hashed = runCatching { plugin.config.getStringList("web.api.token-hashes") }.getOrDefault(emptyList())
+        var match = false
+        if (plain.isNotEmpty()) {
+            // Direct membership test (legacy). This remains for backward compatibility.
+            if (plain.contains(candidate)) match = true
+        }
+        if (hashed.isNotEmpty()) {
+            // Compute SHA-256 of candidate and compare (constant time) to each configured digest.
+            val dig = sha256Hex(candidate)
+            for (h in hashed) {
+                if (h.length == 64 && constantTimeEquals(h.lowercase(), dig)) {
+                    match = true
+                    break
+                }
+            }
+            // If hashed tokens exist but legacy plain array still populated, emit a single deprecation warning once.
+            if (plain.isNotEmpty()) emitLegacyTokenWarningOnce()
+        }
+        return match
+    }
+
+    @Volatile private var legacyTokenWarned: Boolean = false
+    private fun emitLegacyTokenWarningOnce() {
+        if (!legacyTokenWarned) {
+            legacyTokenWarned = true
+            logger.warn("Both web.api.tokens (plain) and web.api.token-hashes are configured. Plain tokens are deprecated; migrate to hashed digests only.")
+        }
+    }
+
+    private fun sha256Hex(input: String): String {
+        return try {
+            val md = java.security.MessageDigest.getInstance("SHA-256")
+            val bytes = md.digest(input.toByteArray(Charsets.UTF_8))
+            val sb = StringBuilder(bytes.size * 2)
+            for (b in bytes) sb.append(String.format("%02x", b))
+            sb.toString()
+        } catch (e: Exception) { "" }
+    }
+
+    private fun constantTimeEquals(a: String, b: String): Boolean {
+        if (a.length != b.length) return false
+        var r = 0
+        for (i in a.indices) {
+            r = r or (a[i].code xor b[i].code)
+        }
+        return r == 0
     }
 
     private fun getIndexHtml(): String = """
@@ -1859,7 +1946,7 @@ class WebServer(private val plugin: Endex) {
             
             async loadSession() {
                 try {
-                    const response = await fetch(`/api/session?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
+                    const response = await fetch(`/api/session`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } });
                     const data = await response.json();
                     if (response.ok) {
                         document.getElementById('player-name').textContent = data.player;
@@ -1911,7 +1998,7 @@ class WebServer(private val plugin: Endex) {
 
             async loadWatchlist() {
                 try {
-                    const r = await fetch(`/api/watchlist?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
+                    const r = await fetch(`/api/watchlist`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } });
                     const list = await r.json();
                     this.watchlist = Array.isArray(list) ? new Set(list) : new Set();
                 } catch(_) {
@@ -1923,7 +2010,7 @@ class WebServer(private val plugin: Endex) {
                 try {
                     // Fetch market items and crypto ticker in parallel; crypto may fail independently
                     const [response, cryptoTicker] = await Promise.all([
-                        fetch(`/api/items?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } }),
+                        fetch(`/api/items`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } }),
                         this.loadCryptoPseudoItem()
                     ]);
                     const items = await response.json();
@@ -1946,7 +2033,7 @@ class WebServer(private val plugin: Endex) {
 
             async loadCryptoPseudoItem() {
                 try {
-                    const r = await fetch(`/api/crypto/tickers?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
+                    const r = await fetch(`/api/crypto/tickers`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } });
                     if (!r.ok) return null;
                     const arr = await r.json();
                     if (!Array.isArray(arr) || arr.length === 0) return null;
@@ -1989,7 +2076,7 @@ class WebServer(private val plugin: Endex) {
                 try {
                     // Handle CRYPTO pseudo-item via its own endpoint
                     if (material === 'CRYPTO') {
-                        const r = await fetch(`/api/crypto/history?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
+                        const r = await fetch(`/api/crypto/history`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } });
                         const data = await r.json();
                         if (r.ok && Array.isArray(data)) {
                             this.selectedItemHistory = data;
@@ -2006,7 +2093,7 @@ class WebServer(private val plugin: Endex) {
                     if (incremental && this.lastHistoryTs) {
                         url += `&since=${'$'}{this.lastHistoryTs}`;
                     }
-                    const response = await fetch(url, { headers: { 'X-Endex-UI': '1' } });
+                    const response = await fetch(url, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } });
                     const data = await response.json();
                     if (response.ok) {
                         if (incremental && data && Array.isArray(data.points)) {
@@ -2113,7 +2200,7 @@ class WebServer(private val plugin: Endex) {
             
             async loadBalance() {
                 try {
-                    const response = await fetch(`/api/balance?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } });
+                    const response = await fetch(`/api/balance`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } });
                     const data = await response.json();
                     
                     if (response.ok) {
@@ -2560,9 +2647,9 @@ class WebServer(private val plugin: Endex) {
                     const body = isCrypto
                         ? JSON.stringify({ amount: amount })
                         : JSON.stringify({ material: this.selectedItem.material, amount: amount });
-                    const response = await fetch(`${'$'}{endpoint}?session=${'$'}{this.sessionToken}`, {
+                    const response = await fetch(`${'$'}{endpoint}`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-Endex-UI': '1' },
+                        headers: { 'Content-Type': 'application/json', 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` },
                         body
                     });
                     
@@ -2601,8 +2688,8 @@ class WebServer(private val plugin: Endex) {
                 try {
                     const ep = this.invHoldingsEnabled ? '/api/holdings/combined' : '/api/holdings';
                     const [r, rc] = await Promise.all([
-                        fetch(`${'$'}{ep}?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } }),
-                        fetch(`/api/crypto/holdings?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } })
+                        fetch(`${'$'}{ep}`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } }),
+                        fetch(`/api/crypto/holdings`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } })
                     ]);
                     const list = await r.json();
                     const crypto = rc.ok ? await rc.json() : [];
@@ -2642,8 +2729,8 @@ class WebServer(private val plugin: Endex) {
             async loadReceipts() {
                 try {
                     const [r1, r2] = await Promise.all([
-                        fetch(`/api/receipts?session=${'$'}{this.sessionToken}&limit=50`, { headers: { 'X-Endex-UI': '1' } }),
-                        fetch(`/api/crypto/receipts?session=${'$'}{this.sessionToken}`, { headers: { 'X-Endex-UI': '1' } })
+                        fetch(`/api/receipts?limit=50`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } }),
+                        fetch(`/api/crypto/receipts`, { headers: { 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` } })
                     ]);
                     const list = await r1.json();
                     const clist = r2.ok ? await r2.json() : [];
@@ -2669,13 +2756,13 @@ class WebServer(private val plugin: Endex) {
 
             async addToWatchlist(material) {
                 try {
-                    await fetch(`/api/watchlist/add?session=${'$'}{this.sessionToken}`, { method:'POST', headers:{'Content-Type':'application/json','X-Endex-UI':'1'}, body: JSON.stringify({ material }) });
+                    await fetch(`/api/watchlist/add`, { method:'POST', headers:{'Content-Type':'application/json','X-Endex-UI':'1','Authorization': `Bearer ${'$'}{this.sessionToken}`}, body: JSON.stringify({ material }) });
                     this.watchlist.add(material);
                 } catch(_) {}
             }
             async removeFromWatchlist(material) {
                 try {
-                    await fetch(`/api/watchlist/remove?session=${'$'}{this.sessionToken}`, { method:'POST', headers:{'Content-Type':'application/json','X-Endex-UI':'1'}, body: JSON.stringify({ material }) });
+                    await fetch(`/api/watchlist/remove`, { method:'POST', headers:{'Content-Type':'application/json','X-Endex-UI':'1','Authorization': `Bearer ${'$'}{this.sessionToken}`}, body: JSON.stringify({ material }) });
                     this.watchlist.delete(material);
                 } catch(_) {}
             }
@@ -2839,8 +2926,7 @@ class WebServer(private val plugin: Endex) {
             plugin.marketManager.addDemand(material, amount.toDouble())
             // Update holdings and receipt if sqlite is used
             runCatching {
-                val dbField = plugin.marketManager.javaClass.getDeclaredField("db").apply { isAccessible = true }
-                val db = dbField.get(plugin.marketManager) as? org.lokixcz.theendex.market.SqliteStore
+                val db = plugin.marketManager.sqliteStore()
                 if (db != null) {
                     db.upsertHolding(player.uniqueId.toString(), material, amount, unit)
                     db.insertTrade(player.uniqueId.toString(), material, "BUY", amount, unit, total)
@@ -2886,8 +2972,7 @@ class WebServer(private val plugin: Endex) {
             plugin.marketManager.addSupply(material, amount.toDouble())
             // Update holdings and receipt if sqlite is used
             runCatching {
-                val dbField = plugin.marketManager.javaClass.getDeclaredField("db").apply { isAccessible = true }
-                val db = dbField.get(plugin.marketManager) as? org.lokixcz.theendex.market.SqliteStore
+                val db = plugin.marketManager.sqliteStore()
                 if (db != null) {
                     db.upsertHolding(player.uniqueId.toString(), material, -amount, unit)
                     db.insertTrade(player.uniqueId.toString(), material, "SELL", amount, unit, total)

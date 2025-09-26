@@ -105,6 +105,12 @@ Customizable Web UI override (`web.custom.*`) – export default `index.html` an
 [URL='https://discord.gg/vS8xsvWaSU']Join our Discord[/URL]
 
 [B]Changelog[/B]
+New in 1.3.0:
+- Security hardening: removed all reflective private field access (cleaner, safer internals).
+- Web auth improvement: session token now moved to Authorization header after first load; URL is sanitized automatically.
+- Hashed API token support via `web.api.token-hashes` (SHA-256). Plain tokens still work but are deprecated (one-time warning when both present).
+- Updated SECURITY.md and added CHANGELOG.md; preparing groundwork for upcoming resource pack & rate limiter enhancements.
+
 New in 1.2.0:
 - Customizable Web UI override (`web.custom.*`) – export default assets then edit `index.html`, CSS, JS; `/endex webui export|reload` admin commands.
 - Unified single‑page market view (legacy separate Addons tab removed) with improved filters & layout stability.
