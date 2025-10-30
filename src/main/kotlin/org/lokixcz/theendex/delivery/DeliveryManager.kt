@@ -45,11 +45,11 @@ class DeliveryManager(private val plugin: JavaPlugin) {
                         player_uuid TEXT NOT NULL,
                         material TEXT NOT NULL,
                         amount INTEGER NOT NULL,
-                        timestamp TEXT NOT NULL,
-                        INDEX idx_player ON pending_deliveries(player_uuid)
+                        timestamp TEXT NOT NULL
                     )
                     """.trimIndent()
                 )
+                st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_pending_player ON pending_deliveries(player_uuid)")
             }
         }
         logger.info("Delivery system initialized (enabled: $enabled, max per player: $maxPendingPerPlayer)")

@@ -32,6 +32,7 @@ Dynamic, demand-driven market for Minecraft (Paper). Supports 1.20.1+ with Vault
 ## Features
 - Dynamic prices: respond to player buy/sell demand with configurable sensitivity
 - GUI market with search, categories, sorting, and item details (ASCII history sparkline)
+- Delivery system: overflow purchases queue safely with GUI + commands to claim pending items
 - Rich commands: buy/sell/price/top, admin reload, events management
 - Events system: item/category multipliers with stack cap and expiry
 - Storage: YAML by default or SQLite with auto-migration from existing YAML

@@ -162,50 +162,69 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             sender.sendMessage("${ChatColor.RED}Payment failed: ${withdraw.errorMessage}")
             return true
         }
-
         // Give items
-        val stack = ItemStack(mat)
+        fun countMaterial(): Int = sender.inventory.contents
+            .filterNotNull()
+            .filter { it.type == mat }
+            .sumOf { it.amount }
+
         var remaining = amount
         var delivered = 0
         var pendingDelivery = 0
+        var safety = 0
         
         while (remaining > 0) {
-            val toGive = max(1, minOf(remaining, stack.maxStackSize))
-            val give = stack.clone().apply { amount = toGive }
+            safety += 1
+            if (safety > 256) {
+                plugin.logger.warning("Market buy safety break triggered for ${sender.name} purchasing ${mat.name}; remaining=$remaining")
+                break
+            }
+
+            val beforeCount = countMaterial()
+            val toGive = max(1, minOf(remaining, mat.maxStackSize))
+            val give = ItemStack(mat, toGive)
             val leftovers = sender.inventory.addItem(give)
+            val leftoverCount = leftovers.values.sumOf { it.amount }
+            val afterGiveCount = countMaterial()
+            val accepted = (afterGiveCount - beforeCount).coerceAtLeast(0)
             
-            if (leftovers.isNotEmpty()) {
-                // Inventory full - handle overflow
-                val overflow = leftovers.values.sumOf { it.amount }
-                val actuallyDelivered = toGive - overflow
-                delivered += actuallyDelivered
-                
+            if (accepted > 0) {
+                delivered += accepted
+                remaining -= accepted
+            }
+
+            if (accepted == 0 && leftoverCount == 0) {
                 if (deliveryEnabled) {
-                    // Send remaining + overflow to pending deliveries
-                    val totalPending = overflow + (remaining - toGive)
-                    val success = plugin.getDeliveryManager()?.addPending(sender.uniqueId, mat, totalPending) ?: false
+                    val success = plugin.getDeliveryManager()?.addPending(sender.uniqueId, mat, remaining) ?: false
                     if (success) {
-                        pendingDelivery = totalPending
+                        pendingDelivery += remaining
                     } else {
-                        // Fallback: drop overflow on ground
-                        leftovers.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
-                        sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$overflow ${mat.name} dropped (delivery limit reached).")
-                        // Continue trying to give remaining items
-                        remaining -= toGive
-                        continue
+                        sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$remaining ${mat.name} dropped (delivery limit reached / zero-accept).")
+                        repeat(remaining) { sender.world.dropItemNaturally(sender.location, ItemStack(mat, 1)) }
                     }
                 } else {
-                    // Delivery disabled: drop overflow on ground (v1.3.0 behavior)
-                    leftovers.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
-                    // Continue trying to give remaining items
-                    remaining -= toGive
-                    continue
+                    repeat(remaining) { sender.world.dropItemNaturally(sender.location, ItemStack(mat, 1)) }
+                    sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$remaining ${mat.name} dropped (zero progress).")
                 }
-                // Break out - everything handled (delivered or pending)
+                remaining = 0
                 break
-            } else {
-                delivered += toGive
-                remaining -= toGive
+            }
+
+            if (leftoverCount > 0) {
+                if (deliveryEnabled) {
+                    val success = plugin.getDeliveryManager()?.addPending(sender.uniqueId, mat, remaining) ?: false
+                    if (success) {
+                        pendingDelivery += remaining
+                    } else {
+                        leftovers.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
+                        sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$leftoverCount ${mat.name} dropped (delivery limit reached).")
+                    }
+                } else {
+                    leftovers.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
+                    sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$leftoverCount ${mat.name} dropped (inventory full).")
+                }
+                remaining = 0
+                break
             }
         }
 

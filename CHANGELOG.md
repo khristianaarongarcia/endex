@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJOR.MINOR.PATCH) where possible.
 
-## [1.4.0] - 2025-10-31
+## [1.4.0] - 2025-10-30
 ### Added
 - **Virtual Delivery System:** When purchasing items that exceed inventory capacity, overflow items are automatically sent to a pending delivery queue instead of being lost.
   - SQLite-based delivery storage (`deliveries.db`) with transaction safety to prevent race conditions and duplication exploits.

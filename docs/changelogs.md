@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.4.0] - 2025-10-30
+### Added
+- **Virtual Delivery System:** Overflow purchases now route into a per-player pending deliveries queue backed by SQLite, protecting against item loss and duplication. Includes FIFO claims, optional auto-claim on login, and configurable per-player caps.
+- **Market GUI Integration:** Ender Chest button exposes deliveries with badges, per-material claim buttons, and a "Claim All" option for quick retrieval.
+- **Delivery Commands:** `/market delivery list|claim|claim-all|gui` provide complete console/player management for pending items.
+- **Web API Endpoints:** Added `/api/deliveries` and `/api/deliveries/claim` plus updated docs payloads so the web dashboard reflects deliveries in real time.
+- **Documentation Enhancements:** Expanded `config.yml` inline comments covering delivery settings with recommendations and gotchas.
+
+### Fixed
+- Resolved the long-standing bug where `/market buy <material> 64` occasionally delivered just a single item on 1.20.1 servers; delivery loop now respects stack sizes and correctly routes overflow.
+
+### Security
+- Delivery storage uses atomic transactions and consistent rollback handling to guard against race conditions and duplication attempts.
+
+### Technical
+- Added `DeliveryManager` with SQLite backend, capped iterations in buy loop, and centralised inventory capacity checks shared with the web tier.
+
+### Upgrade Notes
+- New config keys under `delivery.*` enable/disable deliveries, auto-claim, and cap pending counts.
+- A new `deliveries.db` is generated on first launch when deliveries are enabled; no migration required from 1.3.x.
+- Existing behavior remains unchanged when the delivery system is disabled.
+
 ## [1.3.1] - 2025-10-30
 ### Fixed
 - **Critical:** Purchases now check inventory capacity BEFORE deducting money. Previously, buying more items than inventory could hold (e.g., 5000 diamonds) would charge the full amount but only deliver what fit (~2304 for diamonds), with remainder dropped on the ground and potentially lost.

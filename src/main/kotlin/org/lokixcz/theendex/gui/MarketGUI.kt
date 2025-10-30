@@ -187,9 +187,15 @@ class MarketGUI(private val plugin: Endex) : Listener {
             if (e.isShiftClick && e.isLeftClick || e.click == ClickType.MIDDLE) {
                 openDetails(player, mat)
             } else if (e.isLeftClick) {
-                player.performCommand("market buy ${mat.name} $amount"); Bukkit.getScheduler().runTask(plugin, Runnable { open(player, state.page) })
+                Bukkit.getScheduler().runTask(plugin, Runnable {
+                    player.performCommand("market buy ${mat.name} $amount")
+                    open(player, state.page)
+                })
             } else if (e.isRightClick) {
-                player.performCommand("market sell ${mat.name} $amount"); Bukkit.getScheduler().runTask(plugin, Runnable { open(player, state.page) })
+                Bukkit.getScheduler().runTask(plugin, Runnable {
+                    player.performCommand("market sell ${mat.name} $amount")
+                    open(player, state.page)
+                })
             }
             return
         }
@@ -420,13 +426,24 @@ class MarketGUI(private val plugin: Endex) : Listener {
         if (!title.contains("Endex:")) return
         e.isCancelled = true
         when (e.rawSlot) {
-            18 -> { player.performCommand("market buy ${mat.name} 1"); Bukkit.getScheduler().runTask(plugin, Runnable { openDetails(player, mat) }) }
-            20 -> { player.performCommand("market buy ${mat.name} 64"); Bukkit.getScheduler().runTask(plugin, Runnable { openDetails(player, mat) }) }
-            24 -> { player.performCommand("market sell ${mat.name} 1"); Bukkit.getScheduler().runTask(plugin, Runnable { openDetails(player, mat) }) }
+            18 -> Bukkit.getScheduler().runTask(plugin, Runnable {
+                player.performCommand("market buy ${mat.name} 1")
+                openDetails(player, mat)
+            })
+            20 -> Bukkit.getScheduler().runTask(plugin, Runnable {
+                player.performCommand("market buy ${mat.name} 64")
+                openDetails(player, mat)
+            })
+            24 -> Bukkit.getScheduler().runTask(plugin, Runnable {
+                player.performCommand("market sell ${mat.name} 1")
+                openDetails(player, mat)
+            })
             26 -> {
                 val total = player.inventory.contents.filterNotNull().filter { it.type == mat }.sumOf { it.amount }
-                if (total > 0) player.performCommand("market sell ${mat.name} $total")
-                Bukkit.getScheduler().runTask(plugin, Runnable { openDetails(player, mat) })
+                Bukkit.getScheduler().runTask(plugin, Runnable {
+                    if (total > 0) player.performCommand("market sell ${mat.name} $total")
+                    openDetails(player, mat)
+                })
             }
             22 -> { state.inDetails = false; state.detailOf = null; open(player, state.page) }
         }
