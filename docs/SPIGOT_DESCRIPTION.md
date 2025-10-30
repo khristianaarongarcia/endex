@@ -110,6 +110,9 @@ Customizable Web UI override (`web.custom.*`) – export default `index.html` an
 [B]Support[/B]
 [URL='https://discord.gg/vS8xsvWaSU']Join our Discord[/URL]
 
+[B]Disclaimer[/B]
+This plugin was created with the help of AI, but the idea itself is mine. I tested it in real-time while using prompts, so it should work. Still, please expect that it may have some bugs, errors, or security issues.
+
 [B]Changelog[/B]
 New in 1.4.0:
 - Virtual Delivery System: overflow purchases now enter a pending delivery queue with FIFO claiming, GUI integration, per-player limits, and optional auto-claim on login.
