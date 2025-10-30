@@ -40,6 +40,7 @@ class Endex : JavaPlugin() {
     private var resourceTracker: org.lokixcz.theendex.tracking.ResourceTracker? = null
     private var inventorySnapshots: org.lokixcz.theendex.tracking.InventorySnapshotService? = null
     private var webServer: WebServer? = null
+    private var deliveryManager: org.lokixcz.theendex.delivery.DeliveryManager? = null
 
     private var priceTask: BukkitTask? = null
     private var backupTask: BukkitTask? = null
@@ -80,6 +81,14 @@ class Endex : JavaPlugin() {
     marketManager = if (useSqlite) MarketManager(this, org.lokixcz.theendex.market.SqliteStore(this)) else MarketManager(this)
         marketManager.load()
     logx.info("Market loaded (storage=${if (useSqlite) "sqlite" else "yaml"})")
+
+        // Initialize delivery manager (for pending item deliveries)
+        try {
+            deliveryManager = org.lokixcz.theendex.delivery.DeliveryManager(this)
+            deliveryManager?.init()
+        } catch (t: Throwable) {
+            logx.warn("Failed to initialize delivery manager: ${t.message}")
+        }
 
         // Register public API service for other plugins
         try {
@@ -239,6 +248,9 @@ class Endex : JavaPlugin() {
     // Getter for web server
     fun getWebServer(): WebServer? = webServer
     fun getInventorySnapshotService(): org.lokixcz.theendex.tracking.InventorySnapshotService? = inventorySnapshots
+    
+    // Getter for delivery manager
+    fun getDeliveryManager(): org.lokixcz.theendex.delivery.DeliveryManager? = deliveryManager
 
     private fun setupEconomy() {
         val pm = server.pluginManager

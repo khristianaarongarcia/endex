@@ -415,6 +415,100 @@ class WebServer(private val plugin: Endex) {
             }
         }
 
+        // Delivery system endpoints
+        app.get("/api/deliveries") { ctx ->
+            val session = validateSession(ctx) ?: return@get
+            if (!checkRateLimit(ctx, session.token)) return@get
+            
+            val deliveryMgr = plugin.getDeliveryManager()
+            if (deliveryMgr == null || !plugin.config.getBoolean("delivery.enabled", true)) {
+                ctx.json(mapOf("enabled" to false, "deliveries" to emptyList<Any>()))
+                return@get
+            }
+            
+            val pending = deliveryMgr.listPending(session.playerUuid)
+            val result = pending.map { (material, amount) ->
+                mapOf(
+                    "material" to material.name,
+                    "amount" to amount
+                )
+            }
+            
+            ctx.json(mapOf(
+                "enabled" to true,
+                "deliveries" to result,
+                "total" to pending.values.sum()
+            ))
+        }
+
+        data class ClaimRequest(val material: String?, val amount: Int?)
+
+        app.post("/api/deliveries/claim") { ctx ->
+            val session = validateSession(ctx) ?: return@post
+            if (session.role != "TRADER") { ctx.status(403).json(mapOf("error" to "Trading not allowed")); return@post }
+            if (!checkRateLimit(ctx, session.token)) return@post
+            
+            val deliveryMgr = plugin.getDeliveryManager()
+            if (deliveryMgr == null || !plugin.config.getBoolean("delivery.enabled", true)) {
+                ctx.status(400).json(mapOf("error" to "Delivery system not enabled"))
+                return@post
+            }
+            
+            val player = Bukkit.getPlayer(session.playerUuid)
+            if (player == null) {
+                ctx.status(400).json(mapOf("error" to "Player not online"))
+                return@post
+            }
+            
+            val req = runCatching { objectMapper.readValue(ctx.body(), ClaimRequest::class.java) }.getOrNull()
+            
+            // Claim all if no material specified
+            if (req == null || req.material.isNullOrBlank()) {
+                val result = deliveryMgr.claimAll(player)
+                if (result.error != null) {
+                    ctx.status(400).json(mapOf("error" to result.error))
+                    return@post
+                }
+                
+                val totalClaimed = result.delivered.values.sum()
+                ctx.json(mapOf(
+                    "success" to true,
+                    "claimed" to totalClaimed,
+                    "remaining" to result.totalRemaining,
+                    "details" to result.delivered.map { (mat, count) ->
+                        mapOf("material" to mat.name, "amount" to count)
+                    }
+                ))
+                return@post
+            }
+            
+            // Claim specific material
+            val material = runCatching { Material.valueOf(req.material!!) }.getOrNull()
+            if (material == null) {
+                ctx.status(400).json(mapOf("error" to "Invalid material: ${req.material}"))
+                return@post
+            }
+            
+            val requestedAmount = req.amount ?: Int.MAX_VALUE
+            if (requestedAmount <= 0) {
+                ctx.status(400).json(mapOf("error" to "Invalid amount"))
+                return@post
+            }
+            
+            val result = deliveryMgr.claimMaterial(player, material, requestedAmount)
+            if (result.error != null) {
+                ctx.status(400).json(mapOf("error" to result.error))
+                return@post
+            }
+            
+            ctx.json(mapOf(
+                "success" to true,
+                "material" to material.name,
+                "claimed" to result.delivered,
+                "remaining" to result.remainingPending
+            ))
+        }
+
         // Historical price data for chart
         // Historical price data for chart, supports optional since=epochSecond (returns deltas)
         app.get("/api/history") { ctx ->
@@ -628,6 +722,8 @@ class WebServer(private val plugin: Endex) {
                     <li>GET <code>/api/balance</code> — player balance</li>
                     <li>POST <code>/api/buy</code> — buy item (TRADER only)</li>
                     <li>POST <code>/api/sell</code> — sell item (TRADER only)</li>
+                    <li>GET <code>/api/deliveries</code> — list pending deliveries (if enabled)</li>
+                    <li>POST <code>/api/deliveries/claim</code> — claim pending deliveries (body: {material?, amount?})</li>
                     <li>GET <code>/api/history?material=MAT&limit=N&since=TS</code> — history with optional deltas</li>
                     <li>GET <code>/api/holdings</code> — holdings</li>
                     <li>GET <code>/api/holdings/combined</code> — holdings + live inventory (if enabled)</li>
@@ -2891,11 +2987,31 @@ class WebServer(private val plugin: Endex) {
     """.trimIndent()
     
     // Helper methods for buy/sell operations
-    private fun performBuy(player: Player, material: Material, amount: Int): Boolean {
+    private fun performBuy(player: Player, material: Material, requestedAmount: Int): Boolean {
         try {
             if (plugin.economy == null) return false
             
             val item = plugin.marketManager.get(material) ?: return false
+            
+            // Check inventory capacity BEFORE processing payment
+            val maxCapacity = calculateInventoryCapacity(player, material)
+            var amount = requestedAmount
+            val deliveryEnabled = plugin.getDeliveryManager() != null && plugin.config.getBoolean("delivery.enabled", true)
+            
+            if (amount > maxCapacity) {
+                if (!deliveryEnabled) {
+                    // Old behavior: cap the purchase
+                    amount = maxCapacity
+                    if (amount <= 0) {
+                        player.sendMessage("§c[TheEndex] Your inventory is full. Please make space and try again.")
+                        return false
+                    }
+                    player.sendMessage("§e[TheEndex] §6Purchase capped to $amount ${material.name} due to inventory space (requested: $requestedAmount).")
+                    player.sendMessage("§7Tip: Empty your inventory or use Ender Chest for larger orders.")
+                }
+                // Else: delivery enabled, we'll charge for full amount and overflow goes to pending
+            }
+            
             val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
             val unit = item.currentPrice * plugin.eventManager.multiplierFor(material)
             val subtotal = unit * amount
@@ -2912,18 +3028,55 @@ class WebServer(private val plugin: Endex) {
             // Give items to player
             val stack = org.bukkit.inventory.ItemStack(material)
             var remaining = amount
+            var delivered = 0
+            var pendingDelivery = 0
+            
             while (remaining > 0) {
                 val toGive = kotlin.math.max(1, kotlin.math.min(remaining, stack.maxStackSize))
                 val give = stack.clone()
                 give.amount = toGive
                 val leftovers = player.inventory.addItem(give)
+                
                 if (leftovers.isNotEmpty()) {
-                    leftovers.values.forEach { player.world.dropItemNaturally(player.location, it) }
+                    // Inventory full - handle overflow
+                    val overflow = leftovers.values.sumOf { it.amount }
+                    val actuallyDelivered = toGive - overflow
+                    delivered += actuallyDelivered
+                    
+                    if (deliveryEnabled) {
+                        // Send remaining + overflow to pending deliveries
+                        val totalPending = overflow + (remaining - toGive)
+                        val success = plugin.getDeliveryManager()?.addPending(player.uniqueId, material, totalPending) ?: false
+                        if (success) {
+                            pendingDelivery = totalPending
+                        } else {
+                            // Fallback: drop overflow on ground
+                            leftovers.values.forEach { player.world.dropItemNaturally(player.location, it) }
+                            remaining -= toGive
+                            continue
+                        }
+                    } else {
+                        // Delivery disabled: drop overflow on ground
+                        leftovers.values.forEach { player.world.dropItemNaturally(player.location, it) }
+                        remaining -= toGive
+                        continue
+                    }
+                    // Break out - everything handled (delivered or pending)
+                    break
+                } else {
+                    delivered += toGive
+                    remaining -= toGive
                 }
-                remaining -= toGive
             }
             
             plugin.marketManager.addDemand(material, amount.toDouble())
+            
+            // Send appropriate message
+            if (pendingDelivery > 0) {
+                player.sendMessage("§6[TheEndex] §aBought $amount ${material.name}.")
+                player.sendMessage("§e  Delivered: $delivered | Pending: $pendingDelivery §7(click Ender Chest in market GUI)")
+            }
+            
             // Update holdings and receipt if sqlite is used
             runCatching {
                 val db = plugin.marketManager.sqliteStore()
@@ -2983,6 +3136,30 @@ class WebServer(private val plugin: Endex) {
             logger.warn("Sell operation failed: ${e.message}")
             return false
         }
+    }
+    
+    /**
+     * Calculate how many items of the given material the player can receive in their inventory.
+     * Accounts for existing partial stacks and empty slots.
+     */
+    private fun calculateInventoryCapacity(player: Player, material: Material): Int {
+        val inv = player.inventory
+        val maxStack = material.maxStackSize
+        var capacity = 0
+        
+        // Count space in existing stacks of this material
+        for (slot in 0 until inv.size) {
+            val stack = inv.getItem(slot) ?: continue
+            if (stack.type == material) {
+                capacity += (maxStack - stack.amount).coerceAtLeast(0)
+            }
+        }
+        
+        // Count empty slots (each can hold maxStack items)
+        val emptySlots = inv.storageContents.count { it == null || it.type == org.bukkit.Material.AIR }
+        capacity += emptySlots * maxStack
+        
+        return capacity
     }
     
     private fun removeItems(player: Player, material: Material, amount: Int): Int {

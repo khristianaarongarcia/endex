@@ -32,8 +32,9 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             "top" -> handleTop(sender)
             "invest" -> handleInvest(sender, args)
             "event" -> handleEvent(sender, args)
+            "delivery", "deliveries" -> handleDelivery(sender, args)
             else -> {
-                sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use /market [buy|sell|price|top]")
+                sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use /market [buy|sell|price|top|delivery]")
                 true
             }
         }
@@ -119,6 +120,25 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             return true
         }
 
+        // Check inventory capacity BEFORE processing payment
+        val maxCapacity = calculateInventoryCapacity(sender, mat)
+        val originalAmount = amount
+        val deliveryEnabled = plugin.getDeliveryManager() != null && plugin.config.getBoolean("delivery.enabled", true)
+        
+        if (amount > maxCapacity) {
+            if (!deliveryEnabled) {
+                // Old behavior: cap the purchase
+                amount = maxCapacity
+                if (amount <= 0) {
+                    sender.sendMessage("${ChatColor.RED}Your inventory is full. Please make space and try again.")
+                    return true
+                }
+                sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}Purchase capped to $amount ${mat.name} due to inventory space (requested: $originalAmount).")
+                sender.sendMessage("${ChatColor.GRAY}Tip: Empty your inventory or use Ender Chest for larger orders.")
+            }
+            // Else: delivery enabled, we'll charge for full amount and overflow goes to pending
+        }
+
         val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
         var unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat))
         // Fire pre-buy event (modifiable)
@@ -146,19 +166,63 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         // Give items
         val stack = ItemStack(mat)
         var remaining = amount
+        var delivered = 0
+        var pendingDelivery = 0
+        
         while (remaining > 0) {
             val toGive = max(1, minOf(remaining, stack.maxStackSize))
             val give = stack.clone().apply { amount = toGive }
             val leftovers = sender.inventory.addItem(give)
+            
             if (leftovers.isNotEmpty()) {
-                // Drop leftovers at player location
-                leftovers.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
+                // Inventory full - handle overflow
+                val overflow = leftovers.values.sumOf { it.amount }
+                val actuallyDelivered = toGive - overflow
+                delivered += actuallyDelivered
+                
+                if (deliveryEnabled) {
+                    // Send remaining + overflow to pending deliveries
+                    val totalPending = overflow + (remaining - toGive)
+                    val success = plugin.getDeliveryManager()?.addPending(sender.uniqueId, mat, totalPending) ?: false
+                    if (success) {
+                        pendingDelivery = totalPending
+                    } else {
+                        // Fallback: drop overflow on ground
+                        leftovers.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
+                        sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$overflow ${mat.name} dropped (delivery limit reached).")
+                        // Continue trying to give remaining items
+                        remaining -= toGive
+                        continue
+                    }
+                } else {
+                    // Delivery disabled: drop overflow on ground (v1.3.0 behavior)
+                    leftovers.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
+                    // Continue trying to give remaining items
+                    remaining -= toGive
+                    continue
+                }
+                // Break out - everything handled (delivered or pending)
+                break
+            } else {
+                delivered += toGive
+                remaining -= toGive
             }
-            remaining -= toGive
         }
 
         plugin.marketManager.addDemand(mat, amount.toDouble())
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amount ${mat} for ${format(total)} (tax ${format(tax)} at ${taxPct}%).")
+        
+        // Build success message
+        if (pendingDelivery > 0) {
+            sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amount ${mat.name} for ${format(total)}.")
+            sender.sendMessage("${ChatColor.YELLOW}  Delivered: $delivered | Pending: $pendingDelivery ${ChatColor.GRAY}(click Ender Chest in market GUI)")
+        } else if (delivered == amount) {
+            sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amount ${mat.name} for ${format(total)} (tax ${format(tax)} at ${taxPct}%).")
+        } else {
+            // Some items dropped (delivery disabled or limit reached)
+            sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amount ${mat.name} for ${format(total)}.")
+            sender.sendMessage("${ChatColor.YELLOW}  Delivered: $delivered | Dropped: ${amount - delivered}")
+        }
+        
         return true
     }
 
@@ -264,6 +328,30 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         return amount - toRemove
     }
 
+    /**
+     * Calculate how many items of the given material the player can receive in their inventory.
+     * Accounts for existing partial stacks and empty slots.
+     */
+    private fun calculateInventoryCapacity(player: Player, material: Material): Int {
+        val inv = player.inventory
+        val maxStack = material.maxStackSize
+        var capacity = 0
+        
+        // Count space in existing stacks of this material
+        for (slot in 0 until inv.size) {
+            val stack = inv.getItem(slot) ?: continue
+            if (stack.type == material) {
+                capacity += (maxStack - stack.amount).coerceAtLeast(0)
+            }
+        }
+        
+        // Count empty slots (each can hold maxStack items)
+        val emptySlots = inv.storageContents.count { it == null || it.type == Material.AIR }
+        capacity += emptySlots * maxStack
+        
+        return capacity
+    }
+
     private fun format(n: Double): String = String.format("%.2f", n)
     private fun formatPct(n: Double): String = String.format("%.2f%%", n)
     private fun prettyName(mat: Material): String = mat.name.lowercase().split('_').joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } }
@@ -354,6 +442,147 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val name = args.drop(1).joinToString(" ")
         val ok = plugin.eventManager.trigger(name)
         if (!ok) sender.sendMessage("${ChatColor.RED}Unknown event: $name")
+        return true
+    }
+
+    private fun handleDelivery(sender: CommandSender, args: Array<out String>): Boolean {
+        if (sender !is Player) {
+            sender.sendMessage("${ChatColor.RED}Only players can use delivery commands.")
+            return true
+        }
+        
+        val deliveryMgr = plugin.getDeliveryManager()
+        if (deliveryMgr == null || !plugin.config.getBoolean("delivery.enabled", true)) {
+            sender.sendMessage("${ChatColor.RED}Delivery system is not enabled.")
+            return true
+        }
+        
+        // /market delivery (default: list)
+        if (args.size == 1) {
+            return handleDeliveryList(sender, deliveryMgr)
+        }
+        
+        return when (args[1].lowercase()) {
+            "list" -> handleDeliveryList(sender, deliveryMgr)
+            "claim" -> handleDeliveryClaim(sender, deliveryMgr, args)
+            "claim-all", "claimall" -> handleDeliveryClaimAll(sender, deliveryMgr)
+            "gui" -> {
+                // Open deliveries GUI panel directly
+                plugin.marketGUI.open(sender)
+                sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.YELLOW}Click the ${ChatColor.LIGHT_PURPLE}Ender Chest ${ChatColor.YELLOW}to view deliveries.")
+                true
+            }
+            else -> {
+                sender.sendMessage("${ChatColor.RED}Usage: /market delivery [list|claim|claim-all|gui]")
+                true
+            }
+        }
+    }
+    
+    private fun handleDeliveryList(player: Player, deliveryMgr: org.lokixcz.theendex.delivery.DeliveryManager): Boolean {
+        val pending = deliveryMgr.listPending(player.uniqueId)
+        
+        if (pending.isEmpty()) {
+            player.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GRAY}You have no pending deliveries.")
+            player.sendMessage("${ChatColor.DARK_GRAY}Items purchased with full inventory will appear here.")
+            return true
+        }
+        
+        val totalCount = pending.values.sum()
+        player.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
+        player.sendMessage("${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}Pending Deliveries ${ChatColor.GRAY}($totalCount items)")
+        player.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
+        
+        pending.entries.sortedByDescending { it.value }.forEach { (material, amount) ->
+            val prettyName = material.name.lowercase().split('_').joinToString(" ") { 
+                it.replaceFirstChar { c -> c.titlecase() } 
+            }
+            player.sendMessage("${ChatColor.AQUA}$prettyName: ${ChatColor.YELLOW}$amount")
+        }
+        
+        player.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
+        player.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market delivery claim <material> ${ChatColor.GRAY}to claim specific items")
+        player.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market delivery claim-all ${ChatColor.GRAY}to claim everything")
+        player.sendMessage("${ChatColor.GRAY}Or click the ${ChatColor.LIGHT_PURPLE}Ender Chest ${ChatColor.GRAY}in ${ChatColor.YELLOW}/market ${ChatColor.GRAY}GUI")
+        return true
+    }
+    
+    private fun handleDeliveryClaim(player: Player, deliveryMgr: org.lokixcz.theendex.delivery.DeliveryManager, args: Array<out String>): Boolean {
+        if (args.size < 3) {
+            player.sendMessage("${ChatColor.RED}Usage: /market delivery claim <material> [amount]")
+            player.sendMessage("${ChatColor.GRAY}Example: /market delivery claim diamond 64")
+            return true
+        }
+        
+        val mat = Material.matchMaterial(args[2].uppercase())
+        if (mat == null) {
+            player.sendMessage("${ChatColor.RED}Unknown material: ${args[2]}")
+            return true
+        }
+        
+        val requestedAmount = if (args.size >= 4) {
+            args[3].toIntOrNull()?.takeIf { it > 0 } ?: run {
+                player.sendMessage("${ChatColor.RED}Invalid amount: ${args[3]}")
+                return true
+            }
+        } else {
+            Int.MAX_VALUE // Claim all by default
+        }
+        
+        val result = deliveryMgr.claimMaterial(player, mat, requestedAmount)
+        
+        if (result.error != null) {
+            player.sendMessage("${ChatColor.RED}[TheEndex] ${result.error}")
+            return true
+        }
+        
+        if (result.delivered > 0) {
+            val prettyName = mat.name.lowercase().split('_').joinToString(" ") { 
+                it.replaceFirstChar { c -> c.titlecase() } 
+            }
+            player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}${result.delivered} $prettyName${ChatColor.GREEN}!")
+        }
+        
+        if (result.remainingPending > 0) {
+            player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.remainingPending} items still pending (inventory full).")
+            player.sendMessage("${ChatColor.GRAY}Make space and claim again to get the rest.")
+        }
+        
+        return true
+    }
+    
+    private fun handleDeliveryClaimAll(player: Player, deliveryMgr: org.lokixcz.theendex.delivery.DeliveryManager): Boolean {
+        val result = deliveryMgr.claimAll(player)
+        
+        if (result.error != null) {
+            player.sendMessage("${ChatColor.RED}[TheEndex] ${result.error}")
+            return true
+        }
+        
+        if (result.delivered.isEmpty()) {
+            player.sendMessage("${ChatColor.GRAY}[TheEndex] No items were claimed (inventory may be full).")
+            return true
+        }
+        
+        val totalClaimed = result.delivered.values.sum()
+        player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}$totalClaimed ${ChatColor.GREEN}items!")
+        
+        result.delivered.entries.sortedByDescending { it.value }.take(5).forEach { (material, count) ->
+            val prettyName = material.name.lowercase().split('_').joinToString(" ") { 
+                it.replaceFirstChar { c -> c.titlecase() } 
+            }
+            player.sendMessage("${ChatColor.GRAY}  • ${ChatColor.AQUA}$prettyName: ${ChatColor.GOLD}$count")
+        }
+        
+        if (result.delivered.size > 5) {
+            player.sendMessage("${ChatColor.DARK_GRAY}  ... and ${result.delivered.size - 5} more materials")
+        }
+        
+        if (result.totalRemaining > 0) {
+            player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.totalRemaining} items still pending (inventory full).")
+            player.sendMessage("${ChatColor.GRAY}Make space and use ${ChatColor.YELLOW}/market delivery claim-all ${ChatColor.GRAY}again.")
+        }
+        
         return true
     }
 }

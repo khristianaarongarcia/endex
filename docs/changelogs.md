@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.3.1] - 2025-10-30
+### Fixed
+- **Critical:** Purchases now check inventory capacity BEFORE deducting money. Previously, buying more items than inventory could hold (e.g., 5000 diamonds) would charge the full amount but only deliver what fit (~2304 for diamonds), with remainder dropped on the ground and potentially lost.
+- Purchase is now automatically capped to available inventory space (accounting for partial stacks and empty slots).
+- Players receive clear feedback when orders are capped: "[TheEndex] Purchase capped to X MATERIAL due to inventory space (requested: Y). Tip: Empty your inventory or use Ender Chest for larger orders."
+- Applies to both `/market buy` command and web dashboard buy API.
+
+### Technical
+- Added `calculateInventoryCapacity()` helper in `MarketCommand` and `WebServer` to compute exact available space.
+- Calculation accounts for existing partial stacks of the same material + empty slots × max stack size.
+
+### Upgrade Notes
+- No config changes required.
+- Existing behavior improved: no more accidental item loss on oversized purchases.
+- This is a **patch release** focusing on this critical bug fix identified by community feedback.
+
+### Acknowledgments
+- Thank you to the ChunkCraft server admin for detailed bug report and testing feedback! 🙏
+
 ## [1.3.0] - 2025-09-26
 ### Security / Hardening
 - Removed all reflective private field access (replaced with explicit getters and helper methods) to improve transparency and reduce maintenance risk.

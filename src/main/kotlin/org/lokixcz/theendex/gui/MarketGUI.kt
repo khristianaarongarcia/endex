@@ -143,6 +143,27 @@ class MarketGUI(private val plugin: Endex) : Listener {
         inv.setItem(48, namedItem(Material.OAK_SIGN, "${ChatColor.AQUA}Search: ${if (state.search.isBlank()) "${ChatColor.DARK_GRAY}<none>" else state.search} ${ChatColor.GRAY}(Left: set, Right: clear)"))
         inv.setItem(49, namedItem(Material.HOPPER, "${ChatColor.AQUA}Amount: ${amounts[state.amountIdx]} ${ChatColor.GRAY}(click)"))
         inv.setItem(50, namedItem(Material.COMPARATOR, "${ChatColor.LIGHT_PURPLE}Sort: ${state.sort.name} ${ChatColor.GRAY}(click)"))
+        
+        // Deliveries button
+        val deliveryMgr = plugin.getDeliveryManager()
+        if (deliveryMgr != null && plugin.config.getBoolean("delivery.enabled", true)) {
+            val pending = deliveryMgr.listPending(player.uniqueId)
+            val totalCount = pending.values.sum()
+            val deliveryIcon = ItemStack(Material.ENDER_CHEST)
+            val deliveryMeta = deliveryIcon.itemMeta
+            deliveryMeta.setDisplayName("${ChatColor.LIGHT_PURPLE}Pending Deliveries ${ChatColor.GRAY}(click)")
+            val deliveryLore = mutableListOf<String>()
+            if (totalCount > 0) {
+                deliveryLore += "${ChatColor.GOLD}You have ${ChatColor.YELLOW}$totalCount ${ChatColor.GOLD}item(s) pending"
+                deliveryLore += "${ChatColor.DARK_GRAY}Click to view and claim"
+            } else {
+                deliveryLore += "${ChatColor.GRAY}No pending deliveries"
+            }
+            deliveryMeta.lore = deliveryLore
+            deliveryIcon.itemMeta = deliveryMeta
+            inv.setItem(51, deliveryIcon)
+        }
+        
         inv.setItem(53, namedItem(Material.ARROW, "${ChatColor.YELLOW}Next Page"))
 
         player.openInventory(inv)
@@ -218,6 +239,9 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 }
                 persist(player, state)
                 open(player, 0)
+            }
+            51 -> { // deliveries
+                openDeliveries(player)
             }
             53 -> { // next
                 state.page += 1
@@ -405,6 +429,121 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 Bukkit.getScheduler().runTask(plugin, Runnable { openDetails(player, mat) })
             }
             22 -> { state.inDetails = false; state.detailOf = null; open(player, state.page) }
+        }
+    }
+
+    // Deliveries panel
+    private fun openDeliveries(player: Player) {
+        val deliveryMgr = plugin.getDeliveryManager() ?: run {
+            player.sendMessage("${ChatColor.RED}[TheEndex] Delivery system is not available.")
+            return
+        }
+        
+        val pending = deliveryMgr.listPending(player.uniqueId)
+        val inv = Bukkit.createInventory(player, 54, "${ChatColor.DARK_PURPLE}Pending Deliveries")
+        
+        if (pending.isEmpty()) {
+            val noItems = ItemStack(Material.BARRIER)
+            val meta = noItems.itemMeta
+            meta.setDisplayName("${ChatColor.GRAY}No pending deliveries")
+            meta.lore = listOf("${ChatColor.DARK_GRAY}All items have been claimed!")
+            noItems.itemMeta = meta
+            inv.setItem(22, noItems)
+        } else {
+            // Display pending materials (up to 45 slots, 5 rows)
+            val materials = pending.keys.toList().take(45)
+            materials.forEachIndexed { idx, mat ->
+                val count = pending[mat] ?: 0
+                val display = ItemStack(mat)
+                val meta = display.itemMeta
+                meta.setDisplayName("${ChatColor.AQUA}${prettyName(mat)}")
+                val capacity = deliveryMgr.calculateInventoryCapacity(player, mat)
+                meta.lore = listOf(
+                    "${ChatColor.GOLD}Pending: ${ChatColor.YELLOW}$count",
+                    "${ChatColor.GRAY}Inventory space: ${ChatColor.GREEN}$capacity",
+                    "",
+                    "${ChatColor.GREEN}Left-click: ${ChatColor.GRAY}Claim as much as fits",
+                    "${ChatColor.YELLOW}Right-click: ${ChatColor.GRAY}Claim 1 stack (${mat.maxStackSize})"
+                )
+                display.itemMeta = meta
+                inv.setItem(idx, display)
+            }
+        }
+        
+        // Control buttons (last row)
+        val claimAllBtn = ItemStack(Material.EMERALD_BLOCK)
+        val claimAllMeta = claimAllBtn.itemMeta
+        claimAllMeta.setDisplayName("${ChatColor.GREEN}Claim All")
+        claimAllMeta.lore = listOf(
+            "${ChatColor.GRAY}Claim all pending deliveries",
+            "${ChatColor.DARK_GRAY}(as much as fits in inventory)"
+        )
+        claimAllBtn.itemMeta = claimAllMeta
+        inv.setItem(49, claimAllBtn)
+        
+        val backBtn = ItemStack(Material.ARROW)
+        val backMeta = backBtn.itemMeta
+        backMeta.setDisplayName("${ChatColor.YELLOW}Back to Market")
+        backBtn.itemMeta = backMeta
+        inv.setItem(53, backBtn)
+        
+        player.openInventory(inv)
+    }
+    
+    @EventHandler
+    fun onDeliveriesClick(e: InventoryClickEvent) {
+        val player = e.whoClicked as? Player ?: return
+        val title = e.view.title
+        if (title != "${ChatColor.DARK_PURPLE}Pending Deliveries") return
+        e.isCancelled = true
+        
+        val deliveryMgr = plugin.getDeliveryManager() ?: return
+        val slot = e.rawSlot
+        val state = states[player.uniqueId] ?: State()
+        
+        when (slot) {
+            in 0..44 -> { // Material slot
+                val clicked = e.currentItem ?: return
+                val mat = clicked.type.takeIf { it != Material.AIR && it != Material.BARRIER } ?: return
+                
+                if (e.isLeftClick) {
+                    // Claim as much as fits
+                    val result = deliveryMgr.claimMaterial(player, mat, Int.MAX_VALUE)
+                    if (result.delivered > 0) {
+                        player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}${result.delivered} ${mat.name}${ChatColor.GREEN}!")
+                    }
+                    if (result.remainingPending > 0) {
+                        player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.remainingPending} ${mat.name} still pending (inventory full).")
+                    }
+                } else if (e.isRightClick) {
+                    // Claim 1 stack
+                    val result = deliveryMgr.claimMaterial(player, mat, mat.maxStackSize)
+                    if (result.delivered > 0) {
+                        player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}${result.delivered} ${mat.name}${ChatColor.GREEN}!")
+                    }
+                    if (result.remainingPending > 0) {
+                        player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.remainingPending} ${mat.name} still pending.")
+                    }
+                }
+                Bukkit.getScheduler().runTask(plugin, Runnable { openDeliveries(player) })
+            }
+            49 -> { // Claim All
+                val result = deliveryMgr.claimAll(player)
+                if (result.delivered.isNotEmpty()) {
+                    val totalClaimed = result.delivered.values.sum()
+                    player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}$totalClaimed ${ChatColor.GREEN}items!")
+                    result.delivered.forEach { (mat, count) ->
+                        player.sendMessage("${ChatColor.GRAY}  • ${ChatColor.AQUA}${prettyName(mat)}: ${ChatColor.GOLD}$count")
+                    }
+                }
+                if (result.totalRemaining > 0) {
+                    player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.totalRemaining} items still pending (inventory full).")
+                }
+                Bukkit.getScheduler().runTask(plugin, Runnable { openDeliveries(player) })
+            }
+            53 -> { // Back
+                open(player, state.page)
+            }
         }
     }
 }
