@@ -1,128 +1,121 @@
-![The Endex Banner](https://i.imgur.com/onDbDSW.png)
+<p>
+  <img src="https://i.imgur.com/onDbDSW.png" alt="The Endex Banner" />
+</p>
 
-# The Endex | Dynamic Market & Addons [1.20.1 - 1.21.8]
+<h1>The Endex &vert; Dynamic Market &amp; Addons <span style="font-size:0.8em;">[1.20.1 &ndash; 1.21.8]</span></h1>
 
-Bring a living economy to your server. Prices move with player demand and supply, with a slick Market GUI, timed events, optional web dashboard, and an addon framework.
+<p>Bring a living economy to your server. Prices move with player demand and supply, backed by a slick Market GUI, timed events, an optional web dashboard, delivery queue safeguards, and an addon framework.</p>
 
-## New in 1.3.0
-- Security hardening: removed reflective field access in favor of explicit services/getters.
-- Web auth improvement: session token migrated to Authorization header; `?session=` stripped from the URL after initial load.
-- Hashed API tokens: add SHA-256 digests under `web.api.token-hashes`; legacy `web.api.tokens` still accepted (deprecation warning when both used).
-- Documentation updates: refreshed SECURITY.md (mitigations marked) and new CHANGELOG.md.
-- Backward compatible; no config keys removed.
+<h2>What&rsquo;s new in 1.4.0</h2>
+<ul>
+  <li><strong>Virtual Delivery System:</strong> Overflow purchases now head into a per-player pending queue backed by SQLite. Claim everything from the GUI&rsquo;s Ender Chest badge or the new <code>/market delivery</code> commands, with FIFO ordering, optional auto-claim on login, and configurable per-player caps.</li>
+  <li><strong>Delivery Commands:</strong> <code>/market delivery list|claim|claim-all|gui</code> works in-game or from console, making remote administration painless.</li>
+  <li><strong>Web &amp; API Coverage:</strong> Added <code>/api/deliveries</code> endpoints and live dashboard badges so players can track pending items from the browser.</li>
+  <li><strong>Buy Loop Fix:</strong> Resolved the long-standing issue where buying 64 items occasionally yielded just one on 1.20.1 servers. The loop now allocates fresh stacks each cycle and safely routes overflow.</li>
+  <li><strong>Safety &amp; Integrity:</strong> Delivery storage uses atomic SQLite transactions with graceful fallback to avoid duplication exploits or limit bypasses.</li>
+</ul>
 
-## New in 1.2.0
-- Customizable Web UI override (`web.custom.*`): export & edit `index.html` and static assets.
-- Unified single-page market view with advanced filters (category, trend, price bounds, sorting, collapsible panel).
-- Removed legacy Addons tab (addon content can appear as items or via custom routes).
-- Stability & performance improvements to live updates and layout.
-- Previous 1.1.x features retained: resource-pack icons, Combined Holdings, inventory-aware pricing.
+<h3>Highlights from 1.3.1</h3>
+<ul>
+  <li>Orders now check inventory capacity before charging players; overflow is capped (or delivered) instead of dropping on the ground.</li>
+  <li>Players receive clear messaging when an order is capped, and the shared <code>calculateInventoryCapacity()</code> helper powers both command and web flows.</li>
+</ul>
 
-### Dynamic Pricing
-Prices respond to demand/supply with clamping and rolling history. Optional inventory‑aware pricing gently adapts to how many items players hold online (baseline and caps configurable).
+<h3>Highlights from 1.3.0</h3>
+<ul>
+  <li>Removed reflective access for tighter security and cleaner internal APIs.</li>
+  <li>Session tokens migrate into the Authorization header, scrubbing <code>?session=</code> from URLs automatically.</li>
+  <li>Support for SHA-256 hashed API tokens via <code>web.api.token-hashes</code>, plus refreshed documentation.</li>
+</ul>
 
+<h2>Feature Overview</h2>
+<ul>
+  <li><strong>Dynamic Pricing:</strong> Demand/supply curves with configurable sensitivity, EMA smoothing, per-item clamps, and optional inventory pressure that reacts to online player stock.</li>
+  <li><strong>Market GUI:</strong> Categories, search, sorting, quick-amount buttons, and a detailed panel with ASCII sparkline and impact estimates. Preferences persist per player.</li>
+  <li><strong>Delivery Queue:</strong> Claim pending items through GUI buttons or commands; delivery storage lives in <code>deliveries.db</code> with FIFO ordering.</li>
+  <li><strong>Events &amp; Shocks:</strong> Time-boxed multipliers with broadcasts and persistence across restarts.</li>
+  <li><strong>Investments:</strong> Buy, list, and redeem APR-based certificates entirely in-game.</li>
+  <li><strong>Web Dashboard (Optional):</strong> REST + WS/SSE live updates, resource-pack icons, Combined Holdings (Invest + live inventory), and customizable overrides via <code>web.custom.*</code>.</li>
+  <li><strong>Addon Framework:</strong> Drop-in addons gain command routing, aliases, and tab completion. The bundled Crypto addon ships with a YAML-defined shop and analytics endpoints.</li>
+  <li><strong>Resource Tracking:</strong> Optional server-wide counters for gathered materials, exportable via CSV.</li>
+</ul>
 
-### Market GUI
-Paginated inventory with sorting, filters, search, and details view. Shows last‑cycle demand/supply and estimated impact; auto‑refreshes on updates.
+<p>
+  <img src="https://i.imgur.com/2NVDOxj.gif" alt="Market GUI GIF" />
+</p>
+<p>
+  <img src="https://i.imgur.com/SY0ZO4F.png" alt="Market GUI Screenshot 1" />
+  <img src="https://i.imgur.com/fdWGBho.png" alt="Market GUI Screenshot 2" />
+</p>
+<p>
+  <img src="https://i.imgur.com/Qa5Hrhw.gif" alt="Events GIF" />
+</p>
+<p>
+  <img src="https://i.imgur.com/2hXIQfx.gif" alt="Web Dashboard GIF" />
+</p>
 
-![Market GUI GIF](https://i.imgur.com/2NVDOxj.gif)
+<h2>Gameplay &amp; Mechanics</h2>
+<ul>
+  <li>Price ticks use a sensitivity-based formula that considers recent demand/supply and optional inventory pressure.</li>
+  <li>Prices respect per-item minimum and maximum clamps; demand/supply counters reset each cycle.</li>
+  <li>Events apply temporary multipliers to effective prices, stacking up to configurable caps.</li>
+  <li>Delivery manager ensures overflow items are stored safely instead of dropping to the ground.</li>
+</ul>
 
-![GUI Screenshot 1](https://i.imgur.com/SY0ZO4F.png)
-![GUI Screenshot 2](https://i.imgur.com/fdWGBho.png)
-
-### Events & Shocks
-Stackable multipliers with broadcasts and persistence across restarts.
-
-![Events GIF](https://i.imgur.com/Qa5Hrhw.gif)
-
-### Addon Framework
-Drop-in addons with auto command routing, aliases, and tab completion.
-
-
-### Web Dashboard (Optional)
-REST API, live updates (WS/SSE), charts, real item icons from your resource pack with caching, and Combined Holdings showing both Invest (DB) and Inv (live inventory) with badges.
-
-![Web Dashboard GIF](https://i.imgur.com/2hXIQfx.gif)
-
-
-## Overview
-The Endex introduces a dynamic, demand-driven market to your server. Prices react to player behavior through demand/supply and (optionally) players’ online inventories. A polished GUI and robust command set make trading simple and engaging. Admins retain full control via configurable parameters, market events, blacklists, and safe reloads. Data can be stored in YAML or SQLite, with automated migration and versioned configuration.
-
-## Key Features
-- Dynamic pricing driven by demand/supply with clamping and rolling history; optional inventory‑aware pricing.
-- Full-featured market GUI: pagination, sorting, category filters, text search, and a details view.
-- Vault economy integration with configurable transaction tax.
-- Market events and shocks: stackable multipliers with a configurable cap; broadcasts and persistence across restarts.
-- Investments: purchase, list, and redeem-all accrued value with simple commands.
-- Storage flexibility: YAML by default or SQLite; automatic migration from YAML when enabling SQLite.
-- Player preferences: remembers amount, sort, category, search, and last page across sessions.
-- History insights: ASCII sparkline trends in chat/GUI and CSV history export for analysis.
-- Administrative tooling: safe reloads, event control, blacklists, CSV export, and version reporting.
-- Addon framework: drop-in jars with auto command routing, aliases, and tab completion.
-- Crypto Addon (optional): YAML-driven shop, per-item permissions, fixed/market pricing with mean reversion, `/endex crypto info`.
-- Resource tracking: track gathered materials (block breaks, mob drops, fishing), periodic persistence, and `/endex track dump`.
-- Web dashboard (optional): WS/SSE live updates, real item icons from your resource pack, and Combined Holdings showing Invest (DB) plus Inv (live inventory) with badges.
- - Customizable Web UI override: enable filesystem override of `index.html` & static assets via `web.custom.*` with export & reload admin commands; unified single-page market (legacy Addons tab removed).
-
-## Gameplay Mechanics
-- Periodic price updates use a sensitivity-based formula reflecting recent demand and supply; optional inventory pressure compares average per-player stock to a configurable baseline.
-- Prices are clamped between per-item minimums and maximums; demand/supply reset each cycle.
-- Blacklisted items are excluded from trading and display.
-- Events apply temporary multipliers to effective buy/sell prices (display and transaction) and can stack up to a defined cap.
-
-## Graphical Interface
-- Paginated 54-slot inventory view with quick amount selectors (1/8/16/32/64).
-- Left-click to buy, right-click to sell; Shift/Middle-click opens a rich details panel.
-- Sorting by name, price, and change; category filters and text search.
-- Per-player preferences persist; interface auto-refreshes after trades.
-
-## Commands
-```
-/endex help
+<h2>Commands</h2>
+<pre><code>/endex help
 /endex version
 
 /market
-/market buy <item> <amount>
-/market sell <item> <amount>
-/market price <item>
+/market buy &lt;item&gt; &lt;amount&gt;
+/market sell &lt;item&gt; &lt;amount&gt;
+/market price &lt;item&gt;
 /market top
 
-/market invest buy <item> <amount>
+/market invest buy &lt;item&gt; &lt;amount&gt;
 /market invest list
 /market invest redeem-all
 
+/market delivery list
+/market delivery claim &lt;item&gt; [amount]
+/market delivery claim-all
+/market delivery gui
+
 /market event list
-/market event <name>
-/market event end <name>
+/market event &lt;name&gt;
+/market event end &lt;name&gt;
 /market event clear
-```
+</code></pre>
 
-## Permissions
-- theendex.market — default: true
-- theendex.buy — default: true
-- theendex.sell — default: true
-- theendex.invest — default: true
-- theendex.admin — default: op
-- Crypto addon: `theendex.crypto.*` (info, balance, buy, sell, transfer, shop, admin)
+<h2>Permissions</h2>
+<ul>
+  <li><code>theendex.market</code> &mdash; default: true</li>
+  <li><code>theendex.buy</code> &mdash; default: true</li>
+  <li><code>theendex.sell</code> &mdash; default: true</li>
+  <li><code>theendex.invest</code> &mdash; default: true</li>
+  <li><code>theendex.admin</code> &mdash; default: op</li>
+  <li>Crypto addon: <code>theendex.crypto.*</code> (info, balance, buy, sell, transfer, shop, admin)</li>
+</ul>
 
-## Configuration Highlights
-- Versioned configuration with automated migration on startup and reload.
-- Adjustable price update interval, sensitivity, history length, and autosave frequency.
-- Transaction tax, item blacklist, category settings, and event multiplier caps.
-- Storage selection (YAML or SQLite) with path configuration and automatic seeding.
- - Inventory-aware pricing:
+<h2>Configuration Highlights</h2>
+<ul>
+  <li>Versioned config with automated migration on startup/reload.</li>
+  <li>Adjustable price tick interval, sensitivity, history length, autosave frequency, taxes, blacklists, and event caps.</li>
+  <li>Toggle delivery system with <code>delivery.enabled</code>, <code>delivery.auto-claim-on-login</code>, and <code>delivery.max-pending-per-player</code>.</li>
+  <li>Choose YAML or SQLite storage; SQLite is recommended for delivery tracking.</li>
+</ul>
 
-```yaml
-price-inventory:
+<pre><code class="language-yaml">price-inventory:
   enabled: true
   sensitivity: 0.02
   per-player-baseline: 64
   max-impact-percent: 10.0
-```
 
- - Web combined holdings & roles:
+delivery:
+  enabled: true
+  auto-claim-on-login: false
+  max-pending-per-player: 100000
 
-```yaml
 web:
   roles:
     default: TRADER
@@ -133,25 +126,29 @@ web:
       enabled: true
       include-enderchest: false
       cache-seconds: 15
-```
+</code></pre>
 
-## Compatibility
-- Server: Paper/Spigot 1.20.1 to latest (built against API 1.20.1).
-- Java 17 runtime.
-- Economy: Vault (soft dependency).
+<h2>Compatibility &amp; Requirements</h2>
+<ul>
+  <li>Server: Paper/Spigot 1.20.1 through 1.21.8 (built against Paper API 1.20.1).</li>
+  <li>Java 17 runtime.</li>
+  <li>Vault (soft dependency) for economy operations.</li>
+</ul>
 
-## Data & Reliability
-- YAML storage in the plugin’s folder by default; optional SQLite database.
-- Periodic backups and orderly saves protect against data loss.
-- Safe reload reinitializes managers, reloads configuration/events, and reschedules tasks.
+<h2>Data &amp; Reliability</h2>
+<ul>
+  <li>YAML storage by default; SQLite recommended for delivery queues and web metrics.</li>
+  <li>Periodic backups, safe reloads, and atomic CSV exports keep data consistent.</li>
+  <li>Delivery database operations wrap in try/catch with rollback to maintain integrity.</li>
+</ul>
 
-## Support
-For questions, feedback, or issue reports, please use the resource discussion and include the output of `/endex version` along with any relevant logs.
+<h2>Support</h2>
+<p>For questions, feedback, or bug reports, open a discussion and include the output of <code>/endex version</code> plus relevant logs.</p>
 
-<p align="center">
+<p style="text-align:center;">
   <a href="https://discord.gg/ujFRXksUBE">
     <img src="https://i.postimg.cc/5tz22qFS/discord-icon-png-0-1.jpg" alt="Join our Discord!" width="64" height="64" />
   </a>
-  <br/>
+  <br />
   Join our Discord!
 </p>

@@ -8,6 +8,7 @@
 [B]Dynamic Pricing[/B] — Prices react to demand/supply with configurable sensitivity, EMA smoothing, and per‑item min/max caps.
 [B]Inventory‑Aware Pricing (Optional)[/B] — Prices can gently adapt to how many items players are holding (online inventories). Above‑baseline stock nudges price down; scarce items nudge it up. Fully capped and smoothed.
 [B]Market GUI[/B] — Categories, search, sorting, quick buy/sell amounts, a details panel with a tiny sparkline, plus last‑cycle demand/supply and an estimated impact percentage. GUI auto‑refreshes on price updates.
+[B]Delivery System[/B] — Overflow purchases are never lost. Excess items route into a per‑player delivery queue backed by SQLite, claimable via GUI buttons or `/market delivery` commands. Optional auto-claim on login and per-player caps keep things tidy.
 
 [IMG]https://i.imgur.com/2NVDOxj.gif[/IMG]
 [SPOILER="Screenshots"]
@@ -41,6 +42,11 @@
 /market invest buy <item> <amount>
 /market invest list
 /market invest redeem-all
+
+/market delivery list
+/market delivery claim <item> [amount]
+/market delivery claim-all
+/market delivery gui
 
 /market event list
 /market event <name>
@@ -105,6 +111,17 @@ Customizable Web UI override (`web.custom.*`) – export default `index.html` an
 [URL='https://discord.gg/vS8xsvWaSU']Join our Discord[/URL]
 
 [B]Changelog[/B]
+New in 1.4.0:
+- Virtual Delivery System: overflow purchases now enter a pending delivery queue with FIFO claiming, GUI integration, per-player limits, and optional auto-claim on login.
+- Delivery Commands: `/market delivery list|claim|claim-all|gui` provide full management for pending items, including console support.
+- Web + API updates: new `/api/deliveries` endpoints and updated dashboard badges reflecting pending deliveries in real time.
+- Fixed long-standing buy loop issue where `/market buy <item> 64` could yield only one item on 1.20.1 servers; loop now instantiates fresh stacks and routes overflow safely.
+- Delivery storage hardened with atomic SQLite transactions and graceful fallbacks to prevent duplication exploits.
+
+New in 1.3.1:
+- Inventory capacity is checked before charging players; oversized orders are capped (or delivered) instead of dropping items on the ground.
+- Added detailed feedback when purchases are capped and shared the `calculateInventoryCapacity()` helper with the web tier.
+
 New in 1.3.0:
 - Security hardening: removed all reflective private field access (cleaner, safer internals).
 - Web auth improvement: session token now moved to Authorization header after first load; URL is sanitized automatically.
