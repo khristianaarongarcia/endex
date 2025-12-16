@@ -62,12 +62,27 @@ Thumbs.db
 desktop.ini
 
 # ===========================================
-# DOCUMENTATION (Built/Generated)
+# DOCUMENTATION (Built/Generated & Private)
 # ===========================================
 # Keep source docs in repo, ignore generated
 docs/_build/
 docs/.docusaurus/
 site/
+
+# Internal/Private documentation (not for public repo)
+docs/SPIGOT_DESCRIPTION.md
+docs/MODRINTH_DESCRIPTION.md
+docs/GITBOOK_DOCS.md
+docs/IMAGE_PROMPTS_CHATGPT5.md
+docs/CRYPTO_ADDON_RELEASE.md
+
+# Internal checklists and roadmaps
+FEATURES_OPTIMIZATIONS_CHECKLIST.md
+the_endex_roadmap.md
+addons/CRYPTO_ADDON_FEATURES_CHECKLIST.md
+
+# Crypto addon (private/premium)
+addons/crypto/
 
 # ===========================================
 # MISC

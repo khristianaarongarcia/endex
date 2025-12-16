@@ -25,10 +25,26 @@ class MarketGUI(private val plugin: Endex) : Listener {
     private val pageSize = 45 // 5 rows for items, last row for controls
     
     // Helper to get inventory view title as String for MC 1.21+ compatibility
-    // InventoryView.title() returns Component in 1.21+, so we serialize it to plain text
-    private fun getViewTitle(view: InventoryView): String {
-        return PlainTextComponentSerializer.plainText().serialize(view.title())
+    // Uses reflection to avoid IncompatibleClassChangeError when InventoryView is interface vs class
+    private fun getViewTitleFromView(view: Any): String {
+        return try {
+            // Try the Adventure API method first (Paper 1.16+)
+            val titleMethod = view.javaClass.getMethod("title")
+            val component = titleMethod.invoke(view)
+            PlainTextComponentSerializer.plainText().serialize(component as net.kyori.adventure.text.Component)
+        } catch (e: Exception) {
+            // Fallback to legacy method
+            try {
+                val legacyMethod = view.javaClass.getMethod("getTitle")
+                legacyMethod.invoke(view) as String
+            } catch (e2: Exception) {
+                ""
+            }
+        }
     }
+    
+    private fun getViewTitle(event: InventoryClickEvent): String = getViewTitleFromView(event.view)
+    private fun getViewTitle(event: InventoryCloseEvent): String = getViewTitleFromView(event.view)
 
     private val amounts = listOf(1, 8, 16, 32, 64)
     private enum class SortBy { NAME, PRICE, CHANGE }
@@ -207,7 +223,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
     fun onClick(e: InventoryClickEvent) {
         val player = e.whoClicked as? Player ?: return
         // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e.view)
+        val title = getViewTitle(e)
         if (!title.startsWith(ChatColor.stripColor(titleBase) ?: titleBase)) return
         e.isCancelled = true
         val state = states.getOrPut(player.uniqueId) { State() }
@@ -301,7 +317,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
     fun onClose(e: InventoryCloseEvent) {
         val player = e.player as? Player ?: return
         // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e.view)
+        val title = getViewTitle(e)
         if (!title.startsWith(ChatColor.stripColor(titleBase) ?: titleBase)) return
         states[player.uniqueId]?.let { persist(player, it) }
     }
@@ -465,7 +481,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
         if (!state.inDetails) return
         val mat = state.detailOf ?: return
         // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e.view)
+        val title = getViewTitle(e)
         if (!title.contains("Endex:")) return
         e.isCancelled = true
         when (e.rawSlot) {
@@ -554,7 +570,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
     fun onDeliveriesClick(e: InventoryClickEvent) {
         val player = e.whoClicked as? Player ?: return
         // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e.view)
+        val title = getViewTitle(e)
         if (title != ChatColor.stripColor("${ChatColor.DARK_PURPLE}Pending Deliveries")) return
         e.isCancelled = true
         
@@ -742,7 +758,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
     fun onHoldingsClick(e: InventoryClickEvent) {
         val player = e.whoClicked as? Player ?: return
         // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e.view)
+        val title = getViewTitle(e)
         if (title != ChatColor.stripColor("${ChatColor.DARK_PURPLE}My Holdings")) return
         e.isCancelled = true
         
