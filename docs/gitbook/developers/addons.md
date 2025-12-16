@@ -2,27 +2,28 @@
 
 Extend The Endex with addon plugins.
 
----
+***
 
 ## What Are Addons?
 
 Addons are separate plugin JAR files that integrate with The Endex:
 
-- **Custom commands** — Add trading commands
-- **API routes** — Extend the REST API
-- **Custom items** — Non-vanilla tradeable assets
-- **Business logic** — Custom trading behavior
+* **Custom commands** — Add trading commands
+* **API routes** — Extend the REST API
+* **Custom items** — Non-vanilla tradeable assets
+* **Business logic** — Custom trading behavior
 
----
+***
 
 ## Installing Addons
 
 ### 1. Download
 
 Get addon JARs from:
-- Official releases
-- Third-party developers
-- Build from source
+
+* Official releases
+* Third-party developers
+* Build from source
 
 ### 2. Place in Folder
 
@@ -46,27 +47,7 @@ Check addon loaded:
 /endex addons
 ```
 
----
-
-## Official Addons
-
-### Crypto Addon
-
-Trade virtual cryptocurrencies with simulated markets.
-
-**Features:**
-- 20+ cryptocurrencies (BTC, ETH, DOGE, etc.)
-- Realistic volatility simulation
-- Web dashboard integration
-- Holdings with P/L tracking
-
-**Installation:**
-1. Download `TheEndex-Crypto-*.jar`
-2. Place in `plugins/TheEndex/addons/`
-3. Restart server
-4. Configure `plugins/TheEndex/crypto.yml`
-
----
+***
 
 ## Configuration
 
@@ -82,7 +63,7 @@ plugins/TheEndex/
     └── custom-addon.jar
 ```
 
----
+***
 
 ## Managing Addons
 
@@ -101,6 +82,7 @@ Access addon commands:
 ```
 
 Example for crypto:
+
 ```
 /endex crypto prices
 /endex crypto buy BTC 0.5
@@ -115,7 +97,7 @@ GET /api/addon/crypto/prices
 POST /api/addon/crypto/buy
 ```
 
----
+***
 
 ## Developing Addons
 
@@ -139,30 +121,32 @@ my-addon/
         └── org.lokixcz.theendex.addon.EndexAddon
 ```
 
----
+***
 
 ## Permissions
 
 Addons can use The Endex permission system:
 
-| Pattern | Description |
-|---------|-------------|
-| `endex.addon.<name>` | Base addon access |
+| Pattern                    | Description          |
+| -------------------------- | -------------------- |
+| `endex.addon.<name>`       | Base addon access    |
 | `endex.addon.<name>.admin` | Addon admin features |
-| `endex.addon.<name>.trade` | Trading via addon |
+| `endex.addon.<name>.trade` | Trading via addon    |
 
----
+***
 
 ## Troubleshooting
 
 ### Addon Not Loading
 
 **Check:**
-- JAR is in correct folder
-- Compatible with your Endex version
-- No errors in console
+
+* JAR is in correct folder
+* Compatible with your Endex version
+* No errors in console
 
 **Debug:**
+
 ```
 # Check for load errors
 grep -i "addon" logs/latest.log
@@ -171,6 +155,7 @@ grep -i "addon" logs/latest.log
 ### Command Not Found
 
 Ensure addon registered successfully:
+
 ```
 /endex addons
 ```
@@ -178,14 +163,15 @@ Ensure addon registered successfully:
 ### API Route 404
 
 Verify addon exposes API:
+
 ```
 GET /api/addons
 ```
 
----
+***
 
 ## Related Pages
 
-- [Developer API](api.md) — Build custom addons
-- [REST API](../web-api/rest-api.md) — API integration
-- [Commands](../reference/commands.md) — Command reference
+* [Developer API](api.md) — Build custom addons
+* [REST API](../web-api/rest-api.md) — API integration
+* [Commands](../reference/commands.md) — Command reference
