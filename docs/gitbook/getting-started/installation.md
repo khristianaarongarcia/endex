@@ -2,52 +2,51 @@
 
 Get The Endex up and running on your server in minutes.
 
----
+***
 
 ## Requirements
 
 Before installing, ensure you have:
 
-- **Minecraft Server:** Paper, Spigot, or Purpur (1.20.1 - 1.21.x)
-- **Java:** Version 17 or higher
-- **Vault:** For economy integration (optional but recommended)
-- **Economy Provider:** EssentialsX, CMI, or similar (requires Vault)
+* **Minecraft Server:** Paper, Spigot, or Purpur (1.20.1 - 1.21.x)
+* **Java:** Version 17 or higher
+* **Vault:** For economy integration (optional but recommended)
+* **Economy Provider:** EssentialsX, CMI, or similar (requires Vault)
 
----
+***
 
 ## Step 1: Download
 
 Download the latest release from one of these platforms:
 
-- [**Modrinth**](https://modrinth.com/plugin/theendex) (Recommended)
-- [**SpigotMC**](https://www.spigotmc.org/resources/theendex)
-- [**GitHub Releases**](https://github.com/khristianaarongarcia/theendex/releases)
+* [**Modrinth**](https://modrinth.com/plugin/theendex) (Recommended)
+* [**SpigotMC**](https://www.spigotmc.org/resources/theendex)
+* [**GitHub Releases**](https://github.com/khristianaarongarcia/endex/releases)
 
----
+***
 
 ## Step 2: Install the Plugin
 
 1. **Stop your server** (recommended for clean installation)
+2.  **Place the JAR file** in your server's `plugins/` folder:
 
-2. **Place the JAR file** in your server's `plugins/` folder:
-   ```
-   server/
-   └── plugins/
-       └── TheEndex.jar
-   ```
-
+    ```
+    server/
+    └── plugins/
+        └── TheEndex.jar
+    ```
 3. **Start your server**
+4.  The plugin will generate default configuration files in:
 
-4. The plugin will generate default configuration files in:
-   ```
-   plugins/TheEndex/
-   ├── config.yml
-   ├── market.yml
-   ├── events.yml
-   └── data/
-   ```
+    ```
+    plugins/TheEndex/
+    ├── config.yml
+    ├── market.yml
+    ├── events.yml
+    └── data/
+    ```
 
----
+***
 
 ## Step 3: Set Up Economy (Optional)
 
@@ -63,31 +62,30 @@ For buy/sell functionality, you need an economy system:
 
 Choose one of these popular options:
 
-| Plugin | Description |
-|--------|-------------|
-| [EssentialsX](https://essentialsx.net/) | Most popular, feature-rich |
-| [CMI](https://www.spigotmc.org/resources/cmi.3742/) | All-in-one management |
-| [LuckPerms Vault](https://luckperms.net/) | Lightweight option |
+| Plugin                                              | Description                |
+| --------------------------------------------------- | -------------------------- |
+| [EssentialsX](https://essentialsx.net/)             | Most popular, feature-rich |
+| [CMI](https://www.spigotmc.org/resources/cmi.3742/) | All-in-one management      |
+| [LuckPerms Vault](https://luckperms.net/)           | Lightweight option         |
 
----
+***
 
 ## Step 4: Verify Installation
 
 1. Join your server
+2.  Run the version command:
 
-2. Run the version command:
-   ```
-   /endex version
-   ```
-
+    ```
+    /endex version
+    ```
 3. You should see version info and status
+4.  Open the market GUI:
 
-4. Open the market GUI:
-   ```
-   /market
-   ```
+    ```
+    /market
+    ```
 
----
+***
 
 ## Step 5: Initial Configuration
 
@@ -111,31 +109,32 @@ web:
 ```
 
 After editing, reload the config:
+
 ```
 /endex reload
 ```
 
----
+***
 
 ## Installing Addons
 
 Addons extend The Endex with additional features.
 
 1. Download the addon JAR
+2.  Place in `plugins/TheEndex/addons/`:
 
-2. Place in `plugins/TheEndex/addons/`:
-   ```
-   plugins/TheEndex/
-   └── addons/
-       └── CryptoAddon.jar
-   ```
+    ```
+    plugins/TheEndex/
+    └── addons/
+        └── CryptoAddon.jar
+    ```
+3.  Restart server or reload:
 
-3. Restart server or reload:
-   ```
-   /endex reload
-   ```
+    ```
+    /endex reload
+    ```
 
----
+***
 
 ## Updating
 
@@ -150,10 +149,10 @@ To update The Endex:
 The Endex automatically migrates configs between versions. Always backup before updating!
 {% endhint %}
 
----
+***
 
 ## Next Steps
 
-- [Quick Start Guide](quick-start.md) — Learn the basics
-- [Configuration](../reference/configuration.md) — Customize everything
-- [Commands](../reference/commands.md) — All available commands
+* [Quick Start Guide](quick-start.md) — Learn the basics
+* [Configuration](../reference/configuration.md) — Customize everything
+* [Commands](../reference/commands.md) — All available commands
