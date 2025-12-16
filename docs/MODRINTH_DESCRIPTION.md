@@ -2,40 +2,44 @@
   <img src="https://i.imgur.com/onDbDSW.png" alt="The Endex Banner" />
 </p>
 
-<h1>The Endex &vert; Dynamic Market &amp; Addons <span style="font-size:0.8em;">[1.20.1 &ndash; 1.21.8]</span></h1>
+<h1>The Endex &vert; Dynamic Market &amp; Addons <span style="font-size:0.8em;">[1.20.1 &ndash; 1.21.x]</span></h1>
 
-<p>Bring a living economy to your server. Prices move with player demand and supply, backed by a slick Market GUI, timed events, an optional web dashboard, delivery queue safeguards, and an addon framework.</p>
+<p>Bring a living economy to your server. Prices move with player demand and supply, backed by a slick Market GUI, timed events, an optional web dashboard, virtual holdings system, and an addon framework.</p>
 
-<h2>What&rsquo;s new in 1.4.0</h2>
+<h2>What&rsquo;s new in 1.5.1 — World Storage Scanner</h2>
+<ul>
+  <li><strong>Global Item Tracking:</strong> Prices now react to ALL items stored on your server — chests, barrels, shulker boxes, and more! True server-wide scarcity economics.</li>
+  <li><strong>Anti-Manipulation Protection:</strong> Per-chunk item caps, per-material limits, and suspicious activity logging prevent storage farm exploits.</li>
+  <li><strong>TPS-Aware Throttling:</strong> Scanner automatically skips if server is under load (configurable threshold, default 18.0 TPS).</li>
+  <li><strong>Smart Scanning:</strong> Double chest deduplication, nested shulker contents, and configurable container types.</li>
+  <li><strong>World Exclusions:</strong> Skip creative, minigame, or spawn worlds from affecting prices.</li>
+</ul>
+
+<h3>Highlights from 1.5.0</h3>
+<ul>
+  <li><strong>Virtual Holdings System:</strong> Complete redesign! Items purchased now go into virtual holdings instead of your inventory. Withdraw when you&rsquo;re ready with full P/L tracking.</li>
+  <li><strong>Holdings GUI:</strong> Beautiful new panel showing all your holdings with quantity, avg cost, current price, and profit/loss. Left-click to withdraw all, right-click for one stack.</li>
+  <li><strong>Holdings Commands:</strong> <code>/market holdings</code> to view, <code>/market withdraw &lt;item&gt; [amount]</code> to claim items to inventory.</li>
+  <li><strong>Web UI Withdraw:</strong> Withdraw buttons (📤) on each holding row plus &ldquo;Withdraw All&rdquo; button. Real-time notifications on success.</li>
+  <li><strong>Minecraft 1.21 Support:</strong> Full compatibility with Minecraft 1.21.x servers.</li>
+</ul>
+
+<h3>Highlights from 1.4.0</h3>
 <ul>
   <li><strong>Virtual Delivery System:</strong> Overflow purchases now head into a per-player pending queue backed by SQLite. Claim everything from the GUI&rsquo;s Ender Chest badge or the new <code>/market delivery</code> commands, with FIFO ordering, optional auto-claim on login, and configurable per-player caps.</li>
-  <li><strong>Delivery Commands:</strong> <code>/market delivery list|claim|claim-all|gui</code> works in-game or from console, making remote administration painless.</li>
-  <li><strong>Web &amp; API Coverage:</strong> Added <code>/api/deliveries</code> endpoints and live dashboard badges so players can track pending items from the browser.</li>
-  <li><strong>Buy Loop Fix:</strong> Resolved the long-standing issue where buying 64 items occasionally yielded just one on 1.20.1 servers. The loop now allocates fresh stacks each cycle and safely routes overflow.</li>
-  <li><strong>Safety &amp; Integrity:</strong> Delivery storage uses atomic SQLite transactions with graceful fallback to avoid duplication exploits or limit bypasses.</li>
-</ul>
-
-<h3>Highlights from 1.3.1</h3>
-<ul>
-  <li>Orders now check inventory capacity before charging players; overflow is capped (or delivered) instead of dropping on the ground.</li>
-  <li>Players receive clear messaging when an order is capped, and the shared <code>calculateInventoryCapacity()</code> helper powers both command and web flows.</li>
-</ul>
-
-<h3>Highlights from 1.3.0</h3>
-<ul>
-  <li>Removed reflective access for tighter security and cleaner internal APIs.</li>
-  <li>Session tokens migrate into the Authorization header, scrubbing <code>?session=</code> from URLs automatically.</li>
-  <li>Support for SHA-256 hashed API tokens via <code>web.api.token-hashes</code>, plus refreshed documentation.</li>
+  <li><strong>Buy Loop Fix:</strong> Resolved the long-standing issue where buying 64 items occasionally yielded just one on 1.20.1 servers.</li>
 </ul>
 
 <h2>Feature Overview</h2>
 <ul>
   <li><strong>Dynamic Pricing:</strong> Demand/supply curves with configurable sensitivity, EMA smoothing, per-item clamps, and optional inventory pressure that reacts to online player stock.</li>
+  <li><strong>World Storage Scanner:</strong> Prices adapt to global item quantities across ALL server storage (chests, barrels, shulkers). Above-baseline = price drops, scarce = price rises. Anti-manipulation caps prevent exploits.</li>
   <li><strong>Market GUI:</strong> Categories, search, sorting, quick-amount buttons, and a detailed panel with ASCII sparkline and impact estimates. Preferences persist per player.</li>
-  <li><strong>Delivery Queue:</strong> Claim pending items through GUI buttons or commands; delivery storage lives in <code>deliveries.db</code> with FIFO ordering.</li>
+  <li><strong>Virtual Holdings:</strong> Buy items into virtual storage with P/L tracking. Withdraw to inventory when ready. Configurable global limits.</li>
+  <li><strong>Delivery Queue:</strong> Backup system for overflow items when holdings are full.</li>
   <li><strong>Events &amp; Shocks:</strong> Time-boxed multipliers with broadcasts and persistence across restarts.</li>
   <li><strong>Investments:</strong> Buy, list, and redeem APR-based certificates entirely in-game.</li>
-  <li><strong>Web Dashboard (Optional):</strong> REST + WS/SSE live updates, resource-pack icons, Combined Holdings (Invest + live inventory), and customizable overrides via <code>web.custom.*</code>.</li>
+  <li><strong>Web Dashboard (Optional):</strong> REST + WS/SSE live updates, resource-pack icons, withdraw buttons, and customizable overrides via <code>web.custom.*</code>.</li>
   <li><strong>Addon Framework:</strong> Drop-in addons gain command routing, aliases, and tab completion. The bundled Crypto addon ships with a YAML-defined shop and analytics endpoints.</li>
   <li><strong>Resource Tracking:</strong> Optional server-wide counters for gathered materials, exportable via CSV.</li>
 </ul>
@@ -59,7 +63,8 @@
   <li>Price ticks use a sensitivity-based formula that considers recent demand/supply and optional inventory pressure.</li>
   <li>Prices respect per-item minimum and maximum clamps; demand/supply counters reset each cycle.</li>
   <li>Events apply temporary multipliers to effective prices, stacking up to configurable caps.</li>
-  <li>Delivery manager ensures overflow items are stored safely instead of dropping to the ground.</li>
+  <li>Purchases go to virtual holdings first; withdraw to inventory when ready.</li>
+  <li>Holdings track average cost basis for accurate profit/loss calculations.</li>
 </ul>
 
 <h2>Commands</h2>
@@ -71,6 +76,10 @@
 /market sell &lt;item&gt; &lt;amount&gt;
 /market price &lt;item&gt;
 /market top
+
+/market holdings
+/market withdraw &lt;item&gt; [amount]
+/market withdraw all
 
 /market invest buy &lt;item&gt; &lt;amount&gt;
 /market invest list
@@ -92,6 +101,8 @@
   <li><code>theendex.market</code> &mdash; default: true</li>
   <li><code>theendex.buy</code> &mdash; default: true</li>
   <li><code>theendex.sell</code> &mdash; default: true</li>
+  <li><code>theendex.holdings</code> &mdash; default: true</li>
+  <li><code>theendex.withdraw</code> &mdash; default: true</li>
   <li><code>theendex.invest</code> &mdash; default: true</li>
   <li><code>theendex.admin</code> &mdash; default: op</li>
   <li>Crypto addon: <code>theendex.crypto.*</code> (info, balance, buy, sell, transfer, shop, admin)</li>
@@ -101,20 +112,37 @@
 <ul>
   <li>Versioned config with automated migration on startup/reload.</li>
   <li>Adjustable price tick interval, sensitivity, history length, autosave frequency, taxes, blacklists, and event caps.</li>
-  <li>Toggle delivery system with <code>delivery.enabled</code>, <code>delivery.auto-claim-on-login</code>, and <code>delivery.max-pending-per-player</code>.</li>
-  <li>Choose YAML or SQLite storage; SQLite is recommended for delivery tracking.</li>
+  <li>Toggle holdings system with <code>holdings.enabled</code>, <code>holdings.max-per-player</code>, and <code>holdings.mode</code>.</li>
+  <li>World Storage Scanner with anti-manipulation protection.</li>
+  <li>Choose YAML or SQLite storage; SQLite is recommended for holdings tracking.</li>
 </ul>
 
-<pre><code class="language-yaml">price-inventory:
+<pre><code class="language-yaml">holdings:
+  enabled: true
+  max-per-player: 10000
+  max-materials-per-player: 100
+  mode: VIRTUAL
+
+# NEW: World Storage Scanner
+price-world-storage:
+  enabled: true
+  scan-interval-seconds: 300
+  sensitivity: 0.01
+  global-baseline: 1000
+  containers:
+    chests: true
+    barrels: true
+    shulker-boxes: true
+  anti-manipulation:
+    per-chunk-item-cap: 10000
+    per-material-chunk-cap: 5000
+    min-tps: 18.0
+
+price-inventory:
   enabled: true
   sensitivity: 0.02
   per-player-baseline: 64
   max-impact-percent: 10.0
-
-delivery:
-  enabled: true
-  auto-claim-on-login: false
-  max-pending-per-player: 100000
 
 web:
   roles:
@@ -130,16 +158,16 @@ web:
 
 <h2>Compatibility &amp; Requirements</h2>
 <ul>
-  <li>Server: Paper/Spigot 1.20.1 through 1.21.8 (built against Paper API 1.20.1).</li>
+  <li>Server: Paper/Spigot 1.20.1 through 1.21.x (built against Paper API 1.21).</li>
   <li>Java 17 runtime.</li>
   <li>Vault (soft dependency) for economy operations.</li>
 </ul>
 
 <h2>Data &amp; Reliability</h2>
 <ul>
-  <li>YAML storage by default; SQLite recommended for delivery queues and web metrics.</li>
+  <li>YAML storage by default; SQLite recommended for holdings and web metrics.</li>
   <li>Periodic backups, safe reloads, and atomic CSV exports keep data consistent.</li>
-  <li>Delivery database operations wrap in try/catch with rollback to maintain integrity.</li>
+  <li>Holdings operations use atomic transactions to prevent duplication exploits.</li>
 </ul>
 
 <h2>Support</h2>

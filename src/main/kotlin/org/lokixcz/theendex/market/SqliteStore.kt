@@ -2,6 +2,7 @@ package org.lokixcz.theendex.market
 
 import org.bukkit.Material
 import org.bukkit.plugin.java.JavaPlugin
+import org.lokixcz.theendex.util.EndexLogger
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
@@ -9,6 +10,8 @@ import java.time.Instant
 
 class SqliteStore(private val plugin: JavaPlugin) {
     private val dbFile = File(plugin.dataFolder, "market.db")
+    private val logger = EndexLogger(plugin)
+    
     private fun connect(): Connection {
         if (!plugin.dataFolder.exists()) plugin.dataFolder.mkdirs()
         return DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}")
@@ -31,7 +34,7 @@ class SqliteStore(private val plugin: JavaPlugin) {
                     ")"
                 )
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_history_mat_time ON history(material, time)")
-                // Holdings per player per material
+                // Virtual Holdings per player per material (actual item storage, not just cost tracking)
                 st.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS holdings (" +
                         "owner TEXT, material TEXT, quantity INTEGER, avg_cost REAL, PRIMARY KEY(owner, material)" +
@@ -45,6 +48,47 @@ class SqliteStore(private val plugin: JavaPlugin) {
                 )
                 st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_trades_owner_time ON trades(owner, time)")
             }
+        }
+        // Migrate any pending deliveries to holdings
+        migrateDeliveriesToHoldings()
+    }
+    
+    /**
+     * Migrate existing pending deliveries from deliveries.db into holdings.
+     * This is a one-time migration when upgrading to the virtual holdings system.
+     */
+    private fun migrateDeliveriesToHoldings() {
+        val deliveriesDb = File(plugin.dataFolder, "deliveries.db")
+        if (!deliveriesDb.exists()) return
+        
+        try {
+            var migratedCount = 0
+            DriverManager.getConnection("jdbc:sqlite:${deliveriesDb.absolutePath}").use { deliveryConn ->
+                deliveryConn.createStatement().use { st ->
+                    val rs = st.executeQuery(
+                        "SELECT player_uuid, material, SUM(amount) as total FROM pending_deliveries GROUP BY player_uuid, material"
+                    )
+                    while (rs.next()) {
+                        val uuid = rs.getString("player_uuid")
+                        val matName = rs.getString("material")
+                        val amount = rs.getInt("total")
+                        val mat = Material.matchMaterial(matName) ?: continue
+                        
+                        // Add to holdings with avg_cost = 0 (migrated items don't have cost tracking)
+                        addToHoldings(uuid, mat, amount, 0.0)
+                        migratedCount += amount
+                    }
+                }
+                // Clear deliveries after migration
+                deliveryConn.createStatement().use { st ->
+                    st.executeUpdate("DELETE FROM pending_deliveries")
+                }
+            }
+            if (migratedCount > 0) {
+                logger.info("Migrated $migratedCount pending delivery items to virtual holdings system")
+            }
+        } catch (e: Exception) {
+            logger.warn("Failed to migrate deliveries to holdings: ${e.message}")
         }
     }
 
@@ -117,7 +161,7 @@ class SqliteStore(private val plugin: JavaPlugin) {
         }
     }
 
-    // Holdings helpers
+    // Holdings helpers - Virtual Storage System
     fun getHolding(ownerUuid: String, material: Material): Pair<Int, Double>? {
         connect().use { conn ->
             conn.prepareStatement("SELECT quantity, avg_cost FROM holdings WHERE owner=? AND material=?").use { ps ->
@@ -144,7 +188,144 @@ class SqliteStore(private val plugin: JavaPlugin) {
         }
         return map
     }
+    
+    /**
+     * Get total quantity of all items in holdings for a player.
+     */
+    fun getTotalHoldingsCount(ownerUuid: String): Int {
+        connect().use { conn ->
+            conn.prepareStatement("SELECT COALESCE(SUM(quantity), 0) FROM holdings WHERE owner=?").use { ps ->
+                ps.setString(1, ownerUuid)
+                val rs = ps.executeQuery()
+                if (rs.next()) return rs.getInt(1)
+            }
+        }
+        return 0
+    }
+    
+    /**
+     * Add items to virtual holdings. Used when buying items.
+     * Returns true if successful, false if would exceed limit.
+     */
+    fun addToHoldings(ownerUuid: String, material: Material, amount: Int, unitPrice: Double): Boolean {
+        if (amount <= 0) return false
+        
+        val maxHoldings = plugin.config.getInt("holdings.max-total-per-player", 100000)
+        
+        connect().use { conn ->
+            conn.autoCommit = false
+            try {
+                // Check current total holdings
+                val currentTotal = conn.prepareStatement(
+                    "SELECT COALESCE(SUM(quantity), 0) FROM holdings WHERE owner=?"
+                ).use { ps ->
+                    ps.setString(1, ownerUuid)
+                    val rs = ps.executeQuery()
+                    if (rs.next()) rs.getInt(1) else 0
+                }
+                
+                // Check if adding would exceed limit
+                if (maxHoldings > 0 && currentTotal + amount > maxHoldings) {
+                    conn.rollback()
+                    return false
+                }
+                
+                // Get current holding for this material
+                var qty = 0
+                var avg = 0.0
+                conn.prepareStatement("SELECT quantity, avg_cost FROM holdings WHERE owner=? AND material=?").use { ps ->
+                    ps.setString(1, ownerUuid)
+                    ps.setString(2, material.name)
+                    val rs = ps.executeQuery()
+                    if (rs.next()) { qty = rs.getInt(1); avg = rs.getDouble(2) }
+                }
+                
+                val newQty = qty + amount
+                // Calculate weighted average cost
+                val newAvg = if (newQty > 0) {
+                    val totalCost = avg * qty + unitPrice * amount
+                    totalCost / newQty
+                } else 0.0
+                
+                conn.prepareStatement(
+                    "INSERT INTO holdings(owner, material, quantity, avg_cost) VALUES(?,?,?,?) " +
+                        "ON CONFLICT(owner, material) DO UPDATE SET quantity=excluded.quantity, avg_cost=excluded.avg_cost"
+                ).use { ps ->
+                    ps.setString(1, ownerUuid)
+                    ps.setString(2, material.name)
+                    ps.setInt(3, newQty)
+                    ps.setDouble(4, newAvg)
+                    ps.executeUpdate()
+                }
+                
+                conn.commit()
+                return true
+            } catch (t: Throwable) {
+                runCatching { conn.rollback() }
+                throw t
+            } finally {
+                runCatching { conn.autoCommit = true }
+            }
+        }
+    }
+    
+    /**
+     * Remove items from virtual holdings. Used when withdrawing or selling from holdings.
+     * Returns the actual amount removed (may be less if not enough in holdings).
+     */
+    fun removeFromHoldings(ownerUuid: String, material: Material, amount: Int): Int {
+        if (amount <= 0) return 0
+        
+        connect().use { conn ->
+            conn.autoCommit = false
+            try {
+                var qty = 0
+                var avg = 0.0
+                conn.prepareStatement("SELECT quantity, avg_cost FROM holdings WHERE owner=? AND material=?").use { ps ->
+                    ps.setString(1, ownerUuid)
+                    ps.setString(2, material.name)
+                    val rs = ps.executeQuery()
+                    if (rs.next()) { qty = rs.getInt(1); avg = rs.getDouble(2) }
+                }
+                
+                if (qty <= 0) {
+                    conn.rollback()
+                    return 0
+                }
+                
+                val toRemove = minOf(amount, qty)
+                val newQty = qty - toRemove
+                
+                if (newQty <= 0) {
+                    conn.prepareStatement("DELETE FROM holdings WHERE owner=? AND material=?").use { ps ->
+                        ps.setString(1, ownerUuid)
+                        ps.setString(2, material.name)
+                        ps.executeUpdate()
+                    }
+                } else {
+                    // Keep avg cost unchanged when withdrawing
+                    conn.prepareStatement(
+                        "UPDATE holdings SET quantity=? WHERE owner=? AND material=?"
+                    ).use { ps ->
+                        ps.setInt(1, newQty)
+                        ps.setString(2, ownerUuid)
+                        ps.setString(3, material.name)
+                        ps.executeUpdate()
+                    }
+                }
+                
+                conn.commit()
+                return toRemove
+            } catch (t: Throwable) {
+                runCatching { conn.rollback() }
+                throw t
+            } finally {
+                runCatching { conn.autoCommit = true }
+            }
+        }
+    }
 
+    @Deprecated("Use addToHoldings/removeFromHoldings instead for virtual holdings")
     fun upsertHolding(ownerUuid: String, material: Material, deltaQty: Int, unitPrice: Double) {
         // Update quantity and weighted average cost when buying (deltaQty>0) or selling (deltaQty<0).
         connect().use { conn ->

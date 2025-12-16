@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.1] - 2025-12-17
+### Added
+- **World Storage Scanner:** Scans ALL containers (chests, barrels, shulker boxes, etc.) across loaded chunks to provide truly dynamic, server-wide pricing based on global item scarcity/abundance.
+- **Global Item Tracking:** Prices now react to total items stored across the entire server, not just player inventories or trades.
+- **Anti-Manipulation Protection:** Per-chunk item caps, per-material caps, and suspicious activity logging prevent storage farm exploits.
+- **TPS-Aware Throttling:** Scanner automatically skips or aborts if server TPS drops below threshold (default 18.0).
+- **Double Chest Deduplication:** Ensures double chests are only counted once, preventing inflation.
+- **Configurable Container Types:** Enable/disable scanning for chests, barrels, shulker boxes, hoppers, droppers, dispensers, furnaces, and brewing stands.
+- **Nested Shulker Scanning:** Optionally counts items inside shulker boxes stored in other containers.
+- **World Exclusion:** Skip creative, minigame, or spawn worlds from scanning.
+
+### Configuration
+New `price-world-storage` section in config.yml:
+```yaml
+price-world-storage:
+  enabled: true
+  scan-interval-seconds: 300
+  sensitivity: 0.01
+  global-baseline: 1000
+  max-impact-percent: 5.0
+  chunks-per-tick: 50
+  containers:
+    chests: true
+    barrels: true
+    shulker-boxes: true
+    hoppers: false
+    droppers: false
+    dispensers: false
+    furnaces: false
+    brewing-stands: false
+  scan-shulker-contents: true
+  excluded-worlds: []
+  anti-manipulation:
+    per-chunk-item-cap: 10000
+    per-material-chunk-cap: 5000
+    min-tps: 18.0
+    log-suspicious: true
+```
+
+### Security
+- Storage farm manipulation mitigated via per-chunk caps
+- Coordinated price manipulation reduced through proportional contribution limits
+- Admin alerts for suspicious storage patterns (chunks exceeding item caps)
+
+### Technical
+- New `WorldStorageScanner` service with async batch processing
+- Integrated into `MarketManager.updatePrices()` alongside existing inventory scanning
+- Uses daemon thread with configurable scan intervals
+- Location-based double chest tracking prevents double-counting
+
+### Upgrade Notes
+- World Storage Scanner is **enabled by default** for new installations
+- Existing configs will use defaults; add `price-world-storage` section to customize
+- Performance impact is minimal due to batched async processing and TPS monitoring
+
 ## [1.4.0] - 2025-10-30
 ### Added
 - **Virtual Delivery System:** Overflow purchases now route into a per-player pending deliveries queue backed by SQLite, protecting against item loss and duplication. Includes FIFO claims, optional auto-claim on login, and configurable per-player caps.

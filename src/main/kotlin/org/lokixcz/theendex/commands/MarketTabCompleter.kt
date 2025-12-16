@@ -4,10 +4,14 @@ import org.bukkit.Material
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
+import org.bukkit.entity.Player
 
 class MarketTabCompleter : TabCompleter {
-    private val sub = listOf("buy", "sell", "price", "top", "event")
-    private val amounts = listOf("1", "8", "16", "32", "64")
+    private val sub = listOf("buy", "sell", "price", "top", "event", "holdings", "withdraw", "delivery", "invest", "help")
+    private val amounts = listOf("1", "8", "16", "32", "64", "128", "256")
+    private val deliverySub = listOf("list", "claim", "claim-all", "gui")
+    private val investSub = listOf("buy", "list", "redeem-all")
+    private val withdrawSub = listOf("all")
 
     override fun onTabComplete(
         sender: CommandSender,
@@ -19,11 +23,27 @@ class MarketTabCompleter : TabCompleter {
             1 -> sub.filter { it.startsWith(args[0], ignoreCase = true) }.toMutableList()
             2 -> when (args[0].lowercase()) {
                 "buy", "sell", "price" -> materialCompletions(args[1])
+                "withdraw" -> {
+                    // Show "all" plus materials from holdings
+                    val mats = holdingsMaterialCompletions(sender, args[1])
+                    val allOption = if ("all".startsWith(args[1], ignoreCase = true)) mutableListOf("all") else mutableListOf()
+                    (allOption + mats).toMutableList()
+                }
                 "event" -> eventCompletions(sender, args.drop(1).joinToString(" "))
+                "delivery", "deliveries" -> deliverySub.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
+                "invest" -> investSub.filter { it.startsWith(args[1], ignoreCase = true) }.toMutableList()
                 else -> mutableListOf()
             }
             3 -> when (args[0].lowercase()) {
                 "buy", "sell" -> amounts.filter { it.startsWith(args[2]) }.toMutableList()
+                "withdraw" -> if (args[1].equals("all", ignoreCase = true)) mutableListOf() else amounts.filter { it.startsWith(args[2]) }.toMutableList()
+                "invest" -> if (args[1].equals("buy", ignoreCase = true)) materialCompletions(args[2]) else mutableListOf()
+                "delivery", "deliveries" -> if (args[1].equals("claim", ignoreCase = true)) deliveryMaterialCompletions(sender, args[2]) else mutableListOf()
+                else -> mutableListOf()
+            }
+            4 -> when (args[0].lowercase()) {
+                "invest" -> if (args[1].equals("buy", ignoreCase = true)) amounts.filter { it.startsWith(args[3]) }.toMutableList() else mutableListOf()
+                "delivery", "deliveries" -> if (args[1].equals("claim", ignoreCase = true)) amounts.filter { it.startsWith(args[3]) }.toMutableList() else mutableListOf()
                 else -> mutableListOf()
             }
             else -> mutableListOf()
@@ -35,6 +55,34 @@ class MarketTabCompleter : TabCompleter {
         return Material.entries
             .asSequence()
             .filter { !it.isAir && !it.name.startsWith("LEGACY_") }
+            .map { it.name }
+            .filter { it.startsWith(p) }
+            .take(50)
+            .toMutableList()
+    }
+
+    private fun holdingsMaterialCompletions(sender: CommandSender, prefix: String): MutableList<String> {
+        if (sender !is Player) return mutableListOf()
+        val plugin = org.bukkit.Bukkit.getPluginManager().getPlugin("TheEndex") as? org.lokixcz.theendex.Endex
+            ?: return mutableListOf()
+        val db = plugin.marketManager.sqliteStore() ?: return mutableListOf()
+        val holdings = db.listHoldings(sender.uniqueId.toString())
+        val p = prefix.uppercase()
+        return holdings.keys
+            .map { it.name }
+            .filter { it.startsWith(p) }
+            .take(50)
+            .toMutableList()
+    }
+
+    private fun deliveryMaterialCompletions(sender: CommandSender, prefix: String): MutableList<String> {
+        if (sender !is Player) return mutableListOf()
+        val plugin = org.bukkit.Bukkit.getPluginManager().getPlugin("TheEndex") as? org.lokixcz.theendex.Endex
+            ?: return mutableListOf()
+        val deliveryMgr = plugin.getDeliveryManager() ?: return mutableListOf()
+        val pending = deliveryMgr.listPending(sender.uniqueId)
+        val p = prefix.uppercase()
+        return pending.keys
             .map { it.name }
             .filter { it.startsWith(p) }
             .take(50)

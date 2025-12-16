@@ -39,6 +39,7 @@ class Endex : JavaPlugin() {
     private var addonCommandRouter: org.lokixcz.theendex.addon.AddonCommandRouter? = null
     private var resourceTracker: org.lokixcz.theendex.tracking.ResourceTracker? = null
     private var inventorySnapshots: org.lokixcz.theendex.tracking.InventorySnapshotService? = null
+    private var worldStorageScanner: org.lokixcz.theendex.tracking.WorldStorageScanner? = null
     private var webServer: WebServer? = null
     private var deliveryManager: org.lokixcz.theendex.delivery.DeliveryManager? = null
 
@@ -157,6 +158,20 @@ class Endex : JavaPlugin() {
             logx.warn("Failed to initialize inventory snapshot service: ${t.message}")
         }
 
+        // World storage scanner for global item tracking (chests, barrels, shulkers, etc.)
+        try {
+            val wss = org.lokixcz.theendex.tracking.WorldStorageScanner(this)
+            if (wss.enabled()) {
+                wss.start()
+                worldStorageScanner = wss
+                logx.info("World storage scanner enabled (price-world-storage.*)")
+            } else {
+                logx.debug("World storage scanner disabled by config (price-world-storage.enabled=false)")
+            }
+        } catch (t: Throwable) {
+            logx.warn("Failed to initialize world storage scanner: ${t.message}")
+        }
+
         // Initialize Web Server instance EARLY so addons can register web routes
         try {
             if (webServer == null) {
@@ -211,6 +226,14 @@ class Endex : JavaPlugin() {
             logx.warn("Failed to stop web server: ${t.message}")
         }
         
+        // Stop world storage scanner
+        try {
+            worldStorageScanner?.stop()
+            worldStorageScanner = null
+        } catch (t: Throwable) {
+            logx.warn("Failed to stop world storage scanner: ${t.message}")
+        }
+        
         // Unregister API service
     try { server.servicesManager.unregister(org.lokixcz.theendex.api.EndexAPI::class.java) } catch (_: Throwable) {}
         // Disable addons
@@ -248,6 +271,7 @@ class Endex : JavaPlugin() {
     // Getter for web server
     fun getWebServer(): WebServer? = webServer
     fun getInventorySnapshotService(): org.lokixcz.theendex.tracking.InventorySnapshotService? = inventorySnapshots
+    fun getWorldStorageScanner(): org.lokixcz.theendex.tracking.WorldStorageScanner? = worldStorageScanner
     
     // Getter for delivery manager
     fun getDeliveryManager(): org.lokixcz.theendex.delivery.DeliveryManager? = deliveryManager

@@ -11,16 +11,24 @@ import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.event.player.AsyncPlayerChatEvent
 import org.bukkit.event.inventory.ClickType
 import org.bukkit.inventory.Inventory
+import org.bukkit.inventory.InventoryView
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
 import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.market.PricePoint
 import org.lokixcz.theendex.market.MarketItem
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import java.util.*
 
 class MarketGUI(private val plugin: Endex) : Listener {
     private val titleBase = "${ChatColor.DARK_PURPLE}The Endex"
     private val pageSize = 45 // 5 rows for items, last row for controls
+    
+    // Helper to get inventory view title as String for MC 1.21+ compatibility
+    // InventoryView.title() returns Component in 1.21+, so we serialize it to plain text
+    private fun getViewTitle(view: InventoryView): String {
+        return PlainTextComponentSerializer.plainText().serialize(view.title())
+    }
 
     private val amounts = listOf(1, 8, 16, 32, 64)
     private enum class SortBy { NAME, PRICE, CHANGE }
@@ -144,24 +152,50 @@ class MarketGUI(private val plugin: Endex) : Listener {
         inv.setItem(49, namedItem(Material.HOPPER, "${ChatColor.AQUA}Amount: ${amounts[state.amountIdx]} ${ChatColor.GRAY}(click)"))
         inv.setItem(50, namedItem(Material.COMPARATOR, "${ChatColor.LIGHT_PURPLE}Sort: ${state.sort.name} ${ChatColor.GRAY}(click)"))
         
-        // Deliveries button
-        val deliveryMgr = plugin.getDeliveryManager()
-        if (deliveryMgr != null && plugin.config.getBoolean("delivery.enabled", true)) {
-            val pending = deliveryMgr.listPending(player.uniqueId)
-            val totalCount = pending.values.sum()
-            val deliveryIcon = ItemStack(Material.ENDER_CHEST)
-            val deliveryMeta = deliveryIcon.itemMeta
-            deliveryMeta.setDisplayName("${ChatColor.LIGHT_PURPLE}Pending Deliveries ${ChatColor.GRAY}(click)")
-            val deliveryLore = mutableListOf<String>()
+        // Holdings button (replaces deliveries for virtual holdings system)
+        val holdingsEnabled = plugin.config.getBoolean("holdings.enabled", true)
+        val db = plugin.marketManager.sqliteStore()
+        
+        if (holdingsEnabled && db != null) {
+            val holdings = db.listHoldings(player.uniqueId.toString())
+            val totalCount = holdings.values.sumOf { it.first }
+            val maxHoldings = plugin.config.getInt("holdings.max-total-per-player", 100000)
+            
+            val holdingsIcon = ItemStack(Material.CHEST)
+            val holdingsMeta = holdingsIcon.itemMeta
+            holdingsMeta.setDisplayName("${ChatColor.LIGHT_PURPLE}My Holdings ${ChatColor.GRAY}(click)")
+            val holdingsLore = mutableListOf<String>()
             if (totalCount > 0) {
-                deliveryLore += "${ChatColor.GOLD}You have ${ChatColor.YELLOW}$totalCount ${ChatColor.GOLD}item(s) pending"
-                deliveryLore += "${ChatColor.DARK_GRAY}Click to view and claim"
+                holdingsLore += "${ChatColor.GOLD}$totalCount ${ChatColor.YELLOW}/ $maxHoldings items"
+                holdingsLore += "${ChatColor.GRAY}${holdings.size} different materials"
+                holdingsLore += "${ChatColor.DARK_GRAY}Click to view and withdraw"
             } else {
-                deliveryLore += "${ChatColor.GRAY}No pending deliveries"
+                holdingsLore += "${ChatColor.GRAY}No items in holdings"
+                holdingsLore += "${ChatColor.DARK_GRAY}Buy items to add them here"
             }
-            deliveryMeta.lore = deliveryLore
-            deliveryIcon.itemMeta = deliveryMeta
-            inv.setItem(51, deliveryIcon)
+            holdingsMeta.lore = holdingsLore
+            holdingsIcon.itemMeta = holdingsMeta
+            inv.setItem(51, holdingsIcon)
+        } else {
+            // Fallback to deliveries button if holdings disabled
+            val deliveryMgr = plugin.getDeliveryManager()
+            if (deliveryMgr != null && plugin.config.getBoolean("delivery.enabled", true)) {
+                val pending = deliveryMgr.listPending(player.uniqueId)
+                val totalCount = pending.values.sum()
+                val deliveryIcon = ItemStack(Material.ENDER_CHEST)
+                val deliveryMeta = deliveryIcon.itemMeta
+                deliveryMeta.setDisplayName("${ChatColor.LIGHT_PURPLE}Pending Deliveries ${ChatColor.GRAY}(click)")
+                val deliveryLore = mutableListOf<String>()
+                if (totalCount > 0) {
+                    deliveryLore += "${ChatColor.GOLD}You have ${ChatColor.YELLOW}$totalCount ${ChatColor.GOLD}item(s) pending"
+                    deliveryLore += "${ChatColor.DARK_GRAY}Click to view and claim"
+                } else {
+                    deliveryLore += "${ChatColor.GRAY}No pending deliveries"
+                }
+                deliveryMeta.lore = deliveryLore
+                deliveryIcon.itemMeta = deliveryMeta
+                inv.setItem(51, deliveryIcon)
+            }
         }
         
         inv.setItem(53, namedItem(Material.ARROW, "${ChatColor.YELLOW}Next Page"))
@@ -172,8 +206,9 @@ class MarketGUI(private val plugin: Endex) : Listener {
     @EventHandler
     fun onClick(e: InventoryClickEvent) {
         val player = e.whoClicked as? Player ?: return
-        val title = e.view.title
-        if (!title.startsWith(titleBase)) return
+        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
+        val title = getViewTitle(e.view)
+        if (!title.startsWith(ChatColor.stripColor(titleBase) ?: titleBase)) return
         e.isCancelled = true
         val state = states.getOrPut(player.uniqueId) { State() }
 
@@ -246,8 +281,14 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 persist(player, state)
                 open(player, 0)
             }
-            51 -> { // deliveries
-                openDeliveries(player)
+            51 -> { // holdings or deliveries
+                val holdingsEnabled = plugin.config.getBoolean("holdings.enabled", true)
+                val db = plugin.marketManager.sqliteStore()
+                if (holdingsEnabled && db != null) {
+                    openHoldings(player)
+                } else {
+                    openDeliveries(player)
+                }
             }
             53 -> { // next
                 state.page += 1
@@ -259,8 +300,9 @@ class MarketGUI(private val plugin: Endex) : Listener {
     @EventHandler
     fun onClose(e: InventoryCloseEvent) {
         val player = e.player as? Player ?: return
-        val title = e.view.title
-        if (!title.startsWith(titleBase)) return
+        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
+        val title = getViewTitle(e.view)
+        if (!title.startsWith(ChatColor.stripColor(titleBase) ?: titleBase)) return
         states[player.uniqueId]?.let { persist(player, it) }
     }
 
@@ -422,7 +464,8 @@ class MarketGUI(private val plugin: Endex) : Listener {
         val state = states[player.uniqueId] ?: return
         if (!state.inDetails) return
         val mat = state.detailOf ?: return
-        val title = e.view.title
+        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
+        val title = getViewTitle(e.view)
         if (!title.contains("Endex:")) return
         e.isCancelled = true
         when (e.rawSlot) {
@@ -510,8 +553,9 @@ class MarketGUI(private val plugin: Endex) : Listener {
     @EventHandler
     fun onDeliveriesClick(e: InventoryClickEvent) {
         val player = e.whoClicked as? Player ?: return
-        val title = e.view.title
-        if (title != "${ChatColor.DARK_PURPLE}Pending Deliveries") return
+        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
+        val title = getViewTitle(e.view)
+        if (title != ChatColor.stripColor("${ChatColor.DARK_PURPLE}Pending Deliveries")) return
         e.isCancelled = true
         
         val deliveryMgr = plugin.getDeliveryManager() ?: return
@@ -562,5 +606,290 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 open(player, state.page)
             }
         }
+    }
+    
+    // Holdings panel (Virtual Holdings System)
+    private fun openHoldings(player: Player) {
+        val db = plugin.marketManager.sqliteStore() ?: run {
+            player.sendMessage("${ChatColor.RED}[TheEndex] Holdings system is not available.")
+            return
+        }
+        
+        val holdings = db.listHoldings(player.uniqueId.toString())
+        val totalCount = holdings.values.sumOf { it.first }
+        val maxHoldings = plugin.config.getInt("holdings.max-total-per-player", 100000)
+        
+        val inv = Bukkit.createInventory(player, 54, "${ChatColor.DARK_PURPLE}My Holdings")
+        
+        if (holdings.isEmpty()) {
+            val noItems = ItemStack(Material.BARRIER)
+            val meta = noItems.itemMeta
+            meta.setDisplayName("${ChatColor.GRAY}No items in holdings")
+            meta.lore = listOf(
+                "${ChatColor.DARK_GRAY}Buy items to add them here",
+                "${ChatColor.DARK_GRAY}Use /market buy <item> <amount>"
+            )
+            noItems.itemMeta = meta
+            inv.setItem(22, noItems)
+        } else {
+            // Display holdings materials (up to 45 slots, 5 rows)
+            val materials = holdings.entries.sortedByDescending { it.value.first }.take(45)
+            materials.forEachIndexed { idx, (mat, pair) ->
+                val (qty, avgCost) = pair
+                val display = ItemStack(mat)
+                val meta = display.itemMeta
+                meta.setDisplayName("${ChatColor.AQUA}${prettyName(mat)}")
+                
+                val marketItem = plugin.marketManager.get(mat)
+                val currentPrice = marketItem?.currentPrice ?: 0.0
+                val value = currentPrice * qty
+                val cost = avgCost * qty
+                val pnl = value - cost
+                val pnlColor = when {
+                    pnl > 0.01 -> ChatColor.GREEN
+                    pnl < -0.01 -> ChatColor.RED
+                    else -> ChatColor.GRAY
+                }
+                val pnlSign = if (pnl >= 0) "+" else ""
+                
+                val capacity = calculateInventoryCapacity(player, mat)
+                meta.lore = listOf(
+                    "${ChatColor.GOLD}Quantity: ${ChatColor.YELLOW}$qty",
+                    "${ChatColor.GRAY}Avg Cost: ${ChatColor.WHITE}${format(avgCost)}",
+                    "${ChatColor.GRAY}Current Price: ${ChatColor.GREEN}${format(currentPrice)}",
+                    "${ChatColor.GRAY}Value: ${ChatColor.GREEN}${format(value)} ${pnlColor}(${pnlSign}${format(pnl)})",
+                    "",
+                    "${ChatColor.GRAY}Inventory space: ${ChatColor.GREEN}$capacity",
+                    "${ChatColor.GREEN}Left-click: ${ChatColor.GRAY}Withdraw all",
+                    "${ChatColor.YELLOW}Right-click: ${ChatColor.GRAY}Withdraw 1 stack (${mat.maxStackSize})"
+                )
+                display.itemMeta = meta
+                inv.setItem(idx, display)
+            }
+        }
+        
+        // Stats panel
+        var totalValue = 0.0
+        var totalCost = 0.0
+        holdings.forEach { (mat, pair) ->
+            val (qty, avg) = pair
+            val current = plugin.marketManager.get(mat)?.currentPrice ?: 0.0
+            totalValue += current * qty
+            totalCost += avg * qty
+        }
+        val totalPnl = totalValue - totalCost
+        val pnlColor = when {
+            totalPnl > 0.01 -> ChatColor.GREEN
+            totalPnl < -0.01 -> ChatColor.RED
+            else -> ChatColor.GRAY
+        }
+        
+        val statsItem = ItemStack(Material.PAPER)
+        val statsMeta = statsItem.itemMeta
+        statsMeta.setDisplayName("${ChatColor.GOLD}Portfolio Stats")
+        statsMeta.lore = listOf(
+            "${ChatColor.GRAY}Total Items: ${ChatColor.YELLOW}$totalCount / $maxHoldings",
+            "${ChatColor.GRAY}Unique Materials: ${ChatColor.YELLOW}${holdings.size}",
+            "${ChatColor.GRAY}Total Value: ${ChatColor.GREEN}${format(totalValue)}",
+            "${ChatColor.GRAY}Total Cost: ${ChatColor.WHITE}${format(totalCost)}",
+            "${pnlColor}P/L: ${if (totalPnl >= 0) "+" else ""}${format(totalPnl)}"
+        )
+        statsItem.itemMeta = statsMeta
+        inv.setItem(45, statsItem)
+        
+        // Control buttons (last row)
+        val withdrawAllBtn = ItemStack(Material.EMERALD_BLOCK)
+        val withdrawAllMeta = withdrawAllBtn.itemMeta
+        withdrawAllMeta.setDisplayName("${ChatColor.GREEN}Withdraw All")
+        withdrawAllMeta.lore = listOf(
+            "${ChatColor.GRAY}Withdraw all items from holdings",
+            "${ChatColor.DARK_GRAY}(as much as fits in inventory)"
+        )
+        withdrawAllBtn.itemMeta = withdrawAllMeta
+        inv.setItem(49, withdrawAllBtn)
+        
+        val backBtn = ItemStack(Material.ARROW)
+        val backMeta = backBtn.itemMeta
+        backMeta.setDisplayName("${ChatColor.YELLOW}Back to Market")
+        backBtn.itemMeta = backMeta
+        inv.setItem(53, backBtn)
+        
+        player.openInventory(inv)
+    }
+    
+    /**
+     * Calculate how many items of the given material the player can receive in their inventory.
+     */
+    private fun calculateInventoryCapacity(player: Player, material: Material): Int {
+        val inv = player.inventory
+        val maxStack = material.maxStackSize
+        var capacity = 0
+        
+        for (slot in 0 until inv.size) {
+            val stack = inv.getItem(slot) ?: continue
+            if (stack.type == material) {
+                capacity += (maxStack - stack.amount).coerceAtLeast(0)
+            }
+        }
+        
+        val emptySlots = inv.storageContents.count { it == null || it.type == Material.AIR }
+        capacity += emptySlots * maxStack
+        
+        return capacity
+    }
+    
+    @EventHandler
+    fun onHoldingsClick(e: InventoryClickEvent) {
+        val player = e.whoClicked as? Player ?: return
+        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
+        val title = getViewTitle(e.view)
+        if (title != ChatColor.stripColor("${ChatColor.DARK_PURPLE}My Holdings")) return
+        e.isCancelled = true
+        
+        val db = plugin.marketManager.sqliteStore() ?: return
+        val slot = e.rawSlot
+        val state = states[player.uniqueId] ?: State()
+        
+        when (slot) {
+            in 0..44 -> { // Material slot
+                val clicked = e.currentItem ?: return
+                val mat = clicked.type.takeIf { it != Material.AIR && it != Material.BARRIER } ?: return
+                
+                if (e.isLeftClick) {
+                    // Withdraw all
+                    val result = withdrawFromHoldings(player, db, mat, Int.MAX_VALUE)
+                    if (result.first > 0) {
+                        player.sendMessage("${ChatColor.GREEN}[TheEndex] Withdrew ${ChatColor.GOLD}${result.first} ${prettyName(mat)}${ChatColor.GREEN}!")
+                    }
+                    if (result.second > 0) {
+                        player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.second} ${prettyName(mat)} still in holdings (inventory full).")
+                    }
+                } else if (e.isRightClick) {
+                    // Withdraw 1 stack
+                    val result = withdrawFromHoldings(player, db, mat, mat.maxStackSize)
+                    if (result.first > 0) {
+                        player.sendMessage("${ChatColor.GREEN}[TheEndex] Withdrew ${ChatColor.GOLD}${result.first} ${prettyName(mat)}${ChatColor.GREEN}!")
+                    }
+                    if (result.second > 0) {
+                        player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.second} ${prettyName(mat)} still in holdings.")
+                    }
+                }
+                Bukkit.getScheduler().runTask(plugin, Runnable { openHoldings(player) })
+            }
+            49 -> { // Withdraw All
+                val result = withdrawAllFromHoldings(player, db)
+                if (result.first > 0) {
+                    player.sendMessage("${ChatColor.GREEN}[TheEndex] Withdrew ${ChatColor.GOLD}${result.first} ${ChatColor.GREEN}items!")
+                }
+                if (result.second > 0) {
+                    player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.second} items still in holdings (inventory full).")
+                }
+                Bukkit.getScheduler().runTask(plugin, Runnable { openHoldings(player) })
+            }
+            53 -> { // Back
+                open(player, state.page)
+            }
+        }
+    }
+    
+    /**
+     * Withdraw items from virtual holdings to player inventory.
+     * Returns Pair(withdrawn, remaining)
+     */
+    private fun withdrawFromHoldings(
+        player: Player,
+        db: org.lokixcz.theendex.market.SqliteStore,
+        material: Material,
+        requestedAmount: Int
+    ): Pair<Int, Int> {
+        val holding = db.getHolding(player.uniqueId.toString(), material)
+        if (holding == null || holding.first <= 0) {
+            return Pair(0, 0)
+        }
+        
+        val (available, _) = holding
+        val toWithdraw = minOf(requestedAmount, available)
+        val capacity = calculateInventoryCapacity(player, material)
+        
+        if (capacity <= 0) {
+            return Pair(0, available)
+        }
+        
+        val actualWithdraw = minOf(toWithdraw, capacity)
+        val removed = db.removeFromHoldings(player.uniqueId.toString(), material, actualWithdraw)
+        
+        if (removed <= 0) {
+            return Pair(0, available)
+        }
+        
+        // Give items to player
+        var remaining = removed
+        while (remaining > 0) {
+            val toGive = minOf(remaining, material.maxStackSize)
+            val stack = ItemStack(material, toGive)
+            val leftovers = player.inventory.addItem(stack)
+            if (leftovers.isNotEmpty()) {
+                leftovers.values.forEach { player.world.dropItemNaturally(player.location, it) }
+            }
+            remaining -= toGive
+        }
+        
+        val newHolding = db.getHolding(player.uniqueId.toString(), material)
+        val stillHave = newHolding?.first ?: 0
+        
+        return Pair(removed, stillHave)
+    }
+    
+    /**
+     * Withdraw all items from virtual holdings.
+     * Returns Pair(totalWithdrawn, totalRemaining)
+     */
+    private fun withdrawAllFromHoldings(
+        player: Player,
+        db: org.lokixcz.theendex.market.SqliteStore
+    ): Pair<Int, Int> {
+        val holdings = db.listHoldings(player.uniqueId.toString())
+        
+        if (holdings.isEmpty()) {
+            return Pair(0, 0)
+        }
+        
+        var totalWithdrawn = 0
+        var totalRemaining = 0
+        
+        for ((mat, pair) in holdings) {
+            val (available, _) = pair
+            if (available <= 0) continue
+            
+            val capacity = calculateInventoryCapacity(player, mat)
+            if (capacity <= 0) {
+                totalRemaining += available
+                continue
+            }
+            
+            val toWithdraw = minOf(available, capacity)
+            val removed = db.removeFromHoldings(player.uniqueId.toString(), mat, toWithdraw)
+            
+            if (removed > 0) {
+                var remaining = removed
+                while (remaining > 0) {
+                    val toGive = minOf(remaining, mat.maxStackSize)
+                    val stack = ItemStack(mat, toGive)
+                    val leftovers = player.inventory.addItem(stack)
+                    if (leftovers.isNotEmpty()) {
+                        leftovers.values.forEach { player.world.dropItemNaturally(player.location, it) }
+                    }
+                    remaining -= toGive
+                }
+                
+                totalWithdrawn += removed
+                val stillHave = available - removed
+                if (stillHave > 0) totalRemaining += stillHave
+            } else {
+                totalRemaining += available
+            }
+        }
+        
+        return Pair(totalWithdrawn, totalRemaining)
     }
 }

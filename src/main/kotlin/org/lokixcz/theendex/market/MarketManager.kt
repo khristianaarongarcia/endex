@@ -225,27 +225,44 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
         val alpha = plugin.config.getDouble("price-smoothing.ema-alpha", 0.3).coerceIn(0.0, 1.0)
         val maxPct = plugin.config.getDouble("price-smoothing.max-change-percent", 15.0).coerceAtLeast(0.0)
 
-        // Inventory-driven price influence (optional)
+        // Inventory-driven price influence (optional) - online player inventories
         val invEnabled = plugin.config.getBoolean("price-inventory.enabled", true)
         val invSens = plugin.config.getDouble("price-inventory.sensitivity", 0.02).coerceAtLeast(0.0)
         val invBaselinePerPlayer = plugin.config.getInt("price-inventory.per-player-baseline", 64).coerceAtLeast(1)
         val invSvc = (plugin as? Endex)?.getInventorySnapshotService()
-        val totals: Map<org.bukkit.Material, Int> = if (invEnabled && (invSvc?.enabled() == true)) invSvc.snapshotTotals() else emptyMap()
+        val invTotals: Map<org.bukkit.Material, Int> = if (invEnabled && (invSvc?.enabled() == true)) invSvc.snapshotTotals() else emptyMap()
         val onlineCount = if (invEnabled && (invSvc?.enabled() == true)) invSvc.onlinePlayerCount().coerceAtLeast(1) else 1
+
+        // World storage-driven price influence (optional) - global container scanning
+        val worldEnabled = plugin.config.getBoolean("price-world-storage.enabled", false)
+        val worldSens = plugin.config.getDouble("price-world-storage.sensitivity", 0.01).coerceAtLeast(0.0)
+        val worldBaseline = plugin.config.getInt("price-world-storage.global-baseline", 1000).coerceAtLeast(1)
+        val worldMaxPct = plugin.config.getDouble("price-world-storage.max-impact-percent", 5.0).coerceAtLeast(0.0)
+        val worldSvc = (plugin as? Endex)?.getWorldStorageScanner()
+        val worldTotals: Map<org.bukkit.Material, Long> = if (worldEnabled && (worldSvc?.enabled() == true)) worldSvc.snapshotTotals() else emptyMap()
 
         for (item in items.values) {
             val hadActivity = (item.demand != 0.0) || (item.supply != 0.0)
-            // Trade-driven delta (buy/sell)
+            
+            // 1. Trade-driven delta (buy/sell transactions)
             val tradeDelta = (item.demand - item.supply) * clampedSensitivity
-            // Inventory-driven delta (higher average stock => negative pressure)
-            val invQty = totals[item.material] ?: 0
+            
+            // 2. Inventory-driven delta (online player inventories - higher avg stock => negative pressure)
+            val invQty = invTotals[item.material] ?: 0
             val avgPerPlayer = invQty.toDouble() / onlineCount.toDouble()
             val invPressure = (avgPerPlayer - invBaselinePerPlayer) / invBaselinePerPlayer.toDouble()
             val invDeltaRaw = -invPressure * invSens
-            // Cap inventory influence per cycle to avoid shocks
-            val invMaxPct = plugin.config.getDouble("price-inventory.max-impact-percent", 10.0).coerceAtLeast(0.0)
-            val invDelta = invDeltaRaw.coerceIn(-invMaxPct / 100.0, invMaxPct / 100.0)
-            val delta = tradeDelta + invDelta
+            val invMaxPctCfg = plugin.config.getDouble("price-inventory.max-impact-percent", 10.0).coerceAtLeast(0.0)
+            val invDelta = if (invEnabled) invDeltaRaw.coerceIn(-invMaxPctCfg / 100.0, invMaxPctCfg / 100.0) else 0.0
+            
+            // 3. World storage-driven delta (global containers - higher total stock => negative pressure)
+            val worldQty = worldTotals[item.material] ?: 0L
+            val worldPressure = (worldQty.toDouble() - worldBaseline) / worldBaseline.toDouble()
+            val worldDeltaRaw = -worldPressure * worldSens
+            val worldDelta = if (worldEnabled) worldDeltaRaw.coerceIn(-worldMaxPct / 100.0, worldMaxPct / 100.0) else 0.0
+            
+            // Combine all influences
+            val delta = tradeDelta + invDelta + worldDelta
             val rawTarget = (item.currentPrice * (1.0 + delta)).coerceIn(item.minPrice, item.maxPrice)
 
             // Apply EMA smoothing towards target if enabled

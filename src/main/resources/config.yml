@@ -174,6 +174,155 @@ price-inventory:
   max-impact-percent: 10.0
 
 # ───────────────────────────────────────────────────────────────────────────────
+# WORLD STORAGE-DRIVEN PRICE INFLUENCE (GLOBAL ITEM TRACKING)
+# ───────────────────────────────────────────────────────────────────────────────
+# Scans ALL containers (chests, barrels, shulker boxes, etc.) in loaded chunks
+# to determine global item availability. This creates truly dynamic pricing based
+# on server-wide item scarcity/abundance, not just what players are carrying.
+#
+# Performance: Optimized with batched async processing. Scans only loaded chunks.
+# Recommended for servers that want realistic economy tied to actual world resources.
+price-world-storage:
+  # Enable global world storage scanning for price influence.
+  # When enabled, items stored in chests/barrels/etc. affect market prices.
+  # 
+  # Pros:
+  #   - Truly dynamic economy based on ALL items on server
+  #   - Encourages resource distribution and trade
+  #   - Prices reflect actual scarcity
+  # 
+  # Cons:
+  #   - Slight performance overhead (optimized, but not free)
+  #   - May need tuning for very large servers
+  # 
+  # Recommended: true for immersive economy servers
+  enabled: true
+  
+  # How often to scan world storage (in seconds).
+  # Lower values = more responsive but higher CPU usage.
+  # Higher values = less responsive but better performance.
+  # 
+  # Performance guide:
+  #   60-120s = Responsive, suitable for small servers (<50 players)
+  #   180-300s = Balanced, suitable for medium servers (50-150 players)
+  #   300-600s = Conservative, suitable for large servers (150+ players)
+  # 
+  # Recommended: 300 (5 minutes) - good balance
+  scan-interval-seconds: 300
+  
+  # How strongly world storage levels affect prices per cycle (0.0 - 1.0).
+  # This works similarly to price-inventory.sensitivity but for global storage.
+  # 
+  # Lower values (0.005-0.01):
+  #   - Very gentle influence, mostly driven by trades
+  #   - Good for servers where trading should dominate
+  # 
+  # Medium values (0.01-0.02):
+  #   - Noticeable but not overwhelming
+  #   - Recommended for most servers
+  # 
+  # Higher values (0.02-0.05):
+  #   - Strong scarcity effects
+  #   - Items in abundant storage become cheap quickly
+  # 
+  # Recommended: 0.01 (gentle global influence)
+  sensitivity: 0.01
+  
+  # Baseline total items across server. Above this = price DOWN, below = price UP.
+  # This is the "expected" global quantity for each item type.
+  # 
+  # Example with baseline 1000:
+  #   - If server has 5000 diamonds in storage → price drops
+  #   - If server has 200 diamonds in storage → price rises
+  # 
+  # Tip: Set higher for common items (cobblestone), lower for rare items (netherite)
+  # The system uses this as a universal baseline; individual item rarity comes from
+  # their natural spawn rates affecting actual quantities.
+  # 
+  # Recommended: 1000 (good starting point, adjust based on server size)
+  global-baseline: 1000
+  
+  # Cap the maximum price impact from world storage per cycle (as percentage).
+  # Prevents massive storage farms from crashing prices instantly.
+  # 
+  # Recommended: 5.0 (gentle cap, allows gradual price movement)
+  max-impact-percent: 5.0
+  
+  # Number of chunks to process per server tick during scanning.
+  # Higher = faster scans but more main thread usage.
+  # Lower = slower scans but smoother server performance.
+  # 
+  # Performance guide:
+  #   20-30 = Very smooth, minimal impact (slow scans)
+  #   50-75 = Balanced (recommended)
+  #   100-200 = Fast scans, noticeable during scan
+  # 
+  # Recommended: 50
+  chunks-per-tick: 50
+  
+  # Which container types to include in world storage scanning.
+  # Disable types you don't want to affect prices.
+  containers:
+    chests: true           # Regular and trapped chests
+    barrels: true          # Barrels
+    shulker-boxes: true    # All shulker box colors
+    hoppers: false         # Hoppers (usually transport, not storage)
+    droppers: false        # Droppers
+    dispensers: false      # Dispensers
+    furnaces: false        # Furnaces, blast furnaces, smokers
+    brewing-stands: false  # Brewing stands
+  
+  # Scan items INSIDE shulker boxes that are stored in containers.
+  # When true: A chest containing a shulker box full of diamonds counts those diamonds.
+  # When false: Only count the shulker box item itself, not its contents.
+  # 
+  # Recommended: true (gives accurate picture of total items)
+  scan-shulker-contents: true
+  
+  # Worlds to exclude from scanning (by world name, case-insensitive).
+  # Useful for excluding creative worlds, minigame worlds, etc.
+  # 
+  # Example: excluded-worlds: [creative, minigames, spawn]
+  excluded-worlds: []
+  
+  # ─────────────────────────────────────────────────────────────────────────────
+  # ANTI-MANIPULATION PROTECTION
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Prevents players from building storage farms to manipulate market prices.
+  anti-manipulation:
+    # Maximum total items counted from a single chunk.
+    # If a chunk has more than this, its contribution is proportionally reduced.
+    # This prevents "storage bomb" exploits where players fill chunks with items.
+    # 
+    # Example: A chunk with 50,000 items but cap of 10,000 will only contribute
+    # 20% (10000/50000) of each material's count from that chunk.
+    # 
+    # Recommended: 10000 (allows normal bases, caps industrial farms)
+    per-chunk-item-cap: 10000
+    
+    # Maximum items of a SINGLE material counted from one chunk.
+    # Prevents price crashing a specific item via concentrated storage.
+    # 
+    # Example: 100 double chests of diamonds (345,600 items) in one chunk
+    # would only count as 5,000 diamonds toward global totals.
+    # 
+    # Recommended: 5000 (allows stacks, prevents monopoly manipulation)
+    per-material-chunk-cap: 5000
+    
+    # Minimum server TPS required to run a scan.
+    # If TPS drops below this, scanning is skipped to protect performance.
+    # 
+    # Recommended: 18.0 (skip if server is struggling)
+    min-tps: 18.0
+    
+    # Log warnings when suspicious storage patterns are detected.
+    # Alerts admins to potential market manipulation attempts.
+    # Logs to console when a chunk exceeds per-chunk-item-cap.
+    # 
+    # Recommended: true (helps identify exploiters)
+    log-suspicious: true
+
+# ───────────────────────────────────────────────────────────────────────────────
 # INITIAL MARKET SETUP (First Run Only)
 # ───────────────────────────────────────────────────────────────────────────────
 # These settings only apply when creating a fresh market (no existing market.yml/db).
@@ -226,10 +375,52 @@ transaction-tax-percent: 0.0
 blacklist-items: []
 
 # ───────────────────────────────────────────────────────────────────────────────
-# VIRTUAL DELIVERY SYSTEM
+# VIRTUAL HOLDINGS SYSTEM
 # ───────────────────────────────────────────────────────────────────────────────
-# Handles large purchases when player inventory is full.
-# Items go to "pending deliveries" instead of being dropped on the ground.
+# Virtual storage for purchased items. When players buy items, they go directly
+# to holdings instead of inventory. Players can withdraw items when ready.
+# This eliminates inventory space issues during purchases and provides a safe
+# virtual wallet for owned items.
+holdings:
+  # Enable the virtual holdings system (requires SQLite storage mode).
+  # When enabled, ALL purchases go to holdings first, then can be withdrawn.
+  # 
+  # Pros: 
+  #   - No inventory space checks needed during purchase
+  #   - Items can't be lost by dropping
+  #   - Cleaner separation of "owned" vs "carried" items
+  #   - Supports bulk purchases of any size
+  # 
+  # Cons: 
+  #   - Extra step to withdraw items to inventory
+  #   - Players must understand the holdings concept
+  # 
+  # Recommended: true (much better UX for trading)
+  enabled: true
+  
+  # Maximum total items a player can hold across ALL materials.
+  # This prevents abuse and database bloat from infinite hoarding.
+  # Set to -1 for unlimited (not recommended for public servers).
+  # 
+  # Examples:
+  #   10000 = Small limit, encourages regular withdrawals
+  #   100000 = Large limit, suitable for most servers
+  #   1000000 = Very large, for economy-focused servers
+  # 
+  # Recommended: 100000 (enough for serious traders without abuse)
+  max-total-per-player: 100000
+  
+  # Automatically attempt to withdraw items to inventory when players log in.
+  # Items are given if there's space, otherwise remain in holdings.
+  # 
+  # Recommended: false (let players manually withdraw when ready)
+  auto-withdraw-on-login: false
+
+# ───────────────────────────────────────────────────────────────────────────────
+# VIRTUAL DELIVERY SYSTEM (DEPRECATED - use holdings instead)
+# ───────────────────────────────────────────────────────────────────────────────
+# Legacy overflow system. With virtual holdings enabled, this is only used
+# for backward compatibility. New purchases go directly to holdings.
 delivery:
   # Enable the delivery system (requires SQLite storage mode).
   # When enabled, overflow items from purchases are stored in deliveries.db

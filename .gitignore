@@ -1,22 +1,96 @@
-# Gradle build outputs and caches
+# ===========================================
+# GRADLE & BUILD
+# ===========================================
 .gradle/
 **/build/
 out/
+bin/
 
-# IDE configs (keep repo editor-agnostic)
+# ===========================================
+# IDE & EDITOR
+# ===========================================
+# IntelliJ IDEA
 .idea/
 *.iml
+*.ipr
+*.iws
+
+# VS Code
 .vscode/
 
-# Dev server & local release artifacts (not part of source)
+# Eclipse
+.classpath
+.project
+.settings/
+
+# NetBeans
+nb-configuration.xml
+nbproject/
+
+# Kotlin
+.kotlin/
+
+# Editor swap/backup files
+*.swp
+*.swo
+*~
+\#*\#
+
+# ===========================================
+# DEV SERVER & LOCAL
+# ===========================================
 MCTestServer/
 run/
 release/
 
-# Logs & OS cruft
+# ===========================================
+# LOGS & TEMP FILES
+# ===========================================
 *.log
-.DS_Store
-Thumbs.db
+logs/
 
-# Editor swap files
-*.swp
+# ===========================================
+# OS GENERATED
+# ===========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ===========================================
+# DOCUMENTATION (Built/Generated)
+# ===========================================
+# Keep source docs in repo, ignore generated
+docs/_build/
+docs/.docusaurus/
+site/
+
+# ===========================================
+# MISC
+# ===========================================
+# Local environment files
+.env
+.env.local
+*.local
+
+# Secrets & credentials
+*.pem
+*.key
+secrets/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Test outputs
+test-output/
+coverage/
+
+# JARs (built artifacts - use releases instead)
+# Uncomment if you don't want JARs in repo:
+# *.jar

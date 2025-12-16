@@ -1,7 +1,7 @@
 name: TheEndex
 version: '${version}'
 main: org.lokixcz.theendex.Endex
-api-version: '1.20'
+api-version: '1.21'
 authors: [ TheLokia ]
 softdepend: [ Vault ]
 description: Dynamic, demand-driven market with GUI, events, and Vault economy

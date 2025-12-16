@@ -10,6 +10,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.CraftItemEvent
 import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.InventoryView
 import org.bukkit.plugin.java.JavaPlugin
 import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.addon.EndexAddon
@@ -17,6 +18,7 @@ import org.lokixcz.theendex.addon.AddonSubcommandHandler
 import org.lokixcz.theendex.addon.AddonTabCompleter
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import java.io.File
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -637,12 +639,19 @@ class CryptoAddon : EndexAddon, Listener {
         player.openInventory(inv)
     }
 
+    // Helper to get inventory view title as String for MC 1.21+ compatibility
+    private fun getViewTitle(view: InventoryView): String {
+        return PlainTextComponentSerializer.plainText().serialize(view.title())
+    }
+
     @EventHandler
     fun onClick(e: InventoryClickEvent) {
         val p = e.whoClicked as? Player ?: return
         val s = shop ?: return
-        val expectedTitle = colorize(s.title.replace("{name}", cfg.name).replace("{symbol}", cfg.symbol))
-        if (e.view.title != expectedTitle) return
+        val expectedTitle = ChatColor.stripColor(colorize(s.title.replace("{name}", cfg.name).replace("{symbol}", cfg.symbol))) ?: ""
+        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
+        val viewTitle = getViewTitle(e.view)
+        if (viewTitle != expectedTitle) return
         e.isCancelled = true
         val clicked = e.currentItem ?: return
         if (clicked.type == Material.AIR) return

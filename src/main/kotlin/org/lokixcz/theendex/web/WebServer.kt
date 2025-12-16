@@ -339,6 +339,83 @@ class WebServer(private val plugin: Endex) {
             ctx.json(items)
         }
 
+        // Withdraw from holdings to inventory (Virtual Holdings System)
+        data class WithdrawRequest(val material: String?, val amount: Int?)
+        
+        app.post("/api/holdings/withdraw") { ctx ->
+            val session = validateSession(ctx) ?: return@post
+            if (session.role != "TRADER") { ctx.status(403).json(mapOf("error" to "Trading not allowed")); return@post }
+            if (!checkRateLimit(ctx, session.token)) return@post
+            
+            val db = plugin.marketManager.sqliteStore()
+            if (db == null || !plugin.config.getBoolean("holdings.enabled", true)) {
+                ctx.status(400).json(mapOf("error" to "Holdings system not enabled"))
+                return@post
+            }
+            
+            val player = Bukkit.getPlayer(session.playerUuid)
+            if (player == null) {
+                ctx.status(400).json(mapOf("error" to "Player not online"))
+                return@post
+            }
+            
+            val req = runCatching { objectMapper.readValue(ctx.body(), WithdrawRequest::class.java) }.getOrNull()
+            
+            // Withdraw all if no material specified
+            if (req == null || req.material.isNullOrBlank()) {
+                val result = withdrawAllFromHoldings(player, db)
+                ctx.json(result)
+                return@post
+            }
+            
+            // Withdraw specific material
+            val material = runCatching { Material.valueOf(req.material!!) }.getOrNull()
+            if (material == null) {
+                ctx.status(400).json(mapOf("error" to "Invalid material: ${req.material}"))
+                return@post
+            }
+            
+            val requestedAmount = req.amount ?: Int.MAX_VALUE
+            if (requestedAmount <= 0) {
+                ctx.status(400).json(mapOf("error" to "Invalid amount"))
+                return@post
+            }
+            
+            val result = withdrawFromHoldings(player, db, material, requestedAmount)
+            ctx.json(result)
+        }
+        
+        // Get holdings stats (total count, limit info)
+        app.get("/api/holdings/stats") { ctx ->
+            val session = validateSession(ctx) ?: return@get
+            if (!checkRateLimit(ctx, session.token)) return@get
+            
+            val db = plugin.marketManager.sqliteStore()
+            val holdingsEnabled = plugin.config.getBoolean("holdings.enabled", true)
+            val maxHoldings = plugin.config.getInt("holdings.max-total-per-player", 100000)
+            
+            if (db == null || !holdingsEnabled) {
+                ctx.json(mapOf(
+                    "enabled" to false,
+                    "totalItems" to 0,
+                    "maxItems" to 0,
+                    "uniqueMaterials" to 0
+                ))
+                return@get
+            }
+            
+            val holdings = db.listHoldings(session.playerUuid.toString())
+            val totalItems = holdings.values.sumOf { it.first }
+            
+            ctx.json(mapOf(
+                "enabled" to true,
+                "totalItems" to totalItems,
+                "maxItems" to maxHoldings,
+                "uniqueMaterials" to holdings.size,
+                "percentUsed" to if (maxHoldings > 0) (totalItems.toDouble() / maxHoldings * 100) else 0.0
+            ))
+        }
+
         // Trade receipts (recent)
         app.get("/api/receipts") { ctx ->
             val session = validateSession(ctx) ?: return@get
@@ -1937,8 +2014,14 @@ class WebServer(private val plugin: Endex) {
         .list-container { max-height: 260px; overflow-y:auto }
     .row { display:flex; justify-content: space-between; padding:10px; border-bottom:1px solid rgba(255,255,255,0.06) }
         .row .left { display:flex; gap:10px; align-items:center }
-        .row .right { color:#c4b5fd; font-weight:600 }
+        .row .right { color:#c4b5fd; font-weight:600; display:flex; align-items:center; gap:8px }
     .badge { font-size:11px; padding:2px 6px; border-radius:10px; margin-left:6px; background: rgba(167,139,250,0.15); color:#c4b5fd; border:1px solid rgba(167,139,250,0.25) }
+    .badge-holdings { background: rgba(74,222,128,0.2); color:#4ade80; border-color: rgba(74,222,128,0.3) }
+    .holdings-header { display:flex; justify-content:flex-end; padding:10px; border-bottom:1px solid rgba(255,255,255,0.1) }
+    .btn-withdraw { background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%); color:#fff; border:none; padding:4px 8px; border-radius:6px; cursor:pointer; font-size:12px; transition: all 0.2s }
+    .btn-withdraw:hover { transform:scale(1.1); box-shadow: 0 2px 8px rgba(74,222,128,0.3) }
+    .btn-withdraw-all { background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%); color:#fff; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; transition: all 0.2s }
+    .btn-withdraw-all:hover { transform:scale(1.05); box-shadow: 0 4px 12px rgba(167,139,250,0.4) }
     """.trimIndent()
     
     
@@ -2806,20 +2889,76 @@ class WebServer(private val plugin: Endex) {
                 const c = document.getElementById('holdings-container');
                 if (!c) return;
                 if (!list || list.length === 0) { c.innerHTML = '<div class="loading">No holdings yet</div>'; return; }
-                c.innerHTML = list.map(h => {
+                
+                // Add withdraw all button at top
+                let html = `<div class="holdings-header">
+                    <button class="btn btn-withdraw-all" onclick="window.endexApp.withdrawAll()">Withdraw All</button>
+                </div>`;
+                
+                html += list.map(h => {
                     const investQty = h.investQty ?? 0;
                     const invQty = h.invQty ?? 0;
                     const totalQty = h.quantity ?? (investQty + invQty);
                     const pnl = (h.currentPrice - (h.avgCost ?? 0)) * investQty; // PnL from invested position only
                     const cls = pnl >= 0 ? 'positive' : 'negative';
                     const name = (h.material || '').replaceAll('_',' ');
+                    const mat = h.material || '';
                     const invBadge = invQty > 0 ? `<span class="badge">Inv ${'$'}{invQty}</span>` : '';
-                    const investBadge = investQty > 0 ? `<span class="badge">Invest ${'$'}{investQty}</span>` : '';
+                    const investBadge = investQty > 0 ? `<span class="badge badge-holdings">Hold ${'$'}{investQty}</span>` : '';
+                    // Only show withdraw button for items in holdings (not just inventory)
+                    const withdrawBtn = investQty > 0 && mat !== 'CRYPTO' ? `<button class="btn-withdraw" onclick="window.endexApp.withdraw('${'$'}{mat}', ${'$'}{investQty})" title="Withdraw to inventory">Get</button>` : '';
                     return `<div class="row">
-                        <div class="left"><div class="item-icon">${'$'}{(h.material||'').substring(0,2)}</div><div>${'$'}{name} ${'$'}{invBadge}${'$'}{investBadge}</div></div>
-                        <div class="right ${'$'}{cls}">${'$'}{totalQty} • ${'$'}${'$'}{(h.currentPrice||0).toFixed(2)} • PnL ${'$'}${'$'}{pnl.toFixed(2)}</div>
+                        <div class="left"><div class="item-icon">${'$'}{(mat).substring(0,2)}</div><div>${'$'}{name} ${'$'}{invBadge}${'$'}{investBadge}</div></div>
+                        <div class="right ${'$'}{cls}">${'$'}{totalQty} • ${'$'}${'$'}{(h.currentPrice||0).toFixed(2)} • PnL ${'$'}${'$'}{pnl.toFixed(2)} ${'$'}{withdrawBtn}</div>
                     </div>`;
                 }).join('');
+                c.innerHTML = html;
+            }
+            
+            async withdraw(material, amount) {
+                try {
+                    const res = await fetch('/api/holdings/withdraw', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` },
+                        body: JSON.stringify({ material, amount })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.withdrawn > 0) {
+                        this.showNotification(`Withdrew ${'$'}{data.withdrawn}x ${'$'}{material.replace(/_/g,' ')} to inventory!`, 'success');
+                        if (data.remaining > 0) {
+                            this.showNotification(`${'$'}{data.remaining} items still in holdings (inventory full)`, 'warning');
+                        }
+                    } else if (data.error) {
+                        this.showNotification(data.error, 'error');
+                    }
+                    // Refresh holdings
+                    await this.loadHoldings();
+                } catch(e) {
+                    this.showNotification('Withdraw failed: ' + e.message, 'error');
+                }
+            }
+            
+            async withdrawAll() {
+                try {
+                    const res = await fetch('/api/holdings/withdraw', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Endex-UI': '1', 'Authorization': `Bearer ${'$'}{this.sessionToken}` },
+                        body: JSON.stringify({ material: 'ALL' })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.withdrawn > 0) {
+                        this.showNotification(`Withdrew ${'$'}{data.withdrawn} items to inventory!`, 'success');
+                        if (data.remaining > 0) {
+                            this.showNotification(`${'$'}{data.remaining} items still in holdings (inventory full)`, 'warning');
+                        }
+                    } else if (data.error) {
+                        this.showNotification(data.error, 'error');
+                    }
+                    // Refresh holdings
+                    await this.loadHoldings();
+                } catch(e) {
+                    this.showNotification('Withdraw failed: ' + e.message, 'error');
+                }
             }
 
             async loadReceipts() {
@@ -2982,7 +3121,7 @@ class WebServer(private val plugin: Endex) {
         
         // Initialize the trading interface when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            new EndexTrading();
+            window.endexApp = new EndexTrading();
         });
     """.trimIndent()
     
@@ -2992,7 +3131,50 @@ class WebServer(private val plugin: Endex) {
             if (plugin.economy == null) return false
             
             val item = plugin.marketManager.get(material) ?: return false
+            val db = plugin.marketManager.sqliteStore()
+            val holdingsEnabled = plugin.config.getBoolean("holdings.enabled", true)
             
+            val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
+            val unit = item.currentPrice * plugin.eventManager.multiplierFor(material)
+            val subtotal = unit * requestedAmount
+            val tax = subtotal * (taxPct / 100.0)
+            val total = subtotal + tax
+            
+            val eco = plugin.economy!!
+            val bal = eco.getBalance(player)
+            if (bal + 1e-9 < total) return false
+            
+            // Virtual Holdings Mode: Items go to holdings, not inventory
+            if (holdingsEnabled && db != null) {
+                // Check holdings limit before purchase
+                val success = db.addToHoldings(player.uniqueId.toString(), material, requestedAmount, unit)
+                if (!success) {
+                    val maxHoldings = plugin.config.getInt("holdings.max-total-per-player", 100000)
+                    player.sendMessage("§c[TheEndex] Holdings limit reached ($maxHoldings items max). Withdraw some items first.")
+                    return false
+                }
+                
+                // Payment successful, deduct money
+                val withdraw = eco.withdrawPlayer(player, total)
+                if (!withdraw.transactionSuccess()) {
+                    // Rollback holdings if payment fails
+                    db.removeFromHoldings(player.uniqueId.toString(), material, requestedAmount)
+                    return false
+                }
+                
+                // Record trade
+                db.insertTrade(player.uniqueId.toString(), material, "BUY", requestedAmount, unit, total)
+                
+                plugin.marketManager.addDemand(material, requestedAmount.toDouble())
+                
+                player.sendMessage("§6[TheEndex] §aBought $requestedAmount ${material.name}!")
+                player.sendMessage("§e  → Items added to your §dHoldings§e.")
+                player.sendMessage("§7Use /market withdraw ${material.name} to claim items.")
+                
+                return true
+            }
+            
+            // Legacy Mode: Direct to inventory (fallback if holdings disabled)
             // Check inventory capacity BEFORE processing payment
             val maxCapacity = calculateInventoryCapacity(player, material)
             var amount = requestedAmount
@@ -3011,16 +3193,6 @@ class WebServer(private val plugin: Endex) {
                 }
                 // Else: delivery enabled, we'll charge for full amount and overflow goes to pending
             }
-            
-            val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
-            val unit = item.currentPrice * plugin.eventManager.multiplierFor(material)
-            val subtotal = unit * amount
-            val tax = subtotal * (taxPct / 100.0)
-            val total = subtotal + tax
-            
-            val eco = plugin.economy!!
-            val bal = eco.getBalance(player)
-            if (bal + 1e-9 < total) return false
             
             val withdraw = eco.withdrawPlayer(player, total)
             if (!withdraw.transactionSuccess()) return false
@@ -3077,14 +3249,6 @@ class WebServer(private val plugin: Endex) {
                 player.sendMessage("§e  Delivered: $delivered | Pending: $pendingDelivery §7(click Ender Chest in market GUI)")
             }
             
-            // Update holdings and receipt if sqlite is used
-            runCatching {
-                val db = plugin.marketManager.sqliteStore()
-                if (db != null) {
-                    db.upsertHolding(player.uniqueId.toString(), material, amount, unit)
-                    db.insertTrade(player.uniqueId.toString(), material, "BUY", amount, unit, total)
-                }
-            }
             return true
         } catch (e: Exception) {
             logger.warn("Buy operation failed: ${e.message}")
@@ -3183,5 +3347,163 @@ class WebServer(private val plugin: Endex) {
         }
         
         return amount - remaining
+    }
+    
+    /**
+     * Withdraw items from virtual holdings to player inventory.
+     * Returns a map with success status, amount withdrawn, and remaining.
+     */
+    private fun withdrawFromHoldings(
+        player: Player,
+        db: org.lokixcz.theendex.market.SqliteStore,
+        material: Material,
+        requestedAmount: Int
+    ): Map<String, Any> {
+        val holding = db.getHolding(player.uniqueId.toString(), material)
+        if (holding == null || holding.first <= 0) {
+            return mapOf(
+                "success" to false,
+                "error" to "No ${material.name} in holdings",
+                "withdrawn" to 0,
+                "remaining" to 0
+            )
+        }
+        
+        val (available, _) = holding
+        val toWithdraw = minOf(requestedAmount, available)
+        val capacity = calculateInventoryCapacity(player, material)
+        
+        if (capacity <= 0) {
+            return mapOf(
+                "success" to false,
+                "error" to "Inventory is full",
+                "withdrawn" to 0,
+                "remaining" to available
+            )
+        }
+        
+        val actualWithdraw = minOf(toWithdraw, capacity)
+        
+        // Remove from holdings
+        val removed = db.removeFromHoldings(player.uniqueId.toString(), material, actualWithdraw)
+        if (removed <= 0) {
+            return mapOf(
+                "success" to false,
+                "error" to "Failed to withdraw items",
+                "withdrawn" to 0,
+                "remaining" to available
+            )
+        }
+        
+        // Give items to player
+        var remaining = removed
+        while (remaining > 0) {
+            val toGive = minOf(remaining, material.maxStackSize)
+            val stack = org.bukkit.inventory.ItemStack(material, toGive)
+            val leftovers = player.inventory.addItem(stack)
+            if (leftovers.isNotEmpty()) {
+                // Should not happen since we checked capacity, but safety fallback
+                leftovers.values.forEach { player.world.dropItemNaturally(player.location, it) }
+            }
+            remaining -= toGive
+        }
+        
+        val newHolding = db.getHolding(player.uniqueId.toString(), material)
+        val stillHave = newHolding?.first ?: 0
+        
+        player.sendMessage("§a[TheEndex] Withdrew §6$removed ${material.name}§a to inventory!")
+        if (stillHave > 0) {
+            player.sendMessage("§e[TheEndex] $stillHave ${material.name} still in holdings.")
+        }
+        
+        return mapOf(
+            "success" to true,
+            "material" to material.name,
+            "withdrawn" to removed,
+            "remaining" to stillHave
+        )
+    }
+    
+    /**
+     * Withdraw all items from virtual holdings to player inventory.
+     */
+    private fun withdrawAllFromHoldings(
+        player: Player,
+        db: org.lokixcz.theendex.market.SqliteStore
+    ): Map<String, Any> {
+        val holdings = db.listHoldings(player.uniqueId.toString())
+        
+        if (holdings.isEmpty()) {
+            return mapOf(
+                "success" to false,
+                "error" to "No items in holdings",
+                "totalWithdrawn" to 0,
+                "totalRemaining" to 0,
+                "details" to emptyList<Any>()
+            )
+        }
+        
+        var totalWithdrawn = 0
+        val withdrawn = mutableListOf<Map<String, Any>>()
+        var totalRemaining = 0
+        
+        for ((mat, pair) in holdings) {
+            val (available, _) = pair
+            if (available <= 0) continue
+            
+            val capacity = calculateInventoryCapacity(player, mat)
+            if (capacity <= 0) {
+                totalRemaining += available
+                continue
+            }
+            
+            val toWithdraw = minOf(available, capacity)
+            val removed = db.removeFromHoldings(player.uniqueId.toString(), mat, toWithdraw)
+            
+            if (removed > 0) {
+                // Give items
+                var remaining = removed
+                while (remaining > 0) {
+                    val toGive = minOf(remaining, mat.maxStackSize)
+                    val stack = org.bukkit.inventory.ItemStack(mat, toGive)
+                    val leftovers = player.inventory.addItem(stack)
+                    if (leftovers.isNotEmpty()) {
+                        leftovers.values.forEach { player.world.dropItemNaturally(player.location, it) }
+                    }
+                    remaining -= toGive
+                }
+                
+                totalWithdrawn += removed
+                withdrawn.add(mapOf("material" to mat.name, "amount" to removed))
+                
+                // Track remaining
+                val stillHave = available - removed
+                if (stillHave > 0) totalRemaining += stillHave
+            } else {
+                totalRemaining += available
+            }
+        }
+        
+        if (totalWithdrawn == 0) {
+            return mapOf(
+                "success" to false,
+                "error" to "No items were withdrawn (inventory may be full)",
+                "totalWithdrawn" to 0,
+                "totalRemaining" to totalRemaining,
+                "details" to emptyList<Any>()
+            )
+        }
+        
+        player.sendMessage("§a[TheEndex] Withdrew §6$totalWithdrawn §aitems from holdings!")
+        if (totalRemaining > 0) {
+            player.sendMessage("§e[TheEndex] $totalRemaining items still in holdings (inventory full).")
+        }
+        
+        return mapOf(
+            "success" to true,
+            "totalWithdrawn" to totalWithdrawn,
+            "totalRemaining" to totalRemaining,
+            "details" to withdrawn
+        )
     }
 }

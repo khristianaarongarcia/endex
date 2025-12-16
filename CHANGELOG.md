@@ -4,6 +4,66 @@ All notable changes to this project will be documented in this file.
 
 The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJOR.MINOR.PATCH) where possible.
 
+## [1.5.0] - 2024-12-17
+### Added
+- **Virtual Holdings System:** Complete redesign of the holdings architecture. Items purchased now go directly into virtual holdings instead of the player's inventory.
+  - Players can hold up to 10,000 total items (configurable via `holdings.max-per-player`).
+  - Maximum 100 different material types per player (configurable via `holdings.max-materials-per-player`).
+  - Average cost basis tracking for accurate P/L calculations.
+  - FIFO (First-In-First-Out) withdrawal system.
+
+- **Holdings GUI Panel:** New in-game GUI for managing virtual holdings.
+  - View all holdings with quantity, average cost, current price, and P/L per material.
+  - Left-click: Withdraw all of a material (up to inventory capacity).
+  - Right-click: Withdraw one stack (64 or material's max stack size).
+  - "Withdraw All" button to claim everything that fits.
+  - Portfolio stats showing total items, value, cost basis, and overall P/L.
+
+- **Holdings Commands:**
+  - `/market holdings` - View your virtual holdings in chat.
+  - `/market withdraw <item> [amount]` - Withdraw items from holdings to inventory.
+  - `/market withdraw all` - Withdraw all holdings to inventory.
+
+- **Web UI Withdraw Support:**
+  - Individual withdraw buttons (📤) for each holding row.
+  - "📦 Withdraw All" button at top of holdings panel.
+  - Real-time feedback with success/warning notifications.
+  - Holdings badge now shows "Hold" instead of "Invest" for virtual holdings.
+
+- **REST API Endpoints:**
+  - `POST /api/holdings/withdraw` - Withdraw items (body: `{material, amount}` or `{material: "ALL"}`).
+  - `GET /api/holdings/stats` - Get holdings statistics and limits.
+
+- **New Permissions:**
+  - `theendex.holdings` - Access to holdings system (default: true).
+  - `theendex.withdraw` - Permission to withdraw from holdings (default: true).
+
+- **Configuration Options:**
+  ```yaml
+  holdings:
+    enabled: true
+    max-per-player: 10000
+    max-materials-per-player: 100
+    mode: VIRTUAL  # VIRTUAL or LEGACY
+  ```
+
+### Changed
+- **Minecraft 1.21 Support:** Updated `api-version` to `'1.21'` for full compatibility with Minecraft 1.21.x.
+- **Buy Flow Redesign:** Purchases now add items to virtual holdings instead of directly to inventory. Players must manually withdraw items when ready.
+- **Holdings Panel Rename:** GUI button changed from "Pending Deliveries" to "My Holdings".
+- **Combined Holdings API:** `/api/holdings/combined` now returns virtual holdings data with proper badges.
+
+### Technical
+- New database methods: `addToHoldings()`, `removeFromHoldings()`, `getHoldingsTotal()`, `listHoldings()`, `getHolding()`.
+- `migrateDeliveriesToHoldings()` helper for upgrading from delivery system.
+- Inventory capacity calculation shared between GUI, commands, and web tier.
+- CSS styling for withdraw buttons with hover effects and visual feedback.
+
+### Migration Notes
+- **Breaking Change:** The buy flow now uses virtual holdings by default. Set `holdings.mode: LEGACY` to restore previous behavior.
+- **Database:** Holdings data stored in existing SQLite database; no new database files created.
+- **Delivery System:** Existing pending deliveries remain accessible. Consider using `migrateDeliveriesToHoldings()` to convert.
+
 ## [1.4.0] - 2025-10-30
 ### Added
 - **Virtual Delivery System:** When purchasing items that exceed inventory capacity, overflow items are automatically sent to a pending delivery queue instead of being lost.
