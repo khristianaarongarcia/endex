@@ -108,7 +108,7 @@ Match events to real-world or server seasons for immersion.
 
 <Warning>
 **Balance Multipliers**  
-Extreme multipliers (>2.0 or <0.5) can destabilize the economy. Use sparingly.
+Extreme multipliers (greater than 2.0 or less than 0.5) can destabilize the economy. Use sparingly.
 </Warning>
 
 ---

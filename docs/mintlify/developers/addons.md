@@ -1,4 +1,4 @@
----
+﻿---
 title: "Addons"
 description: "Extend The Endex with drop-in addon JARs loaded via ServiceLoader."
 ---
@@ -11,7 +11,7 @@ Addons are drop-in JARs loaded from:
 plugins/TheEndex/addons/
 ```
 
-They’re not full Bukkit plugins (no `plugin.yml`). The Endex loads them using Java `ServiceLoader`.
+They are not full Bukkit plugins (no plugin.yml). The Endex loads them using Java ServiceLoader.
 
 ## What addons can do
 
@@ -23,9 +23,9 @@ They’re not full Bukkit plugins (no `plugin.yml`). The Endex loads them using 
 
 On startup, The Endex:
 
-1. Scans `plugins/TheEndex/addons/*.jar`
-2. Uses `ServiceLoader` to find implementations of `org.lokixcz.theendex.addon.EndexAddon`
-3. Calls the addon’s init hook
+1. Scans plugins/TheEndex/addons/*.jar
+2. Uses ServiceLoader to find implementations of org.lokixcz.theendex.addon.EndexAddon
+3. Calls the addon init hook
 
 ## Minimal addon skeleton (Kotlin)
 
@@ -62,7 +62,7 @@ com.example.myaddon.MyAddon
 If an addon needs config files, a common convention is:
 
 ```text
-plugins/TheEndex/addons/settings/<addon-id>/
+plugins/TheEndex/addons/settings/addon-id/
 ```
 
 Example:
@@ -79,138 +79,24 @@ If your build includes an addons list command, you can check:
 /endex addons
 ```
 
-## Troubleshooting
-
-- Ensure the JAR is inside `plugins/TheEndex/addons/`
-- Check console logs for ServiceLoader errors
-- Verify the service descriptor path and class names match exactly
-
-<Info>
-See `docs/ADDONS.md` for a full guide and examples.
-</Info>
----
-title: "Addons"
-description: "Extend The Endex with drop-in addon JARs loaded via ServiceLoader."
----
-
-# Addons
-
-Addons are drop-in JARs loaded from:
-
-## Addon settings
-
-If an addon needs config files, a common convention is to keep them under:
-
-```text
-plugins/TheEndex/addons/settings/<addon-id>/
-```
-
-Example:
-
-```text
-plugins/TheEndex/addons/settings/crypto/crypto.yml
-```
-
-## Troubleshooting
-
-- Ensure the JAR is inside `plugins/TheEndex/addons/`
-- Check console logs for ServiceLoader errors
-- Verify you included the service descriptor file and class name is correct
-
-## Tips
-
-<Tip>
-If you need classic Bukkit commands, permissions, and plugin lifecycle, create a normal Bukkit plugin that depends on The Endex instead of an addon JAR.
-</Tip>
-3. Calls the addon's init hook
-
-## Minimal addon skeleton (Kotlin)
-
-```kotlin
-class MyAddon : org.lokixcz.theendex.addon.EndexAddon {
-    override fun id() = "my-addon"
-
-## Addon settings
-
-If an addon needs config files, a common convention is to keep them under:
-
-```text
-plugins/TheEndex/addons/settings/<addon-id>/
-```
-
-Example:
-
-```text
-plugins/TheEndex/addons/settings/crypto/crypto.yml
-```
-
-## Troubleshooting
-
-- Ensure the JAR is inside `plugins/TheEndex/addons/`
-- Check console logs for ServiceLoader errors
-- Verify you included the service descriptor file and class name is correct
-
-## Tips
-
-<Tip>
-If you need classic Bukkit commands, permissions, and plugin lifecycle, create a normal Bukkit plugin that depends on The Endex instead of an addon JAR.
-</Tip>
-<Info>
-See `docs/ADDONS.md` for a full guide and examples.
-</Info>
-
-
-***
-
 ## Permissions
 
 Addons can use The Endex permission system:
 
-| Pattern                    | Description          |
-| -------------------------- | -------------------- |
-| `endex.addon.<name>`       | Base addon access    |
-| `endex.addon.<name>.admin` | Addon admin features |
-| `endex.addon.<name>.trade` | Trading via addon    |
-
-***
+| Pattern | Description |
+| --- | --- |
+| endex.addon.name | Base addon access |
+| endex.addon.name.admin | Addon admin features |
+| endex.addon.name.trade | Trading via addon |
 
 ## Troubleshooting
 
-### Addon Not Loading
-
-**Check:**
-
-* JAR is in correct folder
-* Compatible with your Endex version
-* No errors in console
-
-**Debug:**
-
-```text
-# Check for load errors
-grep -i "addon" logs/latest.log
-```
-
-### Command Not Found
-
-Ensure addon registered successfully:
-
-```
-/endex addons
-```
-
-### API Route 404
-
-Verify addon exposes API:
-
-```
-GET /api/addons
-```
-
-***
+- Ensure the JAR is inside plugins/TheEndex/addons/
+- Check console logs for ServiceLoader errors
+- Verify the service descriptor path and class names match exactly
 
 ## Related Pages
 
-* [Developer API](api.md) — Build custom addons
-* [REST API](../web-api/rest-api.md) — API integration
-* [Commands](../reference/commands.md) — Command reference
+- [Developer API](api.md)
+- [REST API](../web-api/rest-api.md)
+- [Commands](../reference/commands.md)
