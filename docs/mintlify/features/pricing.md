@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Dynamic Pricing"
 description: "How The Endex computes prices from supply, demand, and optional signals."
 ---
@@ -69,7 +69,7 @@ events:
       EMERALD: 1.5
 ```
 
-See: [Events](events.md)
+See: [Events](events)
 
 ## Min/Max Price Clamps
 
@@ -124,6 +124,6 @@ Or via the web dashboard price charts.
 
 ## Related Pages
 
-- [Market Events](events.md) - Price multipliers
-- [Configuration](../reference/configuration.md) - Full config reference
-- [REST API](../web-api/rest-api.md) - Price history endpoints
+- [Market Events](events) - Price multipliers
+- [Configuration](../reference/configuration) - Full config reference
+- [REST API](../web-api/rest-api) - Price history endpoints

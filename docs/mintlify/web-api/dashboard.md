@@ -144,7 +144,7 @@ Embed the dashboard in your website:
 
 ### API Integration
 
-See [REST API](rest-api.md) for programmatic access.
+See [REST API](rest-api) for programmatic access.
 
 ### Custom Themes
 
@@ -163,6 +163,6 @@ Override CSS variables:
 
 ## Related Pages
 
-- [REST API](rest-api.md) — API documentation
-- [Configuration](../reference/configuration.md) — Full web config
-- [Installation](../getting-started/installation.md) — Initial setup
+- [REST API](rest-api) — API documentation
+- [Configuration](../reference/configuration) — Full web config
+- [Installation](../getting-started/installation) — Initial setup

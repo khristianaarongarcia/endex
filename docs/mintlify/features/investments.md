@@ -36,9 +36,9 @@ Investments are not risk-free if your server ties redemption value to current ma
 
 ```
 
-- [Holdings](holdings.md)
+- [Holdings](holdings)
 
-- [Pricing](pricing.md)Output:
+- [Pricing](pricing)Output:
 
 ```
 === Your Investments ===
@@ -212,6 +212,6 @@ Invested items are locked. Don't invest items you might need soon.
 
 ## Related Pages
 
-- [Dynamic Pricing](pricing.md) — How prices affect investments
-- [Virtual Holdings](holdings.md) — Where redeemed items go
-- [Commands](../reference/commands.md) — Full command reference
+- [Dynamic Pricing](pricing) — How prices affect investments
+- [Virtual Holdings](holdings) — Where redeemed items go
+- [Commands](../reference/commands) — Full command reference

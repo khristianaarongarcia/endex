@@ -29,7 +29,7 @@ Full support for PlaceholderAPI with 30+ placeholders:
 - **Leaderboard:** `%endex_top_holdings_<1-10>%`
 - **Statistics:** `%endex_total_items%`, `%endex_total_volume%`, `%endex_active_events%`
 
-See the full [PlaceholderAPI Reference](../features/placeholderapi.md) for all placeholders.
+See the full [PlaceholderAPI Reference](../features/placeholderapi) for all placeholders.
 
 ### Update Checker
 
@@ -293,6 +293,6 @@ New `web.api.token-hashes` for secure token storage.
 
 ## Related Pages
 
-- [Troubleshooting](troubleshooting.md) — Common issues
-- [Configuration](../reference/configuration.md) — Config reference
-- [Installation](../getting-started/installation.md) — Setup guide
+- [Troubleshooting](troubleshooting) — Common issues
+- [Configuration](../reference/configuration) — Config reference
+- [Installation](../getting-started/installation) — Setup guide

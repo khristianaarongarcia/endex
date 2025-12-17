@@ -47,20 +47,20 @@ It provides:
 
 ## Next steps
 
-- Read the installation guide: [Installation](getting-started/installation.md)
-- Get trading quickly: [Quick Start](getting-started/quick-start.md)
-- Set up placeholders: [PlaceholderAPI](features/placeholderapi.md)
+- Read the installation guide: [Installation](getting-started/installation)
+- Get trading quickly: [Quick Start](getting-started/quick-start)
+- Set up placeholders: [PlaceholderAPI](features/placeholderapi)
 
 ***
 
 ## Quick Links
 
-* [**Installation Guide**](getting-started/installation.md) — Get started in minutes
-* [**Commands Reference**](reference/commands.md) — All available commands
-* [**Configuration**](reference/configuration.md) — Customize everything
-* [**PlaceholderAPI**](features/placeholderapi.md) — Placeholder reference
-* [**Web Dashboard**](web-api/dashboard.md) — Trade from your browser
-* [**Changelog**](support/changelog.md) — What's new
+* [**Installation Guide**](getting-started/installation) — Get started in minutes
+* [**Commands Reference**](reference/commands) — All available commands
+* [**Configuration**](reference/configuration) — Customize everything
+* [**PlaceholderAPI**](features/placeholderapi) — Placeholder reference
+* [**Web Dashboard**](web-api/dashboard) — Trade from your browser
+* [**Changelog**](support/changelog) — What's new
 
 ***
 

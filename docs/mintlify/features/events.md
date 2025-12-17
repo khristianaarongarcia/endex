@@ -113,6 +113,6 @@ Extreme multipliers (greater than 2.0 or less than 0.5) can destabilize the econ
 
 ## Related Pages
 
-- [Dynamic Pricing](pricing.md) — How events affect prices
-- [Configuration](../reference/configuration.md) — Full events.yml reference
-- [Commands](../reference/commands.md) — Event commands
+- [Dynamic Pricing](pricing) — How events affect prices
+- [Configuration](../reference/configuration) — Full events.yml reference
+- [Commands](../reference/commands) — Event commands

@@ -251,6 +251,6 @@ Items claimed from delivery go to INVENTORY, not holdings. Different from purcha
 
 ## Related Pages
 
-- [Virtual Holdings](holdings.md) — Primary storage system
-- [Market GUI](market-gui.md) — Delivery panel access
-- [REST API](../web-api/rest-api.md) — Delivery endpoints
+- [Virtual Holdings](holdings) — Primary storage system
+- [Market GUI](market-gui) — Delivery panel access
+- [REST API](../web-api/rest-api) — Delivery endpoints

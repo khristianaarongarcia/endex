@@ -226,6 +226,6 @@ $%endex_top_holdings_1_value%
 
 ## Related Pages
 
-- [Holdings System](holdings.md) — Understanding virtual holdings
-- [Configuration](../reference/configuration.md) — Plugin settings
-- [Commands](../reference/commands.md) — Available commands
+- [Holdings System](/features/holdings) — Understanding virtual holdings
+- [Configuration](/reference/configuration) — Plugin settings
+- [Commands](/reference/commands) — Available commands

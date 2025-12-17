@@ -47,9 +47,9 @@ Withdraw only when you actually need items. Keeping items in holdings makes trad
 
 ## What’s next
 
-- Learn the algorithm: [Dynamic Pricing](../features/pricing.md)
-- Understand storage: [Virtual Holdings](../features/holdings.md)
-- Never lose overflow: [Delivery System](../features/delivery.md)
+- Learn the algorithm: [Dynamic Pricing](../features/pricing)
+- Understand storage: [Virtual Holdings](../features/holdings)
+- Never lose overflow: [Delivery System](../features/delivery)
 
 ## For Administrators
 
@@ -170,7 +170,7 @@ For serious trading, use the web dashboard. It's faster and shows charts.
 
 ## Next Steps
 
-- [Dynamic Pricing](../features/pricing.md) — Understand the algorithm
-- [Virtual Holdings](../features/holdings.md) — Master the holdings system
-- [Web Dashboard](../web-api/dashboard.md) — Trade from your browser
-- [Commands Reference](../reference/commands.md) — All commands explained
+- [Dynamic Pricing](../features/pricing) — Understand the algorithm
+- [Virtual Holdings](../features/holdings) — Master the holdings system
+- [Web Dashboard](../web-api/dashboard) — Trade from your browser
+- [Commands Reference](../reference/commands) — All commands explained

@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Addons"
 description: "Extend The Endex with drop-in addon JARs loaded via ServiceLoader."
 ---
@@ -95,6 +95,6 @@ Addons can use The Endex permission system:
 
 ## Related Pages
 
-- [Developer API](api.md)
-- [REST API](../web-api/rest-api.md)
-- [Commands](../reference/commands.md)
+- [Developer API](api)
+- [REST API](../web-api/rest-api)
+- [Commands](../reference/commands)

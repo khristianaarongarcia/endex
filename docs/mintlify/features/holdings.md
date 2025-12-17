@@ -29,10 +29,10 @@ Sell <- Holdings (or inventory in legacy mode)
 
 ## Related
 
-- [Delivery System](delivery.md) — overflow protection
-- [Investments](investments.md) — lock items and earn APR
+- [Delivery System](delivery) — overflow protection
+- [Investments](investments) — lock items and earn APR
 
-- [REST API](../web-api/rest-api.md) — holdings endpoints## Why Virtual Holdings?
+- [REST API](../web-api/rest-api) — holdings endpoints## Why Virtual Holdings?
 
 
 | Benefit | Description |
@@ -268,6 +268,6 @@ Withdraw commands check inventory space. Clear your inventory before bulk withdr
 
 ## Related Pages
 
-- [Market GUI](market-gui.md) — Holdings panel in GUI
-- [Delivery System](delivery.md) — Overflow handling
-- [REST API](../web-api/rest-api.md) — Holdings endpoints
+- [Market GUI](market-gui) — Holdings panel in GUI
+- [Delivery System](delivery) — Overflow handling
+- [REST API](../web-api/rest-api) — Holdings endpoints

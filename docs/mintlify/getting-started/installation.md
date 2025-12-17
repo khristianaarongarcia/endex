@@ -164,6 +164,6 @@ The Endex automatically migrates configs between versions. Always backup before 
 
 ## Next Steps
 
-* [Quick Start Guide](quick-start.md) — Learn the basics
-* [Configuration](../reference/configuration.md) — Customize everything
-* [Commands](../reference/commands.md) — All available commands
+* [Quick Start Guide](quick-start) — Learn the basics
+* [Configuration](../reference/configuration) — Customize everything
+* [Commands](../reference/commands) — All available commands

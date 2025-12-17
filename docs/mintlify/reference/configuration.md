@@ -61,7 +61,7 @@ events:
     max-active: 0
 ```
 
-See: [Events](../features/events.md)
+See: [Events](../features/events)
 
 ## Inventory-aware pricing (optional)
 
