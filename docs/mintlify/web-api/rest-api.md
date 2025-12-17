@@ -1,3 +1,7 @@
+---
+title: "REST API"
+description: "Complete REST API reference for The Endex."
+---
 # REST API
 
 Complete HTTP API reference for The Endex.

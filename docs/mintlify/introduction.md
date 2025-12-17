@@ -1,6 +1,9 @@
-# Welcome
+---
+title: "Welcome to The Endex"
+description: "A dynamic market economy plugin for Minecraft servers with real-time pricing, virtual holdings, web dashboard, and addon support."
+---
 
-> A dynamic market economy plugin for Minecraft servers with real-time pricing, virtual holdings, web dashboard, and addon support.
+# Welcome
 
 ![The Endex Banner](https://i.imgur.com/onDbDSW.png)
 

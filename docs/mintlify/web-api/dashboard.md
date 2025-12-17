@@ -1,3 +1,7 @@
+---
+title: "Web Dashboard"
+description: "Access your market from the browser with the web dashboard."
+---
 # Web Dashboard
 
 Trade from your browser with live price updates.

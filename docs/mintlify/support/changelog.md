@@ -1,3 +1,7 @@
+---
+title: "Changelog"
+description: "Version history and release notes."
+---
 # Changelog
 
 Version history for The Endex.

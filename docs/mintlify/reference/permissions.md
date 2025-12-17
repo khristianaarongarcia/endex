@@ -1,3 +1,7 @@
+---
+title: "Permissions"
+description: "All available permissions and their defaults."
+---
 # Permissions
 
 Complete reference for all The Endex permissions.

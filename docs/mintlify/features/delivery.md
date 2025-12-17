@@ -1,3 +1,7 @@
+---
+title: "Delivery System"
+description: "Overflow protection for purchases exceeding inventory capacity."
+---
 # Delivery System
 
 Backup system for overflow when holdings are full.

@@ -1,3 +1,7 @@
+---
+title: "Developer API"
+description: "Build custom addons using The Endex API."
+---
 # Developer API
 
 Java/Kotlin API for integrating with The Endex.

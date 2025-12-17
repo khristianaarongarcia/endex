@@ -1,3 +1,7 @@
+---
+title: "Troubleshooting"
+description: "Common issues and solutions."
+---
 # Troubleshooting
 
 Common issues and solutions for The Endex.

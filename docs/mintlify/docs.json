@@ -41,7 +41,7 @@
         "groups": [
           {
             "group": "Introduction",
-            "pages": ["README"]
+            "pages": ["introduction"]
           },
           {
             "group": "Getting Started",

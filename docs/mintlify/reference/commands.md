@@ -1,3 +1,7 @@
+---
+title: "Commands"
+description: "Complete command reference for The Endex."
+---
 # Commands
 
 Complete reference for all The Endex commands.

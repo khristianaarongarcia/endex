@@ -1,3 +1,7 @@
+---
+title: "Dynamic Pricing"
+description: "Learn how The Endex's dynamic pricing system works."
+---
 # Dynamic Pricing
 
 The Endex uses a sophisticated pricing algorithm based on real supply and demand.

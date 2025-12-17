@@ -1,6 +1,9 @@
-# Installation
+---
+title: "Installation"
+description: "Get The Endex up and running on your server in minutes."
+---
 
-Get The Endex up and running on your server in minutes.
+# Installation
 
 ***
 

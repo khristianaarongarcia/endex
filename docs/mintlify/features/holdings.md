@@ -1,3 +1,7 @@
+---
+title: "Virtual Holdings"
+description: "Manage virtual holdings with profit/loss tracking."
+---
 # Virtual Holdings
 
 **New in v1.5.0** — A complete redesign of how purchases work.

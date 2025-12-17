@@ -1,3 +1,7 @@
+---
+title: "Quick Start"
+description: "Get started with The Endex in under 5 minutes."
+---
 # Quick Start
 
 Learn the basics of The Endex in 5 minutes.

@@ -1,3 +1,7 @@
+---
+title: "Addons"
+description: "Extend The Endex with custom addon plugins."
+---
 # Addons
 
 Extend The Endex with addon plugins.

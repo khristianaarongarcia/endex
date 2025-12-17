@@ -1,3 +1,7 @@
+---
+title: "Investments"
+description: "Buy and hold items for potential profit."
+---
 # Investments
 
 Create APR-based investment certificates for items.

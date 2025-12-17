@@ -1,3 +1,7 @@
+---
+title: "Market GUI"
+description: "Explore the in-game market interface and features."
+---
 # Market GUI
 
 A beautiful, intuitive interface for all trading operations.

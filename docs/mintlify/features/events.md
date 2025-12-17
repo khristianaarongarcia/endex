@@ -1,3 +1,7 @@
+---
+title: "Market Events"
+description: "Timed market events that affect prices."
+---
 # Events & Shocks
 
 Time-limited events that affect market prices.

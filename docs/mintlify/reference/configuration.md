@@ -1,3 +1,7 @@
+---
+title: "Configuration"
+description: "Configure The Endex with config.yml options."
+---
 # Configuration
 
 Complete reference for all The Endex configuration options.
