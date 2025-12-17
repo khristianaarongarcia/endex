@@ -14,7 +14,97 @@ Before upgrading, back up `plugins/TheEndex/` and skim the release notes for bre
 - `CHANGELOG.md` (root of the repo) — full history
 - GitHub Releases — packaged builds and notes
 
-#### Virtual Holdings System
+---
+
+## Version 1.5.3 — December 18, 2025
+
+### PlaceholderAPI Integration
+
+Full support for PlaceholderAPI with 30+ placeholders:
+
+- **Market Data:** `%endex_price_<MATERIAL>%`, `%endex_trend_<MATERIAL>%`, `%endex_change_<MATERIAL>%`
+- **Top Items:** `%endex_top_price_<1-10>%`, `%endex_bottom_price_<1-10>%`
+- **Gainers/Losers:** `%endex_top_gainer_<1-10>%`, `%endex_top_loser_<1-10>%`
+- **Holdings:** `%endex_holdings_total%`, `%endex_holdings_count%`
+- **Leaderboard:** `%endex_top_holdings_<1-10>%`
+- **Statistics:** `%endex_total_items%`, `%endex_total_volume%`, `%endex_active_events%`
+
+See the full [PlaceholderAPI Reference](../features/placeholderapi.md) for all placeholders.
+
+### Update Checker
+
+Automatic update notifications:
+
+- Checks Spigot and Modrinth APIs on startup
+- Console banner when updates available
+- OP players notified on join
+
+```yaml
+update-checker:
+  enabled: true
+  notify-ops: true
+```
+
+### GUI Customization
+
+Full GUI layout customization via config files in `guis/` folder:
+
+- `market.yml` — Main market interface
+- `details.yml` — Item details panel
+- `holdings.yml` — Virtual holdings panel
+- `deliveries.yml` — Delivery queue panel
+
+Customize titles, sizes, slot positions, categories, and more.
+
+### Command Aliases
+
+Create custom command shortcuts via `commands.yml`:
+
+```yaml
+aliases:
+  shop: "market"
+  stock: "market holdings"
+  prices: "market top"
+```
+
+---
+
+## Version 1.5.2 — December 17, 2025
+
+### Optimized World Scanner
+
+Complete rewrite with intelligent chunk caching:
+
+- Chunk-level caching with configurable expiry
+- Event-driven dirty tracking
+- Disk persistence across restarts
+- 80-90% reduction in redundant scanning
+
+### GUI Fix (MC 1.21+)
+
+Fixed critical bug where market items could be taken and clicks weren't working on Minecraft 1.21+ servers.
+
+- UUID-based GUI state tracking
+- Replaces unreliable title matching
+
+---
+
+## Version 1.5.1 — December 17, 2025
+
+### World Storage Scanner
+
+Prices now react to ALL items stored on your server:
+
+- Scans chests, barrels, shulker boxes, and more
+- Global item tracking for true server-wide economics
+- Anti-manipulation protection with per-chunk caps
+- TPS-aware throttling
+
+---
+
+## Version 1.5.0 — December 17, 2025
+
+### Virtual Holdings System
 
 Complete redesign of the holdings architecture:
 

@@ -34,6 +34,14 @@ storage:
 
 When enabling SQLite, restart the server so the plugin can migrate data if needed.
 
+## Update Checker
+
+```yaml
+update-checker:
+  enabled: true      # Check for updates on startup
+  notify-ops: true   # Notify OP players on join
+```
+
 ## Investments
 
 ```yaml
@@ -89,6 +97,32 @@ web:
     root: webui
     reload: false
     export-default: true
+```
+
+## GUI Customization
+
+GUI layouts are configured in separate files under `guis/`:
+
+- `guis/market.yml` — Main market interface
+- `guis/details.yml` — Item details panel
+- `guis/holdings.yml` — Virtual holdings panel
+- `guis/deliveries.yml` — Delivery queue panel
+
+Each file supports:
+- Custom titles with color codes
+- Inventory size (rows × 9)
+- Slot positions for buttons and items
+- Category definitions with custom materials
+
+## Command Aliases
+
+Custom command aliases are configured in `commands.yml`:
+
+```yaml
+aliases:
+  shop: "market"           # /shop → /market
+  stock: "market holdings" # /stock → /market holdings
+  prices: "market top"     # /prices → /market top
 ```
 
 For the full deep-dive config guide, see `docs/CONFIG.md` in the repo.

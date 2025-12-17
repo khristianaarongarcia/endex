@@ -3,7 +3,7 @@ version: '${version}'
 main: org.lokixcz.theendex.Endex
 api-version: '1.21'
 authors: [ TheLokia ]
-softdepend: [ Vault ]
+softdepend: [ Vault, PlaceholderAPI ]
 description: Dynamic, demand-driven market with GUI, events, and Vault economy
 libraries:
   - org.xerial:sqlite-jdbc:3.46.0.0

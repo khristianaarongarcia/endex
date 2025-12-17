@@ -304,9 +304,6 @@ class MarketGUI(private val plugin: Endex) : Listener {
         // Check if this player has our GUI open using UUID tracking (reliable across MC versions)
         val guiType = openGuis[player.uniqueId]
         
-        // Debug logging
-        plugin.logger.info("[GUI Debug] guiType: $guiType, slot: ${e.rawSlot}, click: ${e.click}")
-        
         // Only handle MARKET gui here (other guis have their own handlers)
         if (guiType != GuiType.MARKET) return
         
@@ -315,7 +312,6 @@ class MarketGUI(private val plugin: Endex) : Listener {
         
         // Only block if clicking in player's bottom inventory (not the GUI)
         if (e.rawSlot >= e.view.topInventory.size) {
-            plugin.logger.info("[GUI Debug] Blocked: clicking in player inventory")
             return
         }
         
@@ -327,12 +323,9 @@ class MarketGUI(private val plugin: Endex) : Listener {
             if (e.rawSlot in 0 until pageSize && e.click == ClickType.SHIFT_LEFT) {
                 // Allow - handled below for details view
             } else {
-                plugin.logger.info("[GUI Debug] Blocked: movement click type")
                 return
             }
         }
-        
-        plugin.logger.info("[GUI Debug] Processing click at slot ${e.rawSlot}")
         
         val state = states.getOrPut(player.uniqueId) { State() }
 

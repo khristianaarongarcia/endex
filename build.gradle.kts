@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "org.lokixcz"
-version = "1.5.2"
+version = "1.5.3"
 
 repositories {
     mavenCentral()
@@ -14,6 +14,10 @@ repositories {
     }
     // For Vault API
     maven("https://jitpack.io")
+    // For PlaceholderAPI
+    maven("https://repo.extendedclip.com/releases/") {
+        name = "placeholderapi"
+    }
 }
 
 // Configuration for an optional fully shaded Spigot artifact
@@ -28,6 +32,8 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     // Vault API (provided by Vault plugin at runtime)
     compileOnly("com.github.MilkBowl:VaultAPI:1.7.1")
+    // PlaceholderAPI (provided by PlaceholderAPI plugin at runtime)
+    compileOnly("me.clip:placeholderapi:2.11.6")
     // SQLite JDBC (provided at runtime via Paper library loader; do not shade)
     compileOnly("org.xerial:sqlite-jdbc:3.46.0.0")
     // Web stack provided at runtime via Paper's library loader to keep our jar slim

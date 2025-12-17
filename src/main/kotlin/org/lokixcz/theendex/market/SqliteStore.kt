@@ -188,6 +188,26 @@ class SqliteStore(private val plugin: JavaPlugin) {
         }
         return map
     }
+
+    /**
+     * Get all players' holdings for leaderboard.
+     * Returns map of UUID string -> map of material name -> quantity
+     */
+    fun getAllPlayersHoldings(): Map<String, Map<String, Int>> {
+        val result = mutableMapOf<String, MutableMap<String, Int>>()
+        connect().use { conn ->
+            conn.prepareStatement("SELECT owner, material, quantity FROM holdings WHERE quantity > 0").use { ps ->
+                val rs = ps.executeQuery()
+                while (rs.next()) {
+                    val owner = rs.getString(1)
+                    val material = rs.getString(2)
+                    val quantity = rs.getInt(3)
+                    result.getOrPut(owner) { mutableMapOf() }[material] = quantity
+                }
+            }
+        }
+        return result
+    }
     
     /**
      * Get total quantity of all items in holdings for a player.

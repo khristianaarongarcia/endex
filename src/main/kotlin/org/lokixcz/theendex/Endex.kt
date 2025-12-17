@@ -7,9 +7,11 @@ import org.lokixcz.theendex.commands.MarketCommand
 import org.lokixcz.theendex.commands.EndexCommand
 import org.lokixcz.theendex.commands.MarketTabCompleter
 import org.lokixcz.theendex.commands.EndexTabCompleter
+import org.lokixcz.theendex.commands.CommandAliasManager
 import net.milkbowl.vault.economy.Economy
 import org.lokixcz.theendex.gui.MarketGUI
 import org.lokixcz.theendex.gui.PlayerPrefsStore
+import org.lokixcz.theendex.gui.GuiConfigManager
 import org.lokixcz.theendex.events.EventManager
 import org.lokixcz.theendex.web.WebServer
 import org.bukkit.command.CommandSender
@@ -42,6 +44,9 @@ class Endex : JavaPlugin() {
     private var worldStorageScanner: org.lokixcz.theendex.tracking.WorldStorageScanner? = null
     private var webServer: WebServer? = null
     private var deliveryManager: org.lokixcz.theendex.delivery.DeliveryManager? = null
+    private var guiConfigManager: GuiConfigManager? = null
+    private var commandAliasManager: CommandAliasManager? = null
+    private var updateChecker: org.lokixcz.theendex.util.UpdateChecker? = null
 
     private var priceTask: BukkitTask? = null
     private var backupTask: BukkitTask? = null
@@ -121,6 +126,23 @@ class Endex : JavaPlugin() {
         eventManager.load()
         eventsTask = Bukkit.getScheduler().runTaskTimer(this, Runnable { eventManager.tickExpire() }, 20L, 20L * 30) // every 30s
     logx.debug("Event manager initialized and tick task scheduled")
+
+        // GUI Configuration
+        try {
+            guiConfigManager = GuiConfigManager(this)
+            guiConfigManager?.load()
+            logx.info("GUI configs loaded from guis/ folder")
+        } catch (t: Throwable) {
+            logx.warn("Failed to load GUI configs: ${t.message}")
+        }
+
+        // Command Aliases
+        try {
+            commandAliasManager = CommandAliasManager(this)
+            commandAliasManager?.load()
+        } catch (t: Throwable) {
+            logx.warn("Failed to load command aliases: ${t.message}")
+        }
 
         // Resource tracking
         try {
@@ -214,6 +236,26 @@ class Endex : JavaPlugin() {
         } catch (t: Throwable) {
             logx.warn("Failed to start web server: ${t.message}")
         }
+
+        // Update Checker
+        try {
+            updateChecker = org.lokixcz.theendex.util.UpdateChecker(this)
+            updateChecker?.init()
+        } catch (t: Throwable) {
+            logx.warn("Failed to initialize update checker: ${t.message}")
+        }
+
+        // PlaceholderAPI Integration
+        try {
+            if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+                org.lokixcz.theendex.hooks.EndexExpansion(this).register()
+                logx.info("PlaceholderAPI expansion registered (prefix: endex)")
+            } else {
+                logx.debug("PlaceholderAPI not found, skipping expansion registration")
+            }
+        } catch (t: Throwable) {
+            logx.warn("Failed to register PlaceholderAPI expansion: ${t.message}")
+        }
     }
 
     override fun onDisable() {
@@ -275,6 +317,15 @@ class Endex : JavaPlugin() {
     
     // Getter for delivery manager
     fun getDeliveryManager(): org.lokixcz.theendex.delivery.DeliveryManager? = deliveryManager
+
+    // Getter for GUI config manager
+    fun getGuiConfigManager(): GuiConfigManager? = guiConfigManager
+
+    // Getter for command alias manager
+    fun getCommandAliasManager(): CommandAliasManager? = commandAliasManager
+
+    // Getter for update checker
+    fun getUpdateChecker(): org.lokixcz.theendex.util.UpdateChecker? = updateChecker
 
     private fun setupEconomy() {
         val pm = server.pluginManager
@@ -346,6 +397,12 @@ class Endex : JavaPlugin() {
             }
         } catch (_: Throwable) {}
         try { eventManager.load() } catch (t: Throwable) { logx.warn("Failed to reload events: ${t.message}") }
+
+        // Reload GUI configs
+        try { guiConfigManager?.reload() } catch (t: Throwable) { logx.warn("Failed to reload GUI configs: ${t.message}") }
+
+        // Reload command aliases
+        try { commandAliasManager?.reload() } catch (t: Throwable) { logx.warn("Failed to reload command aliases: ${t.message}") }
 
         // Reload market data from disk to apply any edits
     try { marketManager.load() } catch (t: Throwable) { logx.warn("Failed to reload market: ${t.message}") }

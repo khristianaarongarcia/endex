@@ -12,6 +12,7 @@ It provides:
 - **Delivery queue** so purchases never disappear when storage is full
 - **Market events** for spikes, crashes, and server-wide moments
 - **Web dashboard + REST API** for fast trading and integration
+- **PlaceholderAPI support** for scoreboards, holograms, and tab lists
 
 ## Key highlights
 
@@ -23,8 +24,16 @@ It provides:
 | Web Dashboard | Trade from your browser with live updates |
 | Market GUI | In-game trading interface |
 | Delivery System | Never lose overflow items |
+| PlaceholderAPI | 30+ placeholders for external plugins |
 | Addon Support | Extend functionality with addons |
 | Investments | APR-based investment certificates |
+
+## What's New in 1.5.3
+
+- **PlaceholderAPI Integration** — 30+ placeholders for prices, trends, holdings, leaderboards
+- **Update Checker** — Automatic notifications when new versions are available
+- **GUI Customization** — Per-GUI config files for layout, colors, slot positions
+- **Command Aliases** — Create custom shortcuts (e.g., /shop → /market)
 
 ## Compatibility
 
@@ -34,21 +43,13 @@ It provides:
 | Java | 17+ |
 | Server | Paper/Spigot/Purpur |
 | Economy | Vault (soft dependency) |
+| Placeholders | PlaceholderAPI (soft dependency) |
 
 ## Next steps
 
 - Read the installation guide: [Installation](getting-started/installation.md)
 - Get trading quickly: [Quick Start](getting-started/quick-start.md)
-
-
-## Compatibility
-
-| Requirement | Version                 |
-| ----------- | ----------------------- |
-| Minecraft   | 1.20.1 - 1.21.x         |
-| Java        | 17+                     |
-| Server      | Paper/Spigot/Purpur     |
-| Economy     | Vault (soft dependency) |
+- Set up placeholders: [PlaceholderAPI](features/placeholderapi.md)
 
 ***
 
@@ -57,6 +58,7 @@ It provides:
 * [**Installation Guide**](getting-started/installation.md) — Get started in minutes
 * [**Commands Reference**](reference/commands.md) — All available commands
 * [**Configuration**](reference/configuration.md) — Customize everything
+* [**PlaceholderAPI**](features/placeholderapi.md) — Placeholder reference
 * [**Web Dashboard**](web-api/dashboard.md) — Trade from your browser
 * [**Changelog**](support/changelog.md) — What's new
 
@@ -67,8 +69,8 @@ It provides:
 * **Discord:** [Join Server](https://discord.gg/ujFRXksUBE)
 * **GitHub:** [Issues](https://github.com/khristianaarongarcia/endex/issues)
 * **Modrinth:** [Plugin Page](https://modrinth.com/plugin/theendex)
-* **SpigotMC:** [Resource Page](https://www.spigotmc.org/resources/theendex)
+* **SpigotMC:** [Resource Page](https://www.spigotmc.org/resources/the-endex-dynamic-stock-market-for-minecraft-1-20-1-1-21-11-large-update.128382/)
 
 ***
 
-_Last updated: December 17, 2025 | Version 1.5.1_
+_Last updated: December 18, 2025 | Version 1.5.3_

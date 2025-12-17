@@ -916,13 +916,25 @@ logging:
   verbose: false
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# UPDATE CHECKER
+# ═══════════════════════════════════════════════════════════════════════════════
+# Checks for new plugin versions on startup and notifies in console + ops.
+update-checker:
+  # Enable automatic update checking on server startup.
+  enabled: true
+  
+  # Notify operators (OPs) when they join if an update is available.
+  # They'll receive a clickable message with the download link.
+  notify-ops: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # END OF CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════════
 # Remember to run /endex reload after making changes!
 # 
 # For more help:
-#   - Documentation: https://github.com/khristianaarongarcia/endex
-#   - Discord Support: [Your Discord Link]
+#   - Documentation: https://lokixcz-plugins.kagsystems.tech/introduction/
+#   - Discord Support: https://discord.com/invite/ujFRXksUBE
 #   - Issue Tracker: https://github.com/khristianaarongarcia/endex/issues
 # 
 # Enjoy your dynamic market economy! 🎉

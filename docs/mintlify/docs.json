@@ -22,7 +22,8 @@
           "features/holdings",
           "features/delivery",
           "features/events",
-          "features/investments"
+          "features/investments",
+          "features/placeholderapi"
         ]
       },
       {

@@ -7,6 +7,53 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.3] - 2025-12-18
+### Added
+- **PlaceholderAPI Integration:** Full support for PlaceholderAPI with 30+ placeholders for scoreboards, holograms, and other plugins.
+  - Market data: `%endex_price_<MATERIAL>%`, `%endex_trend_<MATERIAL>%`, `%endex_supply_<MATERIAL>%`, `%endex_demand_<MATERIAL>%`
+  - Top items: `%endex_top_price_<1-10>%`, `%endex_bottom_price_<1-10>%`, `%endex_top_gainer_<1-10>%`, `%endex_top_loser_<1-10>%`
+  - Holdings: `%endex_holdings_total%`, `%endex_holdings_count%`, `%endex_top_holdings_<1-10>%`
+  - Statistics: `%endex_total_items%`, `%endex_total_volume%`, `%endex_average_price%`, `%endex_active_events%`
+
+- **Update Checker:** Automatic update notifications for server administrators.
+  - Checks Spigot and Modrinth for new versions on startup.
+  - Console banner when updates are available.
+  - OP players notified on join when updates available.
+  - Configurable via `update-checker.enabled` and `update-checker.notify-ops`.
+
+- **GUI Customization System:** Full GUI layout and appearance customization.
+  - Per-GUI config files in `guis/` folder: `market.yml`, `details.yml`, `holdings.yml`, `deliveries.yml`.
+  - Customizable titles, sizes, and slot positions.
+  - Category definitions with custom icons and materials.
+  - Background filler and navigation button customization.
+
+- **Command Aliases System:** Custom command alias registration.
+  - Configure aliases in `commands.yml` for any market subcommand.
+  - Example: `/shop` → `/market`, `/stock` → `/market holdings`.
+  - Supports tab completion inheritance.
+
+### Configuration
+New config files added:
+```yaml
+# config.yml additions
+update-checker:
+  enabled: true
+  notify-ops: true
+
+# guis/market.yml, details.yml, holdings.yml, deliveries.yml
+# commands.yml for aliases
+```
+
+### Dependencies
+- PlaceholderAPI added as soft dependency (optional but recommended).
+
+### Technical
+- `EndexExpansion` class for PlaceholderAPI expansion.
+- `UpdateChecker` class with Spigot API and Modrinth API integration.
+- `GuiConfigManager` for loading and managing GUI configurations.
+- `CommandAliasManager` for dynamic command alias registration.
+- `SqliteStore.getAllPlayersHoldings()` method for leaderboard placeholders.
+
 ## [1.5.2] - 2025-12-17
 ### Added
 - **Optimized World Storage Scanner:** Complete rewrite with intelligent chunk caching and dirty tracking.
