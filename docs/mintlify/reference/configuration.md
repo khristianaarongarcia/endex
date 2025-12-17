@@ -3,8 +3,6 @@ title: "Configuration"
 description: "Key settings in config.yml and common tuning tips."
 ---
 
-# Configuration
-
 The main configuration file is:
 
 ```text

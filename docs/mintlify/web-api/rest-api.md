@@ -3,8 +3,6 @@ title: "REST API"
 description: "HTTP API reference for The Endex (auth, endpoints, examples)."
 ---
 
-# REST API
-
 Base URL:
 
 ```text

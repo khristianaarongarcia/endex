@@ -3,8 +3,6 @@ title: "Changelog"
 description: "Version history and release notes for The Endex."
 ---
 
-# Changelog
-
 Full release notes live in the repository's `CHANGELOG.md`.
 
 <Tip>

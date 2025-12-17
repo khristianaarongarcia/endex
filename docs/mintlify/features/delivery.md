@@ -3,8 +3,6 @@ title: "Delivery System"
 description: "Overflow protection so purchases never disappear when storage is full."
 ---
 
-# Delivery System
-
 Delivery is the safety net for purchases that can’t be placed into the target storage (holdings or inventory).
 
 ## What problem it solves

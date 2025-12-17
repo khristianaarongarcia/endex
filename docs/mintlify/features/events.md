@@ -3,8 +3,6 @@ title: "Market Events"
 description: "Timed events that apply multipliers to prices for specific categories or the whole market."
 ---
 
-# Market Events
-
 Market events are admin-triggered price multipliers that create temporary buy/sell opportunities.
 
 Events are defined in `plugins/TheEndex/events.yml`.

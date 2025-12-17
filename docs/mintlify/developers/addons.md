@@ -3,8 +3,6 @@ title: "Addons"
 description: "Extend The Endex with drop-in addon JARs loaded via ServiceLoader."
 ---
 
-# Addons
-
 Addons are drop-in JARs loaded from:
 
 ```text

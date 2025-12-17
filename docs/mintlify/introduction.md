@@ -4,8 +4,6 @@ title: "Welcome to The Endex"
 description: "A dynamic market economy plugin for Minecraft servers with real-time pricing, holdings, web dashboard, and addon support."
 ---
 
-# Welcome
-
 **The Endex** is a dynamic, player-driven market plugin for Minecraft servers.
 
 It provides:

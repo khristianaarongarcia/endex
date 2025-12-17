@@ -3,8 +3,6 @@ title: "Troubleshooting"
 description: "Fix common installation, trading, and web dashboard issues."
 ---
 
-# Troubleshooting
-
 ## Plugin won’t load
 
 Checklist:

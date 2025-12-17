@@ -3,8 +3,6 @@ title: "Permissions"
 description: "Permissions used by The Endex and common server role setups."
 ---
 
-# Permissions
-
 Permission nodes can vary slightly by server version and addons, but these are the commonly used ones.
 
 ## Core

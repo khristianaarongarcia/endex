@@ -3,8 +3,6 @@ title: "Investments"
 description: "Lock items, earn APR, and redeem later."
 ---
 
-# Investments
-
 Investments let players lock items from holdings into a certificate-like position that accrues **APR** over time.
 
 ## How it works

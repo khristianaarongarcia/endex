@@ -3,8 +3,6 @@ title: "Developer API"
 description: "Integrate with The Endex using the Bukkit service API and events."
 ---
 
-# Developer API
-
 The Endex exposes a Bukkit service API plus a set of events you can listen to.
 
 ## Getting the API (Kotlin)

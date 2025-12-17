@@ -3,8 +3,6 @@ title: "Dynamic Pricing"
 description: "How The Endex computes prices from supply, demand, and optional signals."
 ---
 
-# Dynamic Pricing
-
 The Endex prices move over time. Every update cycle, each material gets a new price based on market pressure.
 
 ## Core idea

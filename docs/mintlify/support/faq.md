@@ -3,8 +3,6 @@ title: "FAQ"
 description: "Common questions about trading, holdings, and the web dashboard."
 ---
 
-# FAQ
-
 ## What Minecraft versions are supported?
 
 The Endex targets modern Paper/Spigot and Java 17. See the project README for the exact supported MC versions.

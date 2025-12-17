@@ -4,8 +4,6 @@ title: "Installation"
 description: "Install The Endex, start the server, and verify it's working."
 ---
 
-# Installation
-
 ## Requirements
 
 - A Paper/Spigot-compatible server (Paper/Purpur recommended)

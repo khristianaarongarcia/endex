@@ -2,9 +2,6 @@
 title: "Web Dashboard"
 description: "Trade from a browser with live prices, holdings, and charts."
 ---
-
-# Web Dashboard
-
 The Endex includes an optional web UI for fast trading.
 
 ## Enable (server)

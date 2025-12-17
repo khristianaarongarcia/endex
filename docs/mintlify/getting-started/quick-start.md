@@ -3,8 +3,6 @@ title: "Quick Start"
 description: "Open the market, buy, sell, and withdraw in a few minutes."
 ---
 
-# Quick Start
-
 ## 1) Open the market
 
 ```text

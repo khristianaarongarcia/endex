@@ -3,8 +3,6 @@ title: "Commands"
 description: "Player and admin commands for The Endex."
 ---
 
-# Commands
-
 This page lists the common commands exposed by The Endex.
 
 ## Player commands

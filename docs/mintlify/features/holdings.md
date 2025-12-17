@@ -3,8 +3,6 @@ title: "Virtual Holdings"
 description: "Virtual storage for traded items with average cost and P/L tracking."
 ---
 
-# Virtual Holdings
-
 Holdings are a **virtual inventory** owned by each player. Instead of sending purchases directly to a player's Minecraft inventory, buys can be deposited into holdings first.
 
 ## Why holdings exist
