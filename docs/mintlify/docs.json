@@ -11,58 +11,105 @@
     "light": "#A78BFA",
     "dark": "#7C3AED"
   },
-  "theme": "maple",
-  "navigation": [
+  "topbarLinks": [
     {
-      "group": "Introduction",
-      "pages": ["README"]
-    },
-    {
-      "group": "Getting Started",
-      "pages": [
-        "getting-started/installation",
-        "getting-started/quick-start"
-      ]
-    },
-    {
-      "group": "Features",
-      "pages": [
-        "features/pricing",
-        "features/market-gui",
-        "features/holdings",
-        "features/investments",
-        "features/events",
-        "features/delivery"
-      ]
-    },
-    {
-      "group": "Reference",
-      "pages": [
-        "reference/commands",
-        "reference/permissions",
-        "reference/configuration"
-      ]
-    },
-    {
-      "group": "Web & API",
-      "pages": [
-        "web-api/dashboard",
-        "web-api/rest-api"
-      ]
-    },
-    {
-      "group": "Developers",
-      "pages": [
-        "developers/addons",
-        "developers/api"
-      ]
-    },
-    {
-      "group": "Support",
-      "pages": [
-        "support/troubleshooting",
-        "support/changelog"
-      ]
+      "name": "Discord",
+      "url": "https://discord.gg/7edgWnfCbY"
     }
-  ]
+  ],
+  "topbarCtaButton": {
+    "name": "Download",
+    "url": "https://modrinth.com/plugin/the-endex"
+  },
+  "anchors": [
+    {
+      "name": "Discord",
+      "icon": "discord",
+      "url": "https://discord.gg/7edgWnfCbY"
+    },
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/khristianaarongarcia/endex"
+    }
+  ],
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": ["README"]
+          },
+          {
+            "group": "Getting Started",
+            "pages": [
+              "getting-started/installation",
+              "getting-started/quick-start"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/pricing",
+              "features/market-gui",
+              "features/holdings",
+              "features/investments",
+              "features/events",
+              "features/delivery"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/commands",
+              "reference/permissions",
+              "reference/configuration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Web & API",
+        "groups": [
+          {
+            "group": "Web Dashboard",
+            "pages": [
+              "web-api/dashboard",
+              "web-api/rest-api"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Developers",
+        "groups": [
+          {
+            "group": "Extend The Endex",
+            "pages": [
+              "developers/addons",
+              "developers/api"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Support",
+        "groups": [
+          {
+            "group": "Help",
+            "pages": [
+              "support/troubleshooting",
+              "support/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footerSocials": {
+    "discord": "https://discord.gg/7edgWnfCbY",
+    "github": "https://github.com/khristianaarongarcia/endex"
+  }
 }
