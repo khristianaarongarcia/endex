@@ -11,6 +11,7 @@
     "light": "#A78BFA",
     "dark": "#7C3AED"
   },
+  "theme": "maple",
   "topbarLinks": [
     {
       "name": "Discord",
