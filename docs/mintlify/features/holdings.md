@@ -275,20 +275,20 @@ holdings:
 
 ## Tips
 
-{% hint style="success" %}
-**Hold for Profit**
+<Tip>
+**Hold for Profit**  
 Don't withdraw until you need items. Holdings show your P/L in real-time!
-{% endhint %}
+</Tip>
 
-{% hint style="info" %}
-**Web Trading**
+<Info>
+**Web Trading**  
 For bulk withdrawals, use the web dashboard. It's faster for managing large portfolios.
-{% endhint %}
+</Info>
 
-{% hint style="warning" %}
-**Inventory Space**
+<Warning>
+**Inventory Space**  
 Withdraw commands check inventory space. Clear your inventory before bulk withdrawals.
-{% endhint %}
+</Warning>
 
 ---
 

@@ -228,20 +228,20 @@ Or via the web dashboard's price charts.
 
 ## Tips for Server Owners
 
-{% hint style="success" %}
-**Start Conservative**
+<Tip>
+**Start Conservative**  
 Begin with low sensitivity (0.05-0.1) and increase if markets feel too stable.
-{% endhint %}
+</Tip>
 
-{% hint style="warning" %}
-**World Storage Scanner**
+<Warning>
+**World Storage Scanner**  
 Enable on established servers. New servers may have highly volatile prices due to low item counts.
-{% endhint %}
+</Warning>
 
-{% hint style="info" %}
-**Test Events**
+<Info>
+**Test Events**  
 Use events to create exciting market moments. Players love price spikes!
-{% endhint %}
+</Info>
 
 ---
 

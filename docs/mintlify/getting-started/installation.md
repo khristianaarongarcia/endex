@@ -148,9 +148,9 @@ To update The Endex:
 3. Restart server
 4. Check for config migrations in the changelog
 
-{% hint style="info" %}
+<Info>
 The Endex automatically migrates configs between versions. Always backup before updating!
-{% endhint %}
+</Info>
 
 ***
 

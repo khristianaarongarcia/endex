@@ -269,20 +269,20 @@ Deliveries should never be lost. If items disappeared:
 
 ## Tips
 
-{% hint style="success" %}
-**Regular Claims**
+<Tip>
+**Regular Claims**  
 Don't let deliveries pile up. Claim regularly to keep space available.
-{% endhint %}
+</Tip>
 
-{% hint style="info" %}
-**Clear Inventory First**
+<Info>
+**Clear Inventory First**  
 Before bulk claims, empty your inventory for maximum space.
-{% endhint %}
+</Info>
 
-{% hint style="warning" %}
-**Holdings vs Delivery**
+<Warning>
+**Holdings vs Delivery**  
 Items claimed from delivery go to INVENTORY, not holdings. Different from purchases!
-{% endhint %}
+</Warning>
 
 ---
 

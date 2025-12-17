@@ -170,25 +170,25 @@ Benefits:
 
 ## Tips for Success
 
-{% hint style="success" %}
-**Buy Low, Sell High**
+<Tip>
+**Buy Low, Sell High**  
 Watch price trends and buy when prices dip. Sell when demand spikes.
-{% endhint %}
+</Tip>
 
-{% hint style="info" %}
-**Use the Holdings System**
+<Info>
+**Use the Holdings System**  
 Don't withdraw until you need items. Holdings track your profit/loss automatically.
-{% endhint %}
+</Info>
 
-{% hint style="warning" %}
-**Watch for Events**
+<Warning>
+**Watch for Events**  
 Market events can dramatically affect prices. Check `/market event list` regularly.
-{% endhint %}
+</Warning>
 
-{% hint style="tip" %}
-**Web Dashboard**
+<Tip>
+**Web Dashboard**  
 For serious trading, use the web dashboard. It's faster and shows charts.
-{% endhint %}
+</Tip>
 
 ---
 

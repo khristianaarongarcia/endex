@@ -59,9 +59,9 @@ http://your-server:8080/?session=abc123xyz...
 2. Open in any web browser
 3. Session auto-authenticates you
 
-{% hint style="warning" %}
+<Warning>
 Session links are personal. Don't share them—anyone with the link can trade as you!
-{% endhint %}
+</Warning>
 
 ---
 

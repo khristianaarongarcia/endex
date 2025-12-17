@@ -60,10 +60,10 @@ New in-game interface:
 
 ### Migration Notes
 
-{% hint style="warning" %}
+<Warning>
 **Breaking Change:** Buy flow uses virtual holdings by default.
 Set `holdings.mode: LEGACY` to restore previous behavior.
-{% endhint %}
+</Warning>
 
 ---
 

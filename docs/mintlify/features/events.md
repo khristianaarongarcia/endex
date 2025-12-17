@@ -236,39 +236,39 @@ Plugins like **DeluxeScheduler** or **ScheduledCommands** can trigger:
 
 ## Player Strategies
 
-{% hint style="success" %}
-**Buy Before Events**
+<Tip>
+**Buy Before Events**  
 If you know an event is coming, buy affected items beforehand.
-{% endhint %}
+</Tip>
 
-{% hint style="info" %}
-**Watch Announcements**
+<Info>
+**Watch Announcements**  
 Events broadcast to chat. React quickly to profit!
-{% endhint %}
+</Info>
 
-{% hint style="warning" %}
-**Crash Events**
+<Warning>
+**Crash Events**  
 During market crashes, it's often better to hold than sell at low prices.
-{% endhint %}
+</Warning>
 
 ---
 
 ## Admin Tips
 
-{% hint style="success" %}
-**Regular Events**
+<Tip>
+**Regular Events**  
 Schedule events to keep the economy exciting. Weekly events work well.
-{% endhint %}
+</Tip>
 
-{% hint style="info" %}
-**Seasonal Themes**
+<Info>
+**Seasonal Themes**  
 Match events to real-world or server seasons for immersion.
-{% endhint %}
+</Info>
 
-{% hint style="warning" %}
-**Balance Multipliers**
+<Warning>
+**Balance Multipliers**  
 Extreme multipliers (>2.0 or <0.5) can destabilize the economy. Use sparingly.
-{% endhint %}
+</Warning>
 
 ---
 

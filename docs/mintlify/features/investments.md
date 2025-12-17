@@ -153,9 +153,9 @@ Investments lock in your purchase price. If market price rises:
 - Your investment value reflects the higher price
 - Redeem for more coins than you invested
 
-{% hint style="warning" %}
+<Warning>
 If market price falls, your redemption value also falls. Investments are not risk-free!
-{% endhint %}
+</Warning>
 
 ---
 
@@ -201,20 +201,20 @@ Access investments from the Market GUI:
 
 ## Tips
 
-{% hint style="success" %}
-**Diversify**
+<Tip>
+**Diversify**  
 Don't put all your wealth in one investment. Spread across multiple materials.
-{% endhint %}
+</Tip>
 
-{% hint style="info" %}
-**Watch the Market**
+<Info>
+**Watch the Market**  
 Invest in items you think will rise in price for double gains (APR + price increase).
-{% endhint %}
+</Info>
 
-{% hint style="warning" %}
-**Liquidity**
+<Warning>
+**Liquidity**  
 Invested items are locked. Don't invest items you might need soon.
-{% endhint %}
+</Warning>
 
 ---
 
