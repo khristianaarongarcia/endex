@@ -12,7 +12,7 @@ Backup system for overflow when holdings are full.
 
 The Delivery System ensures you **never lose items** from purchases:
 
-```
+```text
 Buy Items → Holdings Full? → Overflow to Delivery Queue → Claim Later
 ```
 

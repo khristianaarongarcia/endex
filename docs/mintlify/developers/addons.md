@@ -33,7 +33,7 @@ Get addon JARs from:
 
 Put addon JARs in:
 
-```
+```text
 plugins/TheEndex/addons/
 ```
 
@@ -47,7 +47,7 @@ Addons load automatically on startup.
 
 Check addon loaded:
 
-```
+```text
 /endex addons
 ```
 
@@ -57,7 +57,7 @@ Check addon loaded:
 
 Addons create their own config files:
 
-```
+```text
 plugins/TheEndex/
 ├── config.yml          # Main config
 ├── crypto.yml          # Crypto addon config
@@ -81,13 +81,13 @@ plugins/TheEndex/
 
 Access addon commands:
 
-```
+```text
 /endex <addon> <command> [args]
 ```
 
 Example for crypto:
 
-```
+```text
 /endex crypto prices
 /endex crypto buy BTC 0.5
 ```
@@ -96,7 +96,7 @@ Example for crypto:
 
 Addons register under `/api/addon/{name}/`:
 
-```
+```http
 GET /api/addon/crypto/prices
 POST /api/addon/crypto/buy
 ```
@@ -116,7 +116,7 @@ See the [Developer API](api.md) for creating custom addons.
 
 ### Example Structure
 
-```
+```text
 my-addon/
 ├── build.gradle.kts
 └── src/main/
@@ -151,7 +151,7 @@ Addons can use The Endex permission system:
 
 **Debug:**
 
-```
+```text
 # Check for load errors
 grep -i "addon" logs/latest.log
 ```
