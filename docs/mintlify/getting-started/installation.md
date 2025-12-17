@@ -1,4 +1,3 @@
-
 ---
 title: "Installation"
 description: "Install The Endex, start the server, and verify it's working."
