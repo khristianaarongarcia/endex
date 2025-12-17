@@ -1,0 +1,68 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "The Endex",
+  "logo": {
+    "dark": "/logo/dark.png",
+    "light": "/logo/light.png"
+  },
+  "favicon": "/favicon.png",
+  "colors": {
+    "primary": "#8B5CF6",
+    "light": "#A78BFA",
+    "dark": "#7C3AED"
+  },
+  "theme": "venus",
+  "navigation": [
+    {
+      "group": "Introduction",
+      "pages": ["README"]
+    },
+    {
+      "group": "Getting Started",
+      "pages": [
+        "getting-started/installation",
+        "getting-started/quick-start"
+      ]
+    },
+    {
+      "group": "Features",
+      "pages": [
+        "features/pricing",
+        "features/market-gui",
+        "features/holdings",
+        "features/investments",
+        "features/events",
+        "features/delivery"
+      ]
+    },
+    {
+      "group": "Reference",
+      "pages": [
+        "reference/commands",
+        "reference/permissions",
+        "reference/configuration"
+      ]
+    },
+    {
+      "group": "Web & API",
+      "pages": [
+        "web-api/dashboard",
+        "web-api/rest-api"
+      ]
+    },
+    {
+      "group": "Developers",
+      "pages": [
+        "developers/addons",
+        "developers/api"
+      ]
+    },
+    {
+      "group": "Support",
+      "pages": [
+        "support/troubleshooting",
+        "support/changelog"
+      ]
+    }
+  ]
+}

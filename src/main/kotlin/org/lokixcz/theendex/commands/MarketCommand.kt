@@ -165,7 +165,12 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val db = plugin.marketManager.sqliteStore()
 
         val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
-        var unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat))
+        
+        // Apply spread markup for buying (anti-arbitrage protection)
+        val spreadEnabled = plugin.config.getBoolean("spread.enabled", true)
+        val buyMarkupPct = if (spreadEnabled) plugin.config.getDouble("spread.buy-markup-percent", 1.5).coerceAtLeast(0.0) else 0.0
+        
+        var unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat)) * (1.0 + buyMarkupPct / 100.0)
         
         // Fire pre-buy event (modifiable)
         val pre = PreBuyEvent(mat, amount, unit)
@@ -353,7 +358,12 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         }
 
         val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
-        var unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat))
+        
+        // Apply spread markdown for selling (anti-arbitrage protection)
+        val spreadEnabled = plugin.config.getBoolean("spread.enabled", true)
+        val sellMarkdownPct = if (spreadEnabled) plugin.config.getDouble("spread.sell-markdown-percent", 1.5).coerceAtLeast(0.0) else 0.0
+        
+        var unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat)) * (1.0 - sellMarkdownPct / 100.0)
         // Fire pre-sell event (modifiable)
         val pre = PreSellEvent(mat, amount, unit)
         org.bukkit.Bukkit.getPluginManager().callEvent(pre)

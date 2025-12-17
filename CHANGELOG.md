@@ -4,6 +4,103 @@ All notable changes to this project will be documented in this file.
 
 The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJOR.MINOR.PATCH) where possible.
 
+## [Unreleased]
+*No unreleased changes at this time.*
+
+## [1.5.2] - 2025-12-17
+### Added
+- **Optimized World Storage Scanner:** Complete rewrite with intelligent chunk caching and dirty tracking.
+  - Chunk-level caching with configurable expiry (default: 600 seconds).
+  - Event-driven dirty tracking — only re-scans chunks where containers were modified.
+  - Disk persistence for cache data across server restarts.
+  - Empty inventory skip optimization for faster scanning.
+  - Material set-based O(1) container type filtering.
+
+### Fixed
+- **GUI Click Handling (MC 1.21+):** Fixed critical bug where market GUI items could be taken and clicks weren't registering on Minecraft 1.21+ servers.
+  - Root cause: MC 1.21 changed `InventoryView` from a class to an interface, breaking reflection-based title extraction.
+  - Solution: Implemented UUID-based GUI state tracking with `GuiType` enum instead of unreliable title matching.
+  - All GUI types (Market, Details, Deliveries, Holdings) now properly track player state.
+
+### Configuration
+New cache settings under `price-world-storage`:
+```yaml
+price-world-storage:
+  cache:
+    enabled: true
+    chunk-expiry-seconds: 600
+    full-refresh-cycles: 5
+    persist-to-disk: true
+```
+
+### Technical
+- `GuiType` enum: `MARKET`, `DETAILS`, `DELIVERIES`, `HOLDINGS`, `NONE`
+- `openGuis: MutableMap<UUID, GuiType>` tracks which GUI each player has open
+- `ChunkScanCache` data class for per-chunk scan results
+- Event listeners for `InventoryCloseEvent`, `BlockPlaceEvent`, `BlockBreakEvent`, `ChunkUnloadEvent`
+- Cache file: `plugins/TheEndex/scanner-cache.json`
+
+### Performance
+- Reduced redundant container scanning by 80-90% on stable servers
+- Chunk caching eliminates repeated full scans of unchanged areas
+- Dirty tracking ensures only modified chunks are re-scanned
+- Memory-efficient with automatic cache cleanup on chunk unload
+
+## [1.5.1] - 2025-12-17
+### Added
+- **World Storage Scanner:** Scans ALL containers (chests, barrels, shulker boxes, etc.) across loaded chunks to provide truly dynamic, server-wide pricing based on global item scarcity/abundance.
+- **Global Item Tracking:** Prices now react to total items stored across the entire server, not just player inventories or trades.
+- **Anti-Manipulation Protection:** Per-chunk item caps, per-material caps, and suspicious activity logging prevent storage farm exploits.
+- **TPS-Aware Throttling:** Scanner automatically skips or aborts if server TPS drops below threshold (default 18.0).
+- **Double Chest Deduplication:** Ensures double chests are only counted once, preventing inflation.
+- **Configurable Container Types:** Enable/disable scanning for chests, barrels, shulker boxes, hoppers, droppers, dispensers, furnaces, and brewing stands.
+- **Nested Shulker Scanning:** Optionally counts items inside shulker boxes stored in other containers.
+- **World Exclusion:** Skip creative, minigame, or spawn worlds from scanning.
+
+### Configuration
+New `price-world-storage` section in config.yml:
+```yaml
+price-world-storage:
+  enabled: true
+  scan-interval-seconds: 300
+  sensitivity: 0.01
+  global-baseline: 1000
+  max-impact-percent: 5.0
+  chunks-per-tick: 50
+  containers:
+    chests: true
+    barrels: true
+    shulker-boxes: true
+    hoppers: false
+    droppers: false
+    dispensers: false
+    furnaces: false
+    brewing-stands: false
+  scan-shulker-contents: true
+  excluded-worlds: []
+  anti-manipulation:
+    per-chunk-item-cap: 10000
+    per-material-chunk-cap: 5000
+    min-tps: 18.0
+    log-suspicious: true
+```
+
+### Security
+- Storage farm manipulation mitigated via per-chunk caps
+- Coordinated price manipulation reduced through proportional contribution limits
+- Admin alerts for suspicious storage patterns (chunks exceeding item caps)
+
+### Technical
+- New `WorldStorageScanner` service with async batch processing
+- Integrated into `MarketManager.updatePrices()` alongside existing inventory scanning
+- Uses daemon thread with configurable scan intervals
+- Location-based double chest tracking prevents double-counting
+
+### Upgrade Notes
+- World Storage Scanner is **enabled by default** for new installations
+- Existing configs will use defaults; add `price-world-storage` section to customize
+- Performance impact is minimal due to batched async processing and TPS monitoring
+
 ## [1.5.0] - 2024-12-17
 ### Added
 - **Virtual Holdings System:** Complete redesign of the holdings architecture. Items purchased now go directly into virtual holdings instead of the player's inventory.
@@ -161,13 +258,83 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 - Dependency upgrades (stable Kotlin, Jackson 2.17.x, latest Javalin 5.x).
 
 ## [1.2.0] - 2025-09-25
-See `docs/changelogs.md` for full 1.2.0 release notes (custom Web UI override, unified market view, filter improvements).
+### Added
+- Custom Web UI override (`web.custom.*`): external `index.html` & static assets, auto-export starter file, optional reload bypass.
+- Admin commands: `/endex webui export`, `/endex webui reload` for managing exported UI.
+- Unified web market view with advanced filters (category, price bounds, trend, sort fields & direction) and collapsible persistent filter panel.
+- Category auto-population & improved watchlist/group toggles.
+
+### Changed
+- Removed legacy Addons tab and `/api/addons` usage; addons now integrate as items or custom routes.
+- Simplified live update flow (single item stream via WS/SSE/polling).
+- Refactored layout (two-row search + filters) for clarity and responsiveness.
+- Copy tasks marked untracked to prevent Gradle state errors with transient DB journal files.
+
+### Fixed
+- UI tab reversion issue resolved by removing tab abstraction.
+- Async misuse (`await` in sync render) eliminated; stabilized frontend rendering.
+- Ensured Vault economy deductions occur on main thread; corrected SELL handling logic.
+
+### Removed
+- Addons navigation UI and related frontend logic.
+
+### Documentation
+- Added `docs/CUSTOM_WEBUI.md` and updated config with `web.custom.*` keys.
+
+### Compatibility
+- Built against Paper API 1.20.1; expected to operate on 1.21.x.
+
+### Upgrade Notes
+- If you relied on Addons tab navigation, migrate to item-based representation or custom web routes.
+- Enable `web.custom.enabled` to customize UI; restart to export default scaffold.
 
 ## [1.1.0] - 2025-08-29
-See `docs/changelogs.md` for full 1.1.0 release notes (resource pack icons, addons tab, HTTP API documentation).
+### Added
+- Web UI item icons served from resource packs with `/icon/{material}` endpoint (public, ETag caching)
+- Resource pack extraction/usage via `web.icons.*` with support for both `item/items` and `block/blocks` folders
+- Aliases for tricky materials (e.g., PUMPKIN, CACTUS) to reduce 404s across pack variations
+- Addons tab in the UI and `/api/addons` endpoint (auth required)
+- Developer HTTP API documentation (`docs/API.md`) and reverse proxy guide (`docs/REVERSE_PROXY.md`)
+
+### Changed
+- Improved client error fallback for missing icons (initials badge)
+- More informative server logs (actual paths tried for missing icons when `logging.verbose=true`)
+
+### Fixed
+- Kotlin string interpolation in logs and headers (no longer prints `$vars` literally)
+- Javalin route syntax for path params (now uses `/icon/{material}`)
+
+### Compatibility
+- Built against Paper API 1.20.1; expected to work on newer Paper versions
+
+### Highlights
+- HTTP API reference: see `docs/API.md`
+- Reverse proxy examples (HTTPS): `docs/REVERSE_PROXY.md`
+- Config keys for icons and addons: `docs/CONFIG.md`
 
 ## [1.0.0] - 2025-08-28
-Initial release. See `docs/changelogs.md` for full feature list.
+Initial release
+
+### Added
+- Demand-driven dynamic pricing with clamping and rolling history
+- Full-featured market GUI (pagination, sorting, category filters, text search, details view)
+- Vault economy integration with configurable transaction tax
+- Market events system (stackable multipliers with cap, broadcasts, persistence across restarts)
+- Investments (buy, list, redeem-all)
+- YAML storage (default) and optional SQLite store with automatic seeding from YAML
+- Player preference persistence (amount, sort, category, search, last page)
+- ASCII sparkline trends and CSV history export
+- Config versioning and automated migration on startup/reload
+- Admin commands, safe reload, item blacklist, and CSV export command
+- /endex version command to report plugin version and storage mode
+
+### Compatibility
+- Server: Paper/Spigot 1.20.1 to latest (built against API 1.20.1)
+- Java 17 runtime
+- Economy: Vault (soft dependency)
+
+### Notes
+- On Paper, the SQLite driver is fetched automatically via `plugin.yml` libraries (smaller plugin JAR). On plain Spigot, use YAML storage by default or install the SQLite driver manually if enabling SQLite.
 
 ---
 

@@ -1,5 +1,7 @@
 package org.lokixcz.theendex.tracking
 
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import org.bukkit.Bukkit
 import org.bukkit.Chunk
 import org.bukkit.Material
@@ -7,9 +9,17 @@ import org.bukkit.block.BlockState
 import org.bukkit.block.Container
 import org.bukkit.block.DoubleChest
 import org.bukkit.block.ShulkerBox
+import org.bukkit.event.EventHandler
+import org.bukkit.event.EventPriority
+import org.bukkit.event.Listener
+import org.bukkit.event.block.BlockBreakEvent
+import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.inventory.InventoryCloseEvent
+import org.bukkit.event.world.ChunkUnloadEvent
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.ItemStack
 import org.lokixcz.theendex.Endex
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -23,19 +33,24 @@ import java.util.concurrent.Callable
  * WorldStorageScanner: Scans all container block entities in loaded chunks to
  * provide global item totals for dynamic pricing.
  *
- * Performance Optimizations:
+ * Performance Optimizations (v2.0):
  * - Scans only loaded chunks (no chunk loading)
  * - Uses async executor for aggregation, sync for Bukkit API calls
  * - Chunked batch processing to avoid blocking main thread
  * - Configurable scan interval with aggressive caching
  * - Early exit if scan already in progress
- * - Container type filtering (skip unwanted container types)
+ * - Container type filtering with O(1) Material set lookup
  * - Shulker box nested inventory support (optional)
  * - Double chest deduplication to prevent double-counting
  * - Per-chunk item cap to prevent storage farm manipulation
  * - TPS-aware throttling to reduce lag on busy servers
+ * - NEW: Chunk-level result caching - only rescan modified chunks
+ * - NEW: Event-based dirty chunk tracking
+ * - NEW: Disk cache persistence for fast restarts
+ * - NEW: Empty inventory skip for faster scanning
+ * - NEW: Periodic full refresh to ensure consistency
  */
-class WorldStorageScanner(private val plugin: Endex) {
+class WorldStorageScanner(private val plugin: Endex) : Listener {
 
     // Configuration
     private val enabledFlag: Boolean = plugin.config.getBoolean("price-world-storage.enabled", false)
@@ -57,8 +72,14 @@ class WorldStorageScanner(private val plugin: Endex) {
     private val perMaterialChunkCap: Int = plugin.config.getInt("price-world-storage.anti-manipulation.per-material-chunk-cap", 5000).coerceAtLeast(64)
     private val minTpsForScan: Double = plugin.config.getDouble("price-world-storage.anti-manipulation.min-tps", 18.0).coerceIn(10.0, 20.0)
     private val logSuspiciousActivity: Boolean = plugin.config.getBoolean("price-world-storage.anti-manipulation.log-suspicious", true)
+    
+    // Caching settings (new)
+    private val enableChunkCache: Boolean = plugin.config.getBoolean("price-world-storage.cache.enabled", true)
+    private val chunkCacheExpirySeconds: Int = plugin.config.getInt("price-world-storage.cache.chunk-expiry-seconds", 600).coerceAtLeast(60)
+    private val fullRefreshInterval: Int = plugin.config.getInt("price-world-storage.cache.full-refresh-cycles", 5).coerceAtLeast(1)
+    private val persistCacheToDisk: Boolean = plugin.config.getBoolean("price-world-storage.cache.persist-to-disk", true)
 
-    // Cache
+    // Global result cache
     @Volatile
     private var cachedTotals: Map<Material, Long> = emptyMap()
 
@@ -73,6 +94,9 @@ class WorldStorageScanner(private val plugin: Endex) {
     
     @Volatile
     private var skippedDueToTps: Boolean = false
+    
+    @Volatile
+    private var lastFullScanCycle: Int = 0
 
     private val scanning = AtomicBoolean(false)
     private val scanCounter = AtomicLong(0L)
@@ -82,31 +106,81 @@ class WorldStorageScanner(private val plugin: Endex) {
     private var scheduledTask: ScheduledFuture<*>? = null
     
     // Track scanned double chests to avoid double-counting (location hash set per scan)
-    // Using Location.hashCode isn't reliable, so we use "world:x:y:z" strings
     private val scannedDoubleChests = ConcurrentHashMap.newKeySet<String>()
+    
+    // ===== NEW: Chunk-level caching =====
+    
+    // Cache for individual chunk scan results
+    private data class ChunkCache(
+        val totals: Map<Material, Long>,
+        val containerCount: Int,
+        val scanTimeMs: Long
+    )
+    private val chunkCache = ConcurrentHashMap<ChunkKey, ChunkCache>()
+    
+    // Track which chunks have been modified since last scan
+    private val dirtyChunks = ConcurrentHashMap.newKeySet<ChunkKey>()
+    
+    // Simple chunk identifier
+    private data class ChunkKey(val worldName: String, val x: Int, val z: Int) {
+        override fun toString() = "$worldName:$x:$z"
+        
+        companion object {
+            fun fromString(s: String): ChunkKey? {
+                val parts = s.split(":")
+                if (parts.size != 3) return null
+                return try {
+                    ChunkKey(parts[0], parts[1].toInt(), parts[2].toInt())
+                } catch (_: Exception) { null }
+            }
+        }
+    }
+    
+    // Gson for disk persistence
+    private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
+    private val cacheFile: File by lazy { File(plugin.dataFolder, "world-scan-cache.json") }
 
-    // Container type names for filtering
-    private val allowedContainerTypes: Set<String> by lazy {
+    // ===== Container type filtering with O(1) lookup =====
+    
+    // Use Material set instead of String set for faster lookup
+    private val allowedContainerMaterials: Set<Material> by lazy {
         buildSet {
             if (includeChests) {
-                add("CHEST")
-                add("TRAPPED_CHEST")
+                add(Material.CHEST)
+                add(Material.TRAPPED_CHEST)
                 // Note: ENDER_CHEST excluded - per-player storage
             }
-            if (includeBarrels) add("BARREL")
+            if (includeBarrels) add(Material.BARREL)
             if (includeShulkers) {
                 // All shulker box colors
-                Material.entries.filter { it.name.endsWith("SHULKER_BOX") }.forEach { add(it.name) }
+                addAll(Material.entries.filter { it.name.endsWith("SHULKER_BOX") })
             }
-            if (includeHoppers) add("HOPPER")
-            if (includeDroppers) add("DROPPER")
-            if (includeDispensers) add("DISPENSER")
+            if (includeHoppers) add(Material.HOPPER)
+            if (includeDroppers) add(Material.DROPPER)
+            if (includeDispensers) add(Material.DISPENSER)
             if (includeFurnaces) {
-                add("FURNACE")
-                add("BLAST_FURNACE")
-                add("SMOKER")
+                add(Material.FURNACE)
+                add(Material.BLAST_FURNACE)
+                add(Material.SMOKER)
             }
-            if (includeBrewingStands) add("BREWING_STAND")
+            if (includeBrewingStands) add(Material.BREWING_STAND)
+        }
+    }
+    
+    // Materials that are containers (for event detection)
+    private val containerMaterials: Set<Material> by lazy {
+        buildSet {
+            add(Material.CHEST)
+            add(Material.TRAPPED_CHEST)
+            add(Material.BARREL)
+            add(Material.HOPPER)
+            add(Material.DROPPER)
+            add(Material.DISPENSER)
+            add(Material.FURNACE)
+            add(Material.BLAST_FURNACE)
+            add(Material.SMOKER)
+            add(Material.BREWING_STAND)
+            addAll(Material.entries.filter { it.name.endsWith("SHULKER_BOX") })
         }
     }
 
@@ -117,6 +191,15 @@ class WorldStorageScanner(private val plugin: Endex) {
             plugin.logger.info("WorldStorageScanner disabled in config.")
             return
         }
+        
+        // Register event listeners for dirty chunk tracking
+        Bukkit.getPluginManager().registerEvents(this, plugin)
+        
+        // Load cached results from disk if available
+        if (persistCacheToDisk) {
+            loadCacheFromDisk()
+        }
+        
         executor = Executors.newSingleThreadScheduledExecutor { r ->
             Thread(r, "Endex-WorldStorageScanner").apply { isDaemon = true }
         }
@@ -127,7 +210,7 @@ class WorldStorageScanner(private val plugin: Endex) {
             scanIntervalSeconds.toLong(),
             TimeUnit.SECONDS
         )
-        plugin.logger.info("WorldStorageScanner started (interval=${scanIntervalSeconds}s, chunksPerTick=$chunksPerTick)")
+        plugin.logger.info("WorldStorageScanner started (interval=${scanIntervalSeconds}s, chunksPerTick=$chunksPerTick, caching=${if (enableChunkCache) "enabled" else "disabled"})")
     }
 
     fun stop() {
@@ -140,7 +223,65 @@ class WorldStorageScanner(private val plugin: Endex) {
         }
         executor = null
         scheduledTask = null
+        
+        // Save cache to disk on shutdown
+        if (persistCacheToDisk) {
+            saveCacheToDisk()
+        }
+        
         plugin.logger.info("WorldStorageScanner stopped.")
+    }
+    
+    // ===== Event Listeners for Dirty Chunk Tracking =====
+    
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    fun onInventoryClose(e: InventoryCloseEvent) {
+        if (!enableChunkCache) return
+        val loc = e.inventory.location ?: return
+        val world = loc.world ?: return
+        if (world.name.lowercase() in excludedWorlds) return
+        
+        // Check if this is a tracked container type
+        val holder = e.inventory.holder
+        if (holder is Container && holder.block.type in allowedContainerMaterials) {
+            markChunkDirty(world.name, loc.chunk.x, loc.chunk.z)
+        } else if (holder is DoubleChest) {
+            markChunkDirty(world.name, loc.chunk.x, loc.chunk.z)
+        }
+    }
+    
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    fun onBlockPlace(e: BlockPlaceEvent) {
+        if (!enableChunkCache) return
+        val block = e.block
+        if (block.world.name.lowercase() in excludedWorlds) return
+        
+        if (block.type in containerMaterials) {
+            markChunkDirty(block.world.name, block.chunk.x, block.chunk.z)
+        }
+    }
+    
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    fun onBlockBreak(e: BlockBreakEvent) {
+        if (!enableChunkCache) return
+        val block = e.block
+        if (block.world.name.lowercase() in excludedWorlds) return
+        
+        if (block.type in containerMaterials) {
+            markChunkDirty(block.world.name, block.chunk.x, block.chunk.z)
+        }
+    }
+    
+    @EventHandler(priority = EventPriority.MONITOR)
+    fun onChunkUnload(e: ChunkUnloadEvent) {
+        if (!enableChunkCache) return
+        // Keep cache but mark chunk for refresh when it loads again
+        val key = ChunkKey(e.world.name, e.chunk.x, e.chunk.z)
+        dirtyChunks.add(key)
+    }
+    
+    private fun markChunkDirty(worldName: String, x: Int, z: Int) {
+        dirtyChunks.add(ChunkKey(worldName, x, z))
     }
 
     /**
@@ -173,6 +314,16 @@ class WorldStorageScanner(private val plugin: Endex) {
      * Check if last scan was skipped due to low TPS.
      */
     fun wasSkippedDueToTps(): Boolean = skippedDueToTps
+    
+    /**
+     * Get number of cached chunks.
+     */
+    fun cachedChunkCount(): Int = chunkCache.size
+    
+    /**
+     * Get number of dirty chunks pending rescan.
+     */
+    fun dirtyChunkCount(): Int = dirtyChunks.size
 
     /**
      * Manually trigger a scan (e.g., from admin command).
@@ -184,6 +335,20 @@ class WorldStorageScanner(private val plugin: Endex) {
             // Scan already in progress
             return false
         }
+        performScanAsync()
+        return true
+    }
+    
+    /**
+     * Force a full scan, ignoring chunk cache.
+     */
+    fun triggerFullScan(): Boolean {
+        if (!enabledFlag) return false
+        if (!scanning.compareAndSet(false, true)) {
+            return false
+        }
+        chunkCache.clear()
+        dirtyChunks.clear()
         performScanAsync()
         return true
     }
@@ -228,6 +393,10 @@ class WorldStorageScanner(private val plugin: Endex) {
         
         // Clear double-chest tracking for this scan
         scannedDoubleChests.clear()
+        
+        // Determine if this should be a full scan
+        val cycleCount = scanCounter.get().toInt()
+        val forceFullScan = !enableChunkCache || (cycleCount > 0 && cycleCount % fullRefreshInterval == 0)
 
         // Check TPS before scanning (sync call)
         val tpsFuture = Bukkit.getScheduler().callSyncMethod(plugin, Callable {
@@ -259,7 +428,7 @@ class WorldStorageScanner(private val plugin: Endex) {
                     gatherChunksToScan()
                 })
                 
-                val chunks = try {
+                val allChunks = try {
                     chunksFuture.get(30, TimeUnit.SECONDS)
                 } catch (e: Exception) {
                     plugin.logger.warning("WorldStorageScanner: Failed to gather chunks: ${e.message}")
@@ -267,7 +436,7 @@ class WorldStorageScanner(private val plugin: Endex) {
                     return@execute
                 }
 
-                if (chunks.isEmpty()) {
+                if (allChunks.isEmpty()) {
                     cachedTotals = emptyMap()
                     lastScanEpoch = System.currentTimeMillis() / 1000L
                     lastScanDurationMs = System.currentTimeMillis() - startTime
@@ -276,12 +445,53 @@ class WorldStorageScanner(private val plugin: Endex) {
                     scanning.set(false)
                     return@execute
                 }
+                
+                // ===== Optimized scanning with chunk cache =====
+                
+                val currentTimeMs = System.currentTimeMillis()
+                val cacheExpiryMs = chunkCacheExpirySeconds * 1000L
+                
+                // Separate chunks into: needs-scan and use-cache
+                val chunksToScan: List<ChunkKey>
+                val cachedChunks: List<ChunkKey>
+                
+                if (forceFullScan) {
+                    // Full scan - scan everything
+                    chunksToScan = allChunks
+                    cachedChunks = emptyList()
+                    if (plugin.config.getBoolean("logging.verbose", false)) {
+                        plugin.logger.info("WorldStorageScanner: Performing full scan (cycle $cycleCount)")
+                    }
+                } else {
+                    // Incremental scan - only scan dirty or expired chunks
+                    val needsScan = mutableListOf<ChunkKey>()
+                    val useCache = mutableListOf<ChunkKey>()
+                    
+                    for (chunkKey in allChunks) {
+                        val cached = chunkCache[chunkKey]
+                        val isDirty = dirtyChunks.remove(chunkKey)
+                        val isExpired = cached == null || (currentTimeMs - cached.scanTimeMs > cacheExpiryMs)
+                        
+                        if (isDirty || isExpired) {
+                            needsScan.add(chunkKey)
+                        } else {
+                            useCache.add(chunkKey)
+                        }
+                    }
+                    
+                    chunksToScan = needsScan
+                    cachedChunks = useCache
+                    
+                    if (plugin.config.getBoolean("logging.verbose", false)) {
+                        plugin.logger.info("WorldStorageScanner: Incremental scan - ${chunksToScan.size} to scan, ${cachedChunks.size} from cache")
+                    }
+                }
 
-                // Process chunks in batches on main thread
+                // Process chunks that need scanning in batches on main thread
                 val totals = ConcurrentHashMap<Material, Long>()
                 var containerCount = 0
                 val batchSize = chunksPerTick
-                val batches = chunks.chunked(batchSize)
+                val batches = chunksToScan.chunked(batchSize)
                 
                 // Dynamic delay based on TPS
                 val baseDelay = 50L
@@ -305,7 +515,7 @@ class WorldStorageScanner(private val plugin: Endex) {
                     
                     val batchResult = try {
                         val future = Bukkit.getScheduler().callSyncMethod(plugin, Callable {
-                            processBatch(batch)
+                            processBatchWithCaching(batch, currentTimeMs)
                         })
                         future.get(10, TimeUnit.SECONDS)
                     } catch (e: Exception) {
@@ -331,6 +541,15 @@ class WorldStorageScanner(private val plugin: Endex) {
                         Thread.sleep(baseDelay)
                     }
                 }
+                
+                // Add cached chunk results
+                for (chunkKey in cachedChunks) {
+                    val cached = chunkCache[chunkKey] ?: continue
+                    for ((mat, qty) in cached.totals) {
+                        totals.merge(mat, qty) { a, b -> a + b }
+                    }
+                    containerCount += cached.containerCount
+                }
 
                 // Update cache atomically
                 cachedTotals = totals.toMap()
@@ -338,9 +557,19 @@ class WorldStorageScanner(private val plugin: Endex) {
                 lastScanDurationMs = System.currentTimeMillis() - startTime
                 lastContainerCount = containerCount
                 scanCounter.incrementAndGet()
+                
+                // Clear unloaded chunks from cache (cleanup)
+                val loadedChunkKeys = allChunks.toSet()
+                chunkCache.keys.removeIf { it !in loadedChunkKeys }
 
                 if (plugin.config.getBoolean("logging.verbose", false)) {
-                    plugin.logger.info("WorldStorageScanner: Scanned $containerCount containers in ${chunks.size} chunks (${lastScanDurationMs}ms)")
+                    val scanType = if (forceFullScan) "full" else "incremental"
+                    plugin.logger.info("WorldStorageScanner: Completed $scanType scan - $containerCount containers in ${allChunks.size} chunks (${lastScanDurationMs}ms, scanned=${chunksToScan.size}, cached=${cachedChunks.size})")
+                }
+                
+                // Periodically save cache to disk
+                if (persistCacheToDisk && cycleCount % 5 == 0) {
+                    saveCacheToDisk()
                 }
 
             } catch (e: Exception) {
@@ -352,36 +581,36 @@ class WorldStorageScanner(private val plugin: Endex) {
         }
     }
 
-    private fun gatherChunksToScan(): List<ChunkRef> {
-        val result = mutableListOf<ChunkRef>()
+    private fun gatherChunksToScan(): List<ChunkKey> {
+        val result = mutableListOf<ChunkKey>()
         for (world in Bukkit.getWorlds()) {
             if (world.name.lowercase() in excludedWorlds) continue
             for (chunk in world.loadedChunks) {
-                result.add(ChunkRef(world.name, chunk.x, chunk.z))
+                result.add(ChunkKey(world.name, chunk.x, chunk.z))
             }
         }
         return result
     }
 
-    private data class ChunkRef(val worldName: String, val x: Int, val z: Int)
     private data class BatchResult(val totals: Map<Material, Long>, val containerCount: Int, val suspiciousChunks: List<String>)
 
-    private fun processBatch(chunkRefs: List<ChunkRef>): BatchResult {
+    private fun processBatchWithCaching(chunkKeys: List<ChunkKey>, currentTimeMs: Long): BatchResult {
         val totals = HashMap<Material, Long>()
         var containerCount = 0
         val suspiciousChunks = mutableListOf<String>()
 
-        for (ref in chunkRefs) {
-            val world = Bukkit.getWorld(ref.worldName) ?: continue
+        for (key in chunkKeys) {
+            val world = Bukkit.getWorld(key.worldName) ?: continue
             val chunk: Chunk = try {
-                if (!world.isChunkLoaded(ref.x, ref.z)) continue
-                world.getChunkAt(ref.x, ref.z)
+                if (!world.isChunkLoaded(key.x, key.z)) continue
+                world.getChunkAt(key.x, key.z)
             } catch (_: Exception) {
                 continue
             }
 
             // Per-chunk totals for anti-manipulation cap
             val chunkTotals = HashMap<Material, Long>()
+            var chunkContainerCount = 0
             var chunkTotalItems = 0L
 
             // Get tile entities (block states) from chunk
@@ -393,11 +622,13 @@ class WorldStorageScanner(private val plugin: Endex) {
 
             for (state in tileEntities) {
                 if (state !is Container) continue
-                val typeName = state.block.type.name
-                if (typeName !in allowedContainerTypes) continue
+                
+                // O(1) Material lookup instead of string comparison
+                val blockType = state.block.type
+                if (blockType !in allowedContainerMaterials) continue
 
                 // Skip ender chests (they're per-player, handled by InventorySnapshotService)
-                if (typeName == "ENDER_CHEST") continue
+                if (blockType == Material.ENDER_CHEST) continue
                 
                 val inventory: Inventory = try {
                     state.inventory
@@ -405,20 +636,23 @@ class WorldStorageScanner(private val plugin: Endex) {
                     continue
                 }
                 
+                // ===== Quick win: Skip empty inventories =====
+                if (inventory.isEmpty) continue
+                
                 // Double chest deduplication: only count once per double chest
                 val holder = inventory.holder
                 if (holder is DoubleChest) {
                     val loc = holder.location
                     if (loc != null) {
-                        val key = "${loc.world?.name}:${loc.blockX}:${loc.blockY}:${loc.blockZ}"
-                        if (!scannedDoubleChests.add(key)) {
+                        val dcKey = "${loc.world?.name}:${loc.blockX}:${loc.blockY}:${loc.blockZ}"
+                        if (!scannedDoubleChests.add(dcKey)) {
                             // Already scanned this double chest from its other half
                             continue
                         }
                     }
                 }
 
-                containerCount++
+                chunkContainerCount++
                 scanInventory(inventory, chunkTotals)
             }
             
@@ -427,10 +661,11 @@ class WorldStorageScanner(private val plugin: Endex) {
             
             // Check for suspicious activity (potential storage farm)
             if (chunkTotalItems > perChunkItemCap) {
-                suspiciousChunks.add("Chunk [${ref.worldName}:${ref.x},${ref.z}] has $chunkTotalItems items (cap: $perChunkItemCap) - capping contribution")
+                suspiciousChunks.add("Chunk [${key.worldName}:${key.x},${key.z}] has $chunkTotalItems items (cap: $perChunkItemCap) - capping contribution")
             }
             
-            // Apply per-chunk caps and merge into global totals
+            // Apply per-chunk caps to get final chunk contribution
+            val cappedChunkTotals = HashMap<Material, Long>()
             for ((mat, qty) in chunkTotals) {
                 // Cap per-material contribution from this chunk
                 val cappedQty = qty.coerceAtMost(perMaterialChunkCap.toLong())
@@ -442,8 +677,20 @@ class WorldStorageScanner(private val plugin: Endex) {
                 
                 val finalQty = (cappedQty * multiplier).toLong().coerceAtLeast(0)
                 if (finalQty > 0) {
+                    cappedChunkTotals[mat] = finalQty
                     totals.merge(mat, finalQty) { a, b -> a + b }
                 }
+            }
+            
+            containerCount += chunkContainerCount
+            
+            // Cache this chunk's results
+            if (enableChunkCache) {
+                chunkCache[key] = ChunkCache(
+                    totals = cappedChunkTotals.toMap(),
+                    containerCount = chunkContainerCount,
+                    scanTimeMs = currentTimeMs
+                )
             }
         }
 
@@ -486,6 +733,69 @@ class WorldStorageScanner(private val plugin: Endex) {
             if (amount <= 0) continue
             totals.merge(innerStack.type, amount) { a, b -> a + b }
             // Note: We don't recurse further (no shulkers in shulkers in vanilla)
+        }
+    }
+    
+    // ===== Disk Cache Persistence =====
+    
+    private data class DiskCacheData(
+        val totals: Map<String, Long>,  // Material name -> count
+        val scanEpoch: Long,
+        val version: Int = 1
+    )
+    
+    private fun saveCacheToDisk() {
+        try {
+            val data = DiskCacheData(
+                totals = cachedTotals.mapKeys { it.key.name },
+                scanEpoch = lastScanEpoch
+            )
+            cacheFile.parentFile?.mkdirs()
+            cacheFile.writeText(gson.toJson(data))
+            if (plugin.config.getBoolean("logging.verbose", false)) {
+                plugin.logger.info("WorldStorageScanner: Saved cache to disk (${cachedTotals.size} materials)")
+            }
+        } catch (e: Exception) {
+            plugin.logger.warning("WorldStorageScanner: Failed to save cache to disk: ${e.message}")
+        }
+    }
+    
+    private fun loadCacheFromDisk() {
+        try {
+            if (!cacheFile.exists()) return
+            
+            // Only load if cache is less than 1 hour old
+            val maxAge = 3600_000L // 1 hour
+            if (System.currentTimeMillis() - cacheFile.lastModified() > maxAge) {
+                plugin.logger.info("WorldStorageScanner: Disk cache too old, will perform fresh scan")
+                return
+            }
+            
+            val json = cacheFile.readText()
+            val data = gson.fromJson(json, DiskCacheData::class.java)
+            
+            if (data.version != 1) {
+                plugin.logger.info("WorldStorageScanner: Disk cache version mismatch, will perform fresh scan")
+                return
+            }
+            
+            // Convert material names back to Material enum
+            val totals = mutableMapOf<Material, Long>()
+            for ((name, count) in data.totals) {
+                try {
+                    val mat = Material.valueOf(name)
+                    totals[mat] = count
+                } catch (_: Exception) {
+                    // Material no longer exists (version change), skip
+                }
+            }
+            
+            cachedTotals = totals
+            lastScanEpoch = data.scanEpoch
+            
+            plugin.logger.info("WorldStorageScanner: Loaded cache from disk (${totals.size} materials from ${java.time.Instant.ofEpochSecond(data.scanEpoch)})")
+        } catch (e: Exception) {
+            plugin.logger.warning("WorldStorageScanner: Failed to load cache from disk: ${e.message}")
         }
     }
 }

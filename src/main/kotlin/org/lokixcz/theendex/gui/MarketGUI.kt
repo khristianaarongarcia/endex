@@ -8,6 +8,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
+import org.bukkit.event.inventory.InventoryDragEvent
 import org.bukkit.event.player.AsyncPlayerChatEvent
 import org.bukkit.event.inventory.ClickType
 import org.bukkit.inventory.Inventory
@@ -24,31 +25,88 @@ class MarketGUI(private val plugin: Endex) : Listener {
     private val titleBase = "${ChatColor.DARK_PURPLE}The Endex"
     private val pageSize = 45 // 5 rows for items, last row for controls
     
-    // Helper to get inventory view title as String for MC 1.21+ compatibility
-    // Uses reflection to avoid IncompatibleClassChangeError when InventoryView is interface vs class
+    // Helper to get inventory view title as String for MC 1.20.1 - 1.21+ compatibility
+    // MC 1.21+ changed InventoryView from abstract class to interface, breaking direct method calls
     private fun getViewTitleFromView(view: Any): String {
-        return try {
-            // Try the Adventure API method first (Paper 1.16+)
+        // Strategy 1: Try direct title() method call via reflection (Paper 1.16+ Adventure API)
+        try {
             val titleMethod = view.javaClass.getMethod("title")
             val component = titleMethod.invoke(view)
-            PlainTextComponentSerializer.plainText().serialize(component as net.kyori.adventure.text.Component)
-        } catch (e: Exception) {
-            // Fallback to legacy method
-            try {
-                val legacyMethod = view.javaClass.getMethod("getTitle")
-                legacyMethod.invoke(view) as String
-            } catch (e2: Exception) {
-                ""
+            if (component != null) {
+                val result = PlainTextComponentSerializer.plainText().serialize(component as net.kyori.adventure.text.Component)
+                if (result.isNotEmpty()) return result
             }
-        }
+        } catch (_: Exception) {}
+        
+        // Strategy 2: Try originalTitle() method (some Paper versions)
+        try {
+            val origTitleMethod = view.javaClass.getMethod("originalTitle")
+            val component = origTitleMethod.invoke(view)
+            if (component != null) {
+                val result = PlainTextComponentSerializer.plainText().serialize(component as net.kyori.adventure.text.Component)
+                if (result.isNotEmpty()) return result
+            }
+        } catch (_: Exception) {}
+        
+        // Strategy 3: Try getTitle() legacy method (Spigot/older Paper)
+        try {
+            val legacyMethod = view.javaClass.getMethod("getTitle")
+            val result = legacyMethod.invoke(view)
+            if (result is String && result.isNotEmpty()) return result
+        } catch (_: Exception) {}
+        
+        // Strategy 4: Try to get title from top inventory directly
+        try {
+            val topInvMethod = view.javaClass.getMethod("getTopInventory")
+            val topInv = topInvMethod.invoke(view)
+            if (topInv != null) {
+                // Try to get the inventory's view holder or custom title
+                val invClass = topInv.javaClass
+                try {
+                    val viewMethod = invClass.getMethod("getViewers")
+                    // This doesn't give us title, skip
+                } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
+        
+        // Strategy 5: Search all methods for anything title-related
+        try {
+            for (method in view.javaClass.methods) {
+                if (method.name.lowercase().contains("title") && method.parameterCount == 0) {
+                    try {
+                        val result = method.invoke(view)
+                        when (result) {
+                            is String -> if (result.isNotEmpty()) return result
+                            is net.kyori.adventure.text.Component -> {
+                                val text = PlainTextComponentSerializer.plainText().serialize(result)
+                                if (text.isNotEmpty()) return text
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+        
+        return ""
     }
     
     private fun getViewTitle(event: InventoryClickEvent): String = getViewTitleFromView(event.view)
     private fun getViewTitle(event: InventoryCloseEvent): String = getViewTitleFromView(event.view)
+    private fun getViewTitle(event: InventoryDragEvent): String = getViewTitleFromView(event.view)
+    
+    // Check if the title belongs to any of our GUIs
+    private fun isOurGui(title: String): Boolean {
+        val stripped = ChatColor.stripColor(title) ?: title
+        return stripped.startsWith("The Endex") || 
+               stripped.startsWith("Endex:") || 
+               stripped.startsWith("Pending Deliveries") || 
+               stripped.startsWith("My Holdings")
+    }
 
     private val amounts = listOf(1, 8, 16, 32, 64)
     private enum class SortBy { NAME, PRICE, CHANGE }
     private enum class Category { ALL, ORES, FARMING, MOB_DROPS, BLOCKS }
+    private enum class GuiType { MARKET, DETAILS, DELIVERIES, HOLDINGS, NONE }
     private data class State(
         var page: Int = 0,
         var amountIdx: Int = 0,
@@ -57,10 +115,17 @@ class MarketGUI(private val plugin: Endex) : Listener {
         var groupBy: Boolean = true, // default grouped view in GUI as well
         var search: String = "",
         var inDetails: Boolean = false,
-        var detailOf: Material? = null
+        var detailOf: Material? = null,
+        var currentGui: GuiType = GuiType.NONE  // Track which GUI is currently open
     )
     private val states: MutableMap<UUID, State> = mutableMapOf()
     private val awaitingSearchInput: MutableSet<UUID> = mutableSetOf()
+    
+    // Track which GUI each player has open by UUID - reliable across all MC versions
+    private val openGuis: MutableMap<UUID, GuiType> = mutableMapOf()
+    
+    // Track open inventories by player UUID - more reliable than title matching
+    private val openInventories: MutableMap<UUID, Inventory> = mutableMapOf()
 
     fun open(player: Player, page: Int = 0) {
         val state = states[player.uniqueId] ?: load(player)
@@ -141,11 +206,23 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 val sens = plugin.config.getDouble("price-sensitivity", 0.05)
                 val estPct = ds * sens * 100.0
 
+                // Calculate buy/sell prices with spread
+                val spreadEnabled = plugin.config.getBoolean("spread.enabled", true)
+                val buyMarkupPct = if (spreadEnabled) plugin.config.getDouble("spread.buy-markup-percent", 1.5).coerceAtLeast(0.0) else 0.0
+                val sellMarkdownPct = if (spreadEnabled) plugin.config.getDouble("spread.sell-markdown-percent", 1.5).coerceAtLeast(0.0) else 0.0
+                val effectivePrice = current * mul
+                val buyPrice = effectivePrice * (1.0 + buyMarkupPct / 100.0)
+                val sellPrice = effectivePrice * (1.0 - sellMarkdownPct / 100.0)
+
                 val last5 = mi.history.takeLast(5).map { String.format("%.2f", it.price) }
                 val bal = plugin.economy?.getBalance(player) ?: 0.0
                 val invCount = player.inventory.contents.filterNotNull().filter { it.type == mi.material }.sumOf { it.amount }
                 val loreCore = mutableListOf<String>()
                 loreCore += "${ChatColor.GRAY}Price: ${ChatColor.GREEN}${format(current)} ${ChatColor.GRAY}(${arrow} ${format(diff)}, ${formatPct(pct)})"
+                // Show buy/sell prices with spread
+                if (spreadEnabled && (buyMarkupPct > 0 || sellMarkdownPct > 0)) {
+                    loreCore += "${ChatColor.GREEN}Buy: ${format(buyPrice)} ${ChatColor.GRAY}| ${ChatColor.YELLOW}Sell: ${format(sellPrice)}"
+                }
                 loreCore += "${ChatColor.DARK_GRAY}Last cycle: ${ChatColor.GRAY}Demand ${format(mi.lastDemand)} / Supply ${format(mi.lastSupply)} (${formatPct(estPct)})"
                 if (mul != 1.0) loreCore += "${ChatColor.DARK_AQUA}Event: x${format(mul)} ${ChatColor.GRAY}Eff: ${ChatColor.GREEN}${format(current*mul)}"
                 loreCore += "${ChatColor.DARK_GRAY}Min ${format(mi.minPrice)}  Max ${format(mi.maxPrice)}"
@@ -217,15 +294,46 @@ class MarketGUI(private val plugin: Endex) : Listener {
         inv.setItem(53, namedItem(Material.ARROW, "${ChatColor.YELLOW}Next Page"))
 
         player.openInventory(inv)
+        openGuis[player.uniqueId] = GuiType.MARKET
     }
 
     @EventHandler
     fun onClick(e: InventoryClickEvent) {
         val player = e.whoClicked as? Player ?: return
-        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e)
-        if (!title.startsWith(ChatColor.stripColor(titleBase) ?: titleBase)) return
+        
+        // Check if this player has our GUI open using UUID tracking (reliable across MC versions)
+        val guiType = openGuis[player.uniqueId]
+        
+        // Debug logging
+        plugin.logger.info("[GUI Debug] guiType: $guiType, slot: ${e.rawSlot}, click: ${e.click}")
+        
+        // Only handle MARKET gui here (other guis have their own handlers)
+        if (guiType != GuiType.MARKET) return
+        
+        // Cancel the event FIRST to prevent item taking/moving in all cases
         e.isCancelled = true
+        
+        // Only block if clicking in player's bottom inventory (not the GUI)
+        if (e.rawSlot >= e.view.topInventory.size) {
+            plugin.logger.info("[GUI Debug] Blocked: clicking in player inventory")
+            return
+        }
+        
+        // Block all item movement actions (shift-click, number keys, drag, etc.)
+        if (e.click == ClickType.SHIFT_LEFT || e.click == ClickType.SHIFT_RIGHT ||
+            e.click == ClickType.NUMBER_KEY || e.click == ClickType.DOUBLE_CLICK ||
+            e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) {
+            // Only allow shift-click for details view in item slots
+            if (e.rawSlot in 0 until pageSize && e.click == ClickType.SHIFT_LEFT) {
+                // Allow - handled below for details view
+            } else {
+                plugin.logger.info("[GUI Debug] Blocked: movement click type")
+                return
+            }
+        }
+        
+        plugin.logger.info("[GUI Debug] Processing click at slot ${e.rawSlot}")
+        
         val state = states.getOrPut(player.uniqueId) { State() }
 
         val slot = e.rawSlot
@@ -316,10 +424,21 @@ class MarketGUI(private val plugin: Endex) : Listener {
     @EventHandler
     fun onClose(e: InventoryCloseEvent) {
         val player = e.player as? Player ?: return
-        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e)
-        if (!title.startsWith(ChatColor.stripColor(titleBase) ?: titleBase)) return
-        states[player.uniqueId]?.let { persist(player, it) }
+        // Check if this player had our GUI open using UUID tracking
+        val guiType = openGuis.remove(player.uniqueId)
+        if (guiType != null) {
+            states[player.uniqueId]?.let { persist(player, it) }
+        }
+    }
+
+    @EventHandler
+    fun onDrag(e: InventoryDragEvent) {
+        val player = e.whoClicked as? Player ?: return
+        // Check if this player has our GUI open using UUID tracking
+        val guiType = openGuis[player.uniqueId]
+        if (guiType == null) return
+        // Cancel all drag events in our GUI
+        e.isCancelled = true
     }
 
     @EventHandler
@@ -429,11 +548,24 @@ class MarketGUI(private val plugin: Endex) : Listener {
             diff < -0.0001 -> "${ChatColor.RED}↓"
             else -> "${ChatColor.YELLOW}→"
         }
+        
+        // Calculate buy/sell prices with spread
+        val spreadEnabled = plugin.config.getBoolean("spread.enabled", true)
+        val buyMarkupPct = if (spreadEnabled) plugin.config.getDouble("spread.buy-markup-percent", 1.5).coerceAtLeast(0.0) else 0.0
+        val sellMarkdownPct = if (spreadEnabled) plugin.config.getDouble("spread.sell-markdown-percent", 1.5).coerceAtLeast(0.0) else 0.0
+        val effectivePrice = current * mul
+        val buyPrice = effectivePrice * (1.0 + buyMarkupPct / 100.0)
+        val sellPrice = effectivePrice * (1.0 - sellMarkdownPct / 100.0)
+        
         val bal = plugin.economy?.getBalance(player) ?: 0.0
         val invCount = player.inventory.contents.filterNotNull().filter { it.type == mat }.sumOf { it.amount }
         meta.setDisplayName("${ChatColor.AQUA}${prettyName(mat)}")
         val lore = mutableListOf<String>()
         lore += "${ChatColor.GRAY}Price: ${ChatColor.GREEN}${format(current)} ${ChatColor.GRAY}(${arrow} ${format(diff)}, ${formatPct(pct)})"
+        // Show buy/sell prices with spread
+        if (spreadEnabled && (buyMarkupPct > 0 || sellMarkdownPct > 0)) {
+            lore += "${ChatColor.GREEN}Buy: ${format(buyPrice)} ${ChatColor.GRAY}| ${ChatColor.YELLOW}Sell: ${format(sellPrice)}"
+        }
         if (mul != 1.0) lore += "${ChatColor.DARK_AQUA}Event: x${format(mul)} ${ChatColor.GRAY}Eff: ${ChatColor.GREEN}${format(current*mul)}"
         lore += "${ChatColor.DARK_GRAY}Min ${format(mi.minPrice)}  Max ${format(mi.maxPrice)}"
         if (plugin.config.getBoolean("gui.details-chart", true)) {
@@ -472,6 +604,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
         inv.setItem(22, namedItem(Material.ARROW, "${ChatColor.YELLOW}Back"))
 
         player.openInventory(inv)
+        openGuis[player.uniqueId] = GuiType.DETAILS
     }
 
     @EventHandler
@@ -480,10 +613,26 @@ class MarketGUI(private val plugin: Endex) : Listener {
         val state = states[player.uniqueId] ?: return
         if (!state.inDetails) return
         val mat = state.detailOf ?: return
-        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e)
-        if (!title.contains("Endex:")) return
+        
+        // Check if this player has our DETAILS GUI open using UUID tracking
+        val guiType = openGuis[player.uniqueId]
+        if (guiType != GuiType.DETAILS) return
+        
+        // Cancel the event FIRST to prevent item taking/moving
         e.isCancelled = true
+        
+        // Also cancel if clicking in player inventory
+        if (e.clickedInventory == player.inventory) {
+            return
+        }
+        
+        // Block item movement actions
+        if (e.click == ClickType.SHIFT_LEFT || e.click == ClickType.SHIFT_RIGHT ||
+            e.click == ClickType.NUMBER_KEY || e.click == ClickType.DOUBLE_CLICK ||
+            e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) {
+            return
+        }
+        
         when (e.rawSlot) {
             18 -> Bukkit.getScheduler().runTask(plugin, Runnable {
                 player.performCommand("market buy ${mat.name} 1")
@@ -564,15 +713,31 @@ class MarketGUI(private val plugin: Endex) : Listener {
         inv.setItem(53, backBtn)
         
         player.openInventory(inv)
+        openGuis[player.uniqueId] = GuiType.DELIVERIES
     }
     
     @EventHandler
     fun onDeliveriesClick(e: InventoryClickEvent) {
         val player = e.whoClicked as? Player ?: return
-        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e)
-        if (title != ChatColor.stripColor("${ChatColor.DARK_PURPLE}Pending Deliveries")) return
+        
+        // Check if this player has our DELIVERIES GUI open using UUID tracking
+        val guiType = openGuis[player.uniqueId]
+        if (guiType != GuiType.DELIVERIES) return
+        
+        // Cancel the event FIRST to prevent item taking/moving
         e.isCancelled = true
+        
+        // Also cancel if clicking in player inventory
+        if (e.clickedInventory == player.inventory) {
+            return
+        }
+        
+        // Block item movement actions
+        if (e.click == ClickType.SHIFT_LEFT || e.click == ClickType.SHIFT_RIGHT ||
+            e.click == ClickType.NUMBER_KEY || e.click == ClickType.DOUBLE_CLICK ||
+            e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) {
+            return
+        }
         
         val deliveryMgr = plugin.getDeliveryManager() ?: return
         val slot = e.rawSlot
@@ -731,6 +896,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
         inv.setItem(53, backBtn)
         
         player.openInventory(inv)
+        openGuis[player.uniqueId] = GuiType.HOLDINGS
     }
     
     /**
@@ -757,10 +923,25 @@ class MarketGUI(private val plugin: Endex) : Listener {
     @EventHandler
     fun onHoldingsClick(e: InventoryClickEvent) {
         val player = e.whoClicked as? Player ?: return
-        // Use helper for MC 1.21+ compatibility (InventoryView is now an interface)
-        val title = getViewTitle(e)
-        if (title != ChatColor.stripColor("${ChatColor.DARK_PURPLE}My Holdings")) return
+        
+        // Check if this player has our HOLDINGS GUI open using UUID tracking
+        val guiType = openGuis[player.uniqueId]
+        if (guiType != GuiType.HOLDINGS) return
+        
+        // Cancel the event FIRST to prevent item taking/moving
         e.isCancelled = true
+        
+        // Also cancel if clicking in player inventory
+        if (e.clickedInventory == player.inventory) {
+            return
+        }
+        
+        // Block item movement actions
+        if (e.click == ClickType.SHIFT_LEFT || e.click == ClickType.SHIFT_RIGHT ||
+            e.click == ClickType.NUMBER_KEY || e.click == ClickType.DOUBLE_CLICK ||
+            e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) {
+            return
+        }
         
         val db = plugin.marketManager.sqliteStore() ?: return
         val slot = e.rawSlot

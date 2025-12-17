@@ -47,7 +47,7 @@ Check addon loaded:
 /endex addons
 ```
 
-***
+---
 
 ## Configuration
 

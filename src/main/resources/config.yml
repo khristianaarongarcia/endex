@@ -322,6 +322,47 @@ price-world-storage:
     # Recommended: true (helps identify exploiters)
     log-suspicious: true
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SMART CACHING (Performance Optimization)
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Dramatically improves scanner performance by caching chunk results and only
+  # rescanning chunks that have been modified since the last scan.
+  cache:
+    # Enable chunk-level caching.
+    # When enabled, the scanner tracks which chunks have container activity
+    # and only rescans those chunks. Unchanged chunks use cached results.
+    # 
+    # On established servers this can reduce scan work by 70-90%.
+    # 
+    # Recommended: true
+    enabled: true
+    
+    # How long (in seconds) before a chunk's cached result expires.
+    # After this time, the chunk will be rescanned even if not marked dirty.
+    # This ensures eventual consistency even if events are missed.
+    # 
+    # Recommended: 600 (10 minutes) - balances accuracy with performance
+    chunk-expiry-seconds: 600
+    
+    # Perform a full scan (ignoring cache) every N scan cycles.
+    # This ensures 100% accuracy periodically, catching any missed events.
+    # 
+    # Example: With scan-interval-seconds=300 and full-refresh-cycles=5,
+    # a full scan happens every 25 minutes (5 * 300 seconds).
+    # 
+    # Recommended: 5 (full scan every ~25 minutes with default interval)
+    full-refresh-cycles: 5
+    
+    # Save scan results to disk on shutdown and load on startup.
+    # Allows the market to have price data immediately after restart
+    # without waiting for the first scan to complete.
+    # 
+    # Cache file: plugins/TheEndex/world-scan-cache.json
+    # Only loads if cache is less than 1 hour old.
+    # 
+    # Recommended: true
+    persist-to-disk: true
+
 # ───────────────────────────────────────────────────────────────────────────────
 # INITIAL MARKET SETUP (First Run Only)
 # ───────────────────────────────────────────────────────────────────────────────
@@ -358,6 +399,48 @@ include-default-important-items: true
 # 
 # Recommended: 0.0-2.5% for survival servers, 5-10% if economy inflation is a problem
 transaction-tax-percent: 0.0
+
+# ───────────────────────────────────────────────────────────────────────────────
+# BUY/SELL SPREAD (Anti-Arbitrage Protection)
+# ───────────────────────────────────────────────────────────────────────────────
+# Creates a price gap between buy and sell prices, like real stock markets.
+# This prevents the "sell high, buy back cheaper, repeat" exploit loop.
+#
+# How it works:
+#   - Buy price = market price × (1 + buy-markup-percent/100)
+#   - Sell price = market price × (1 - sell-markdown-percent/100)
+#
+# Example with 1.5% spread each way:
+#   - Market price: 100
+#   - You pay to BUY: 101.50 (1.5% above market)
+#   - You receive when SELL: 98.50 (1.5% below market)
+#   - Total spread: 3% gap between buy and sell
+#
+# This means players need the price to move MORE than the spread to profit
+# from arbitrage, effectively killing small-swing manipulation.
+#
+# Balance tips:
+#   0.0-0.5% = Minimal spread, some arbitrage still possible
+#   1.0-2.0% = Recommended, kills most exploits while feeling fair
+#   3.0-5.0% = Aggressive, may feel punishing to legitimate traders
+spread:
+  # Enable the buy/sell spread system.
+  # When disabled, buy and sell use the same market price.
+  enabled: true
+  
+  # Percentage markup added to market price when BUYING.
+  # Players pay this much MORE than the displayed market price.
+  # 
+  # Example: 1.5 = Pay 1.5% above market price
+  # Recommended: 1.5
+  buy-markup-percent: 1.5
+  
+  # Percentage markdown subtracted from market price when SELLING.
+  # Players receive this much LESS than the displayed market price.
+  # 
+  # Example: 1.5 = Receive 1.5% below market price
+  # Recommended: 1.5
+  sell-markdown-percent: 1.5
 
 # ───────────────────────────────────────────────────────────────────────────────
 # ITEM BLACKLIST
