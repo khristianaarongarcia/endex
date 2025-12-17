@@ -1,74 +1,39 @@
 ---
 title: "Delivery System"
-description: "Overflow protection for purchases exceeding inventory capacity."
+description: "Overflow protection so purchases never disappear when storage is full."
 ---
+
 # Delivery System
 
-Backup system for overflow when holdings are full.
+Delivery is the safety net for purchases that can’t be placed into the target storage (holdings or inventory).
 
----
+## What problem it solves
 
-## Overview
+If the target storage is full, the remaining items go into a **delivery queue** instead of being lost.
 
-The Delivery System ensures you **never lose items** from purchases:
+## Typical flow
 
 ```text
-Buy Items → Holdings Full? → Overflow to Delivery Queue → Claim Later
+Buy -> Attempt to deposit -> Overflow -> Delivery queue -> Claim later
 ```
 
----
+## Player commands (typical)
 
-## How It Works
-
-### Normal Flow
-
-1. You buy 100 diamonds
-2. Your holdings have space
-3. **100 diamonds → Holdings** ✓
-
-### Overflow Flow
-
-1. You buy 100 diamonds
-2. Holdings can only fit 60 more
-3. **60 diamonds → Holdings** ✓
-4. **40 diamonds → Delivery Queue** 📦
-
----
-
-## Commands
-
-### View Deliveries
-
-Check your pending deliveries:
-
-```
+```text
 /market delivery list
+/market delivery claim <material> [amount]
+/market delivery claim-all
 ```
 
-Output:
-```
-=== Pending Deliveries ===
-Diamond: 40 items
-Emerald: 128 items
-Gold Ingot: 64 items
----
-Total: 232 items pending
-```
+<Warning>
+Claiming deliveries usually requires free inventory space.
+</Warning>
 
-### Claim Specific Item
+## Tips
 
-Claim a specific material:
-
-```
-/market delivery claim <item>           # All of item
-/market delivery claim <item> <amount>  # Specific amount
-```
-
-Examples:
-```
-/market delivery claim diamond
-/market delivery claim emerald 64
-```
+<Info>
+If a player reports “my items disappeared”, check their delivery queue first.
+</Info>
 
 ### Claim Everything
 

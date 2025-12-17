@@ -1,53 +1,47 @@
 ---
 title: "Investments"
-description: "Buy and hold items for potential profit."
+description: "Lock items, earn APR, and redeem later."
 ---
+
 # Investments
 
-Create APR-based investment certificates for items.
+Investments let players lock items from holdings into a certificate-like position that accrues **APR** over time.
 
----
+## How it works
 
-## Overview
+1. Player invests a quantity of a material.
+2. Items are removed from liquid holdings.
+3. Over time the investment accrues interest.
+4. Player redeems and receives the original items back (to holdings) plus interest (typically paid as coins).
 
-Investments let you earn passive income by locking items for a period of time. Think of it as a "savings account" for materials.
+## Config (typical)
 
----
-
-## How It Works
-
-1. **Create Investment** — Lock items at current price
-2. **Wait** — Investment accrues value based on APR
-3. **Redeem** — Claim original items + earned interest
-
----
-
-## Commands
-
-### Buy Investment
-
-Lock items as an investment:
-
-```
-/market invest buy <item> <amount>
+```yaml
+investments:
+  enabled: true
+  apr-percent: 5.0
 ```
 
-Example:
-```
-/market invest buy diamond 100
-```
+## Commands (typical)
 
-Output: `Created investment: 100 Diamond at $100.00/each. Earns 5% APR.`
-
-### View Investments
-
-List your active investments:
-
-```
+```text
+/market invest buy <material> <amount>
 /market invest list
+/market invest redeem-all
 ```
 
-Output:
+<Warning>
+Investments are not risk-free if your server ties redemption value to current market value; prices can move while you're invested.
+</Warning>
+
+## Related/market invest list
+
+```
+
+- [Holdings](holdings.md)
+
+- [Pricing](pricing.md)Output:
+
 ```
 === Your Investments ===
 #1: 100 Diamond

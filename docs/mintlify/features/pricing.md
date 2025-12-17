@@ -1,84 +1,135 @@
 ---
 title: "Dynamic Pricing"
-description: "Learn how The Endex's dynamic pricing system works."
+description: "How The Endex computes prices from supply, demand, and optional signals."
 ---
+
 # Dynamic Pricing
 
-The Endex uses a sophisticated pricing algorithm based on real supply and demand.
+The Endex prices move over time. Every update cycle, each material gets a new price based on market pressure.
 
----
+## Core idea
 
-## How It Works
+- **Demand** increases when players buy.
+- **Supply** increases when players sell.
+- A tuning value (**price sensitivity**) controls how volatile the economy feels.
 
-The pricing system simulates a real market economy:
+## Update interval
 
-| Action | Effect |
-|--------|--------|
-| **Buying** | Increases demand → Prices rise 📈 |
-| **Selling** | Increases supply → Prices fall 📉 |
-| **No activity** | Prices slowly stabilize |
+Pricing updates run on a fixed schedule configured in `plugins/TheEndex/config.yml`:
 
----
-
-## Price Formula
-
+```yaml
+pricing:
+  update-interval-seconds: 5
 ```
-newPrice = currentPrice × (1 + sensitivity × (demand - supply) / volume)
-```
+
+## Conceptual formula
+
+A simplified mental model:
+
+$$
+P_{new} = P_{old} \times (1 + (D - S) \times k)
+$$
 
 Where:
-- `sensitivity` — How reactive prices are (0.0 - 1.0)
-- `demand` — Recent buy volume
-- `supply` — Recent sell volume
-- `volume` — Total trading volume
 
----
+- $P$ is price
+- $D$ is demand pressure
+- $S$ is supply pressure
+- $k$ is `price-sensitivity`
 
-## EMA Smoothing
+<Info>
+The exact implementation includes smoothing and guardrails; the formula above is for intuition.
+</Info>
 
-To prevent wild price swings, The Endex uses Exponential Moving Average (EMA) smoothing:
+## Optional signals
 
-```yaml
+Depending on your server setup, prices can be influenced by more than just buy/sell volume:
+
+1. **Market events** (temporary multipliers)
+2. **World storage scanner** (optional) to account for items stored in containers
+
+See also: [Market Events](events.md)
+
 smoothing:
-  enabled: true
+
+The plugin typically applies safety limits such as min/max price and maximum step size so prices don’t explode from a single trade.  enabled: true
+
   factor: 0.3    # Higher = more responsive, lower = smoother
-```
 
-This creates natural-looking price curves instead of jagged spikes.
+## Signals that can influence price```
 
----
 
-## Min/Max Price Clamps
 
-Each item has configurable price limits:
+Depending on your configuration, The Endex can incorporate extra signals:This creates natural-looking price curves instead of jagged spikes.
 
-```yaml
-items:
-  DIAMOND:
-    base-price: 100.0
-    min-price: 10.0      # Won't go below this
+
+
+### 1) Player inventory pressure (optional)---
+
+
+
+When enabled, online player inventories can influence supply/demand pressure.## Min/Max Price Clamps
+
+
+
+```yamlEach item has configurable price limits:
+
+price-inventory:
+
+  enabled: false```yaml
+
+  sensitivity: 0.02items:
+
+  per-player-baseline: 64  DIAMOND:
+
+  max-impact-percent: 10.0    base-price: 100.0
+
+```    min-price: 10.0      # Won't go below this
+
     max-price: 1000.0    # Won't go above this
-```
 
----
+### 2) World storage scanner (optional)```
 
-## Price Influences
 
-### 1. Trading Activity (Primary)
 
-The core pricing driver. Every buy/sell affects price:
+On established servers, scanning containers (chests, barrels, etc.) can stabilize prices by measuring the server’s actual item stock.---
 
-```yaml
+
+
+<Warning>## Price Influences
+
+Enable the scanner on established servers. New servers with low storage counts may see volatility if the scanner is treated as a large signal.
+
+</Warning>### 1. Trading Activity (Primary)
+
+
+
+## Events multiplierThe core pricing driver. Every buy/sell affects price:
+
+
+
+Events apply an additional multiplier to the effective price:```yaml
+
 # How sensitive prices are to trading (0.0 - 1.0)
-sensitivity: 0.1
+
+- Effective price = base price × combined event multipliersensitivity: 0.1
+
 ```
+
+See: [Events](events.md)
 
 ### 2. Inventory-Aware Pricing
 
+## Tips for balancing
+
 Prices can react to items players are holding:
 
-```yaml
-price-inventory:
+- Start with conservative sensitivity (`0.05`–`0.10`).
+
+- Use events to create excitement without permanently changing fundamentals.```yaml
+
+- Don’t blacklist too aggressively; thin markets are volatile.price-inventory:
+
   enabled: true
   sensitivity: 0.02
   per-player-baseline: 64

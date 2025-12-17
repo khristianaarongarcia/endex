@@ -1,16 +1,20 @@
 ---
 title: "Changelog"
-description: "Version history and release notes."
+description: "Version history and release notes for The Endex."
 ---
+
 # Changelog
 
-Version history for The Endex.
+Full release notes live in the repository's `CHANGELOG.md`.
 
----
+<Tip>
+Before upgrading, back up `plugins/TheEndex/` and skim the release notes for breaking changes.
+</Tip>
 
-## Version 1.5.0 — December 17, 2024
+## Where to look
 
-### New Features
+- `CHANGELOG.md` (root of the repo) — full history
+- GitHub Releases — packaged builds and notes
 
 #### Virtual Holdings System
 

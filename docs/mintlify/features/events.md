@@ -1,208 +1,49 @@
 ---
 title: "Market Events"
-description: "Timed market events that affect prices."
----
-# Events & Shocks
-
-Time-limited events that affect market prices.
-
+description: "Timed events that apply multipliers to prices for specific categories or the whole market."
 ---
 
-## Overview
+# Market Events
 
-Market events are admin-triggered price multipliers that create excitement and trading opportunities. Events can boost or crash prices for specific items or the entire market.
+Market events are admin-triggered price multipliers that create temporary buy/sell opportunities.
 
-![Events](https://i.imgur.com/Qa5Hrhw.gif)
-
----
-
-## Built-in Events
-
-| Event | Effect | Duration |
-|-------|--------|----------|
-| `ore_rush` | Ore prices +50% | 1 hour |
-| `harvest_festival` | Crop prices -30% | 2 hours |
-| `war_economy` | Weapons +100% | 30 min |
-| `market_crash` | All prices -20% | 30 min |
-
----
+Events are defined in `plugins/TheEndex/events.yml`.
 
 ## Commands
 
-### List Events
-
-See available and active events:
-
-```
+```text
 /market event list
-```
-
-Output:
-```
-=== Available Events ===
-ore_rush - Ore Rush! (1h)
-harvest_festival - Harvest Festival (2h)
-war_economy - War Economy (30m)
-market_crash - Market Crash (30m)
-
-=== Active Events ===
-ore_rush - 45 minutes remaining
-```
-
-### Start Event
-
-Trigger an event:
-
-```
 /market event <name>
-```
-
-Example:
-```
-/market event ore_rush
-```
-
-Broadcasts to all players (if configured).
-
-### End Event
-
-Stop an event early:
-
-```
 /market event end <name>
-```
-
-### Clear All Events
-
-End all active events:
-
-```
 /market event clear
 ```
 
----
+<Tip>
+Recurring events (weekly ore rush, seasonal harvest, etc.) are a great way to keep trading active.
+</Tip>
 
-## Event Configuration
-
-Define events in `events.yml`:
+## Example configuration
 
 ```yaml
 events:
   ore_rush:
-    # Display name (supports color codes)
     display-name: "&6⛏ Ore Rush!"
-    
-    # Description shown to players
     description: "Mining materials are in high demand!"
-    
-    # Duration in seconds
     duration: 3600
-    
-    # Broadcast start/end to server
     broadcast: true
-    
-    # Price multipliers per material
     multipliers:
-      DIAMOND: 1.5      # +50%
+      DIAMOND: 1.5
       EMERALD: 1.5
-      GOLD_INGOT: 1.3   # +30%
-      IRON_INGOT: 1.2   # +20%
-      COAL: 1.1         # +10%
+      GOLD_INGOT: 1.3
 ```
 
----
+## How events apply
 
-## Multiplier Examples
+The effective price is the base price multiplied by the combined event multiplier.
 
-| Multiplier | Effect |
-|------------|--------|
-| `2.0` | Double price (+100%) |
-| `1.5` | +50% price |
-| `1.0` | No change |
-| `0.8` | -20% price |
-| `0.5` | Half price (-50%) |
-
----
-
-## Global Multipliers
-
-Affect all items at once:
-
-```yaml
-events:
-  market_crash:
-    display-name: "&c📉 Market Crash!"
-    description: "Economic downturn hits all sectors!"
-    duration: 1800
-    multipliers:
-      "*": 0.8    # All items -20%
-```
-
----
-
-## Custom Event Ideas
-
-### Festival Events
-
-```yaml
-events:
-  summer_festival:
-    display-name: "&e☀ Summer Festival"
-    description: "Beach items are hot!"
-    duration: 7200
-    multipliers:
-      TROPICAL_FISH: 2.0
-      PUFFERFISH: 1.5
-      SEA_PICKLE: 1.5
-      PRISMARINE: 1.3
-```
-
-### Crisis Events
-
-```yaml
-events:
-  food_shortage:
-    display-name: "&c🍞 Food Shortage"
-    description: "Crops are scarce!"
-    duration: 3600
-    multipliers:
-      WHEAT: 2.0
-      BREAD: 2.5
-      CARROT: 1.8
-      POTATO: 1.8
-      BEETROOT: 1.8
-```
-
-### Building Boom
-
-```yaml
-events:
-  construction_boom:
-    display-name: "&a🏗 Construction Boom"
-    description: "Building materials in demand!"
-    duration: 5400
-    multipliers:
-      OAK_LOG: 1.5
-      COBBLESTONE: 1.3
-      GLASS: 1.4
-      BRICK: 1.6
-      IRON_BLOCK: 1.4
-```
-
----
-
-## Event Stacking
-
-Multiple events can be active simultaneously. Multipliers stack multiplicatively:
-
-### Example
-
-- **ore_rush** active: DIAMOND × 1.5
-- **market_crash** active: ALL × 0.8
-
-Diamond price = Base × 1.5 × 0.8 = Base × 1.2 (+20%)
-
----
+<Info>
+See `docs/EVENTS.md` in the repository for the full schema and stacking rules.
+</Info>
 
 ## Scheduled Events
 

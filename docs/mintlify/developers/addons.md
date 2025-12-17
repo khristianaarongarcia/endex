@@ -1,129 +1,164 @@
 ---
 title: "Addons"
-description: "Extend The Endex with custom addon plugins."
+description: "Extend The Endex with drop-in addon JARs loaded via ServiceLoader."
 ---
+
 # Addons
 
-Extend The Endex with addon plugins.
-
-***
-
-## What Are Addons?
-
-Addons are separate plugin JAR files that integrate with The Endex:
-
-* **Custom commands** — Add trading commands
-* **API routes** — Extend the REST API
-* **Custom items** — Non-vanilla tradeable assets
-* **Business logic** — Custom trading behavior
-
-***
-
-## Installing Addons
-
-### 1. Download
-
-Get addon JARs from:
-
-* Official releases
-* Third-party developers
-* Build from source
-
-### 2. Place in Folder
-
-Put addon JARs in:
+Addons are drop-in JARs loaded from:
 
 ```text
 plugins/TheEndex/addons/
 ```
 
-Create the folder if it doesn't exist.
+They’re not full Bukkit plugins (no `plugin.yml`). The Endex loads them using Java `ServiceLoader`.
 
-### 3. Restart Server
+## What addons can do
 
-Addons load automatically on startup.
+- Add custom commands
+- Add or extend API routes
+- Add custom trading behavior
 
-### 4. Verify
+## How loading works
 
-Check addon loaded:
+On startup, The Endex:
+
+1. Scans `plugins/TheEndex/addons/*.jar`
+2. Uses `ServiceLoader` to find implementations of `org.lokixcz.theendex.addon.EndexAddon`
+3. Calls the addon’s init hook
+
+## Minimal addon skeleton (Kotlin)
+
+```kotlin
+import org.lokixcz.theendex.TheEndex
+import org.lokixcz.theendex.addon.EndexAddon
+
+class MyAddon : EndexAddon {
+    override fun id() = "my-addon"
+    override fun name() = "My Addon"
+
+    override fun init(plugin: TheEndex) {
+        // register routes, commands, listeners, etc.
+    }
+}
+```
+
+## Service descriptor
+
+Inside your addon JAR, include:
+
+```text
+src/main/resources/META-INF/services/org.lokixcz.theendex.addon.EndexAddon
+```
+
+That file should contain your implementation class name (one per line), for example:
+
+```text
+com.example.myaddon.MyAddon
+```
+
+## Addon settings
+
+If an addon needs config files, a common convention is:
+
+```text
+plugins/TheEndex/addons/settings/<addon-id>/
+```
+
+Example:
+
+```text
+plugins/TheEndex/addons/settings/crypto/crypto.yml
+```
+
+## Verify it loaded
+
+If your build includes an addons list command, you can check:
 
 ```text
 /endex addons
 ```
 
+## Troubleshooting
+
+- Ensure the JAR is inside `plugins/TheEndex/addons/`
+- Check console logs for ServiceLoader errors
+- Verify the service descriptor path and class names match exactly
+
+<Info>
+See `docs/ADDONS.md` for a full guide and examples.
+</Info>
+---
+title: "Addons"
+description: "Extend The Endex with drop-in addon JARs loaded via ServiceLoader."
 ---
 
-## Configuration
+# Addons
 
-Addons create their own config files:
+Addons are drop-in JARs loaded from:
 
-```text
-plugins/TheEndex/
-├── config.yml          # Main config
-├── crypto.yml          # Crypto addon config
-├── custom-addon.yml    # Custom addon config
-└── addons/
-    ├── TheEndex-Crypto.jar
-    └── custom-addon.jar
-```
+## Addon settings
 
-***
-
-## Managing Addons
-
-### List Loaded
-
-```
-/endex addons
-```
-
-### Addon Commands
-
-Access addon commands:
+If an addon needs config files, a common convention is to keep them under:
 
 ```text
-/endex <addon> <command> [args]
+plugins/TheEndex/addons/settings/<addon-id>/
 ```
 
-Example for crypto:
+Example:
 
 ```text
-/endex crypto prices
-/endex crypto buy BTC 0.5
+plugins/TheEndex/addons/settings/crypto/crypto.yml
 ```
 
-### API Routes
+## Troubleshooting
 
-Addons register under `/api/addon/{name}/`:
+- Ensure the JAR is inside `plugins/TheEndex/addons/`
+- Check console logs for ServiceLoader errors
+- Verify you included the service descriptor file and class name is correct
 
-```http
-GET /api/addon/crypto/prices
-POST /api/addon/crypto/buy
-```
+## Tips
 
-***
+<Tip>
+If you need classic Bukkit commands, permissions, and plugin lifecycle, create a normal Bukkit plugin that depends on The Endex instead of an addon JAR.
+</Tip>
+3. Calls the addon's init hook
 
-## Developing Addons
+## Minimal addon skeleton (Kotlin)
 
-See the [Developer API](api.md) for creating custom addons.
+```kotlin
+class MyAddon : org.lokixcz.theendex.addon.EndexAddon {
+    override fun id() = "my-addon"
 
-### Quick Start
+## Addon settings
 
-1. Add The Endex as dependency
-2. Implement `EndexAddon` interface
-3. Register via `META-INF/services`
-4. Package as JAR
-
-### Example Structure
+If an addon needs config files, a common convention is to keep them under:
 
 ```text
-my-addon/
-├── build.gradle.kts
-└── src/main/
-    ├── kotlin/com/example/MyAddon.kt
-    └── resources/META-INF/services/
-        └── org.lokixcz.theendex.addon.EndexAddon
+plugins/TheEndex/addons/settings/<addon-id>/
 ```
+
+Example:
+
+```text
+plugins/TheEndex/addons/settings/crypto/crypto.yml
+```
+
+## Troubleshooting
+
+- Ensure the JAR is inside `plugins/TheEndex/addons/`
+- Check console logs for ServiceLoader errors
+- Verify you included the service descriptor file and class name is correct
+
+## Tips
+
+<Tip>
+If you need classic Bukkit commands, permissions, and plugin lifecycle, create a normal Bukkit plugin that depends on The Endex instead of an addon JAR.
+</Tip>
+<Info>
+See `docs/ADDONS.md` for a full guide and examples.
+</Info>
+
 
 ***
 

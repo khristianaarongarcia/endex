@@ -1,235 +1,60 @@
 ---
 title: "Web Dashboard"
-description: "Access your market from the browser with the web dashboard."
+description: "Trade from a browser with live prices, holdings, and charts."
 ---
+
 # Web Dashboard
 
-Trade from your browser with live price updates.
+The Endex includes an optional web UI for fast trading.
 
----
+## Enable (server)
 
-## Overview
-
-![Web Dashboard](https://i.imgur.com/2hXIQfx.gif)
-
-The Web Dashboard provides:
-- Real-time price updates
-- Trading from any device
-- Price charts and history
-- Holdings management
-- Resource pack item icons
-
----
-
-## Enabling the Dashboard
-
-In `config.yml`:
+Web settings live in `plugins/TheEndex/config.yml`.
 
 ```yaml
 web:
   enabled: true
   host: "0.0.0.0"
-  port: 8080
-```
-
-**Host options:**
-- `0.0.0.0` — Listen on all interfaces (public)
-- `127.0.0.1` — Localhost only (private)
-
----
-
-## Accessing the Dashboard
-
-### Get Session Link
-
-In-game, run:
-
-```
-/endex web
-```
-
-You'll receive a URL like:
-```
-http://your-server:8080/?session=abc123xyz...
-```
-
-### Open in Browser
-
-1. Copy the URL
-2. Open in any web browser
-3. Session auto-authenticates you
-
-<Warning>
-Session links are personal. Don't share them—anyone with the link can trade as you!
-</Warning>
-
----
-
-## Features
-
-### Live Prices
-
-Prices update in real-time via WebSocket:
-
-- Green arrows for rising prices
-- Red arrows for falling prices
-- Percentage change displayed
-
-### Trading
-
-Click any item to buy or sell:
-
-1. Select item
-2. Enter amount
-3. Click Buy/Sell
-4. Instant feedback
-
-### Holdings Panel
-
-View and manage your holdings:
-
-- Total portfolio value
-- Per-item profit/loss
-- Withdraw buttons (📤)
-- "Withdraw All" option
-
-### Price Charts
-
-Click an item for detailed view:
-
-- Price history graph
-- Min/max prices
-- Current trend
-- Trading volume
-
----
-
-## Configuration
-
-### Basic Setup
-
-```yaml
-web:
-  enabled: true
-  host: "0.0.0.0"
-  port: 8080
-```
-
-### Session Settings
-
-```yaml
-web:
-  session:
-    # How long sessions last (minutes)
-    timeout-minutes: 60
-```
-
-### Real-Time Updates
-
-```yaml
-web:
-  # Server-Sent Events
+  port: 3434
   sse:
     enabled: false
-    
-  # WebSocket (recommended)
   websocket:
     enabled: true
 ```
 
-### Rate Limiting
+## Getting a session link
 
-```yaml
-web:
-  rate-limit:
-    enabled: true
-    requests: 30        # Max requests
-    per-seconds: 10     # Time window
-    exempt-ui: true     # Don't limit built-in UI
-```
+Most servers provide a command that generates a session link/token.
 
-### Icons
+<Warning>
+Session links are personal. Anyone with your link/token can trade as you.
+</Warning>
 
-```yaml
-web:
-  icons:
-    enabled: true
-    # Resource pack source (zip, folder, or URL)
-    source: ""
-```
+## Reverse proxy (HTTPS)
 
----
+If you want TLS, put the dashboard behind a reverse proxy (Nginx/Caddy).
 
-## Custom UI
+See `docs/REVERSE_PROXY.md` in the repo.
 
-Override the default web interface:
+## Custom UI override
 
-### Export Default UI
-
-```
-/endex webui export
-```
-
-Creates files in `plugins/TheEndex/webui/`.
-
-### Modify Files
-
-Edit HTML, CSS, JavaScript:
-
-```
-plugins/TheEndex/
-└── webui/
-    ├── index.html
-    ├── style.css
-    └── app.js
-```
-
-### Enable Custom UI
+You can replace the embedded UI by serving your own static files:
 
 ```yaml
 web:
   custom:
     enabled: true
-    root-dir: "webui"
+    root: webui
+    reload: false
+    export-default: true
 ```
 
-### Reload Changes
+See `docs/CUSTOM_WEBUI.md` for the full workflow.
 
-```
-/endex webui reload
-```
+## Notes
 
----
-
-## Security
-
-### Session Security
-
-- Sessions are tied to player UUID
-- Token validated on each request
-- Auto-expires after timeout
-- Single-use recommended for sensitive servers
-
-### HTTPS Setup
-
-For production, use a reverse proxy with SSL:
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name market.yourserver.com;
-    
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-    
-    location / {
-        proxy_pass http://localhost:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
-```
+- The dashboard authenticates using a session token.
+- Optional live updates are delivered via WebSocket (recommended) or SSE.
 
 ### API Tokens
 

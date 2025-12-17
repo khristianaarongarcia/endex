@@ -1,79 +1,57 @@
 ---
 title: "Quick Start"
-description: "Get started with The Endex in under 5 minutes."
+description: "Open the market, buy, sell, and withdraw in a few minutes."
 ---
+
 # Quick Start
 
-Learn the basics of The Endex in 5 minutes.
+## 1) Open the market
 
----
-
-## For Players
-
-### Opening the Market
-
-The market GUI is your main interface for trading:
-
-```
+```text
 /market
 ```
 
-![Market GUI](https://i.imgur.com/2NVDOxj.gif)
+## 2) Buy an item
 
-### Buying Items
+In the GUI, click an item and choose an amount.
 
-When you buy items, they go to your **virtual holdings** (not directly to inventory):
+Or use a command (if enabled on your server):
 
-```
+```text
 /market buy diamond 10
 ```
 
-### Viewing Your Holdings
+Depending on configuration, purchased items go to **Holdings** (recommended) or directly to inventory (legacy mode).
 
-Check what you own in virtual storage:
+## 3) Check your holdings
 
-```
+```text
 /market holdings
 ```
 
-### Withdrawing to Inventory
+## 4) Withdraw to your inventory
 
-When you're ready to use items, withdraw them:
-
-```
+```text
 /market withdraw diamond
 /market withdraw diamond 64
 /market withdraw all
 ```
 
-### Selling Items
+<Tip>
+Withdraw only when you actually need items. Keeping items in holdings makes trading smoother and reduces lost items.
+</Tip>
 
-Sell items from your inventory (not from holdings):
+## 5) Sell an item
 
-```
+```text
 /market sell diamond 5
 ```
 
-### Checking Prices
+## What’s next
 
-View current price and history:
-
-```
-/market price diamond
-```
-
-### Using the GUI
-
-In the Market GUI:
-
-| Action | Result |
-|--------|--------|
-| **Left-click** item | Buy selected amount |
-| **Right-click** item | Sell selected amount |
-| **Shift-click** | Open detailed view |
-| **Bottom row** | Navigation & settings |
-
----
+- Learn the algorithm: [Dynamic Pricing](../features/pricing.md)
+- Understand storage: [Virtual Holdings](../features/holdings.md)
+- Never lose overflow: [Delivery System](../features/delivery.md)
 
 ## For Administrators
 

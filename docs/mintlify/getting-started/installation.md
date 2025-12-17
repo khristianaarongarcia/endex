@@ -1,53 +1,64 @@
+
 ---
 title: "Installation"
-description: "Get The Endex up and running on your server in minutes."
+description: "Install The Endex, start the server, and verify it's working."
 ---
 
 # Installation
 
-***
-
 ## Requirements
 
-Before installing, ensure you have:
+- A Paper/Spigot-compatible server (Paper/Purpur recommended)
+- Java **17+**
+- Minecraft **1.20.1 - 1.21.x**
 
-* **Minecraft Server:** Paper, Spigot, or Purpur (1.20.1 - 1.21.x)
-* **Java:** Version 17 or higher
-* **Vault:** For economy integration (optional but recommended)
-* **Economy Provider:** EssentialsX, CMI, or similar (requires Vault)
+Optional (recommended for buy/sell):
 
-***
+- **Vault**
+- An economy provider (EssentialsX, CMI, etc.)
 
-## Step 1: Download
+## Download
 
-Download the latest release from one of these platforms:
+Get the latest `TheEndex-*.jar` from:
 
-* [**Modrinth**](https://modrinth.com/plugin/theendex) (Recommended)
-* [**SpigotMC**](https://www.spigotmc.org/resources/theendex)
-* [**GitHub Releases**](https://github.com/khristianaarongarcia/endex/releases)
+- [Modrinth](https://modrinth.com/plugin/theendex)
+- [SpigotMC](https://www.spigotmc.org/resources/theendex)
+- [GitHub Releases](https://github.com/khristianaarongarcia/endex/releases)
 
-***
+## Install
 
-## Step 2: Install the Plugin
+1. Stop your server.
+2. Copy the jar into your server's `plugins/` folder.
+3. Start the server.
 
-1. **Stop your server** (recommended for clean installation)
-2.  **Place the JAR file** in your server's `plugins/` folder:
+## Verify
 
-    ```
-    server/
-    └── plugins/
-        └── TheEndex.jar
-    ```
-3. **Start your server**
-4.  The plugin will generate default configuration files in:
+Run one of these commands in-game or in console:
 
-    ```
-    plugins/TheEndex/
+```text
+/endex
+/market
+```
+
+If you see help output (or the market GUI opens), you're installed.
+
+## Files created
+
+After the first boot, the plugin creates files under `plugins/TheEndex/`:
+
+```text
+plugins/
+└── TheEndex/
     ├── config.yml
     ├── market.yml
     ├── events.yml
     └── data/
-    ```
+```
+
+<Info>
+The Endex migrates many config values between versions, but you should still back up `plugins/TheEndex/` before updating.
+</Info>
+
 
 ***
 

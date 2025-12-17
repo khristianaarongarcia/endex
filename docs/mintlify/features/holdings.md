@@ -1,65 +1,41 @@
 ---
 title: "Virtual Holdings"
-description: "Manage virtual holdings with profit/loss tracking."
+description: "Virtual storage for traded items with average cost and P/L tracking."
 ---
+
 # Virtual Holdings
 
-**New in v1.5.0** — A complete redesign of how purchases work.
+Holdings are a **virtual inventory** owned by each player. Instead of sending purchases directly to a player's Minecraft inventory, buys can be deposited into holdings first.
 
----
+## Why holdings exist
 
-## Overview
+- Trade large volumes without managing inventory slots
+- Track average cost basis and profit/loss (P/L)
+- Make web trading possible without inventory interaction
+- Reduce item loss when inventories are full
 
-The Virtual Holdings System changes how buying works:
+## Typical flow
 
-```
-OLD WAY:  Buy → Items go directly to inventory
-NEW WAY:  Buy → Items go to virtual holdings → Withdraw when ready
-```
-
-This provides better tracking, prevents item loss, and enables profit/loss calculation.
-
----
-
-## How It Works
-
-### 1. Buy Items
-
-When you purchase items, they go to your virtual holdings:
-
-```
-/market buy diamond 64
+```text
+Buy -> Holdings -> Withdraw when ready
+Sell <- Holdings (or inventory in legacy mode)
 ```
 
-Output: `Purchased 64 Diamond for $6,400. Added to holdings.`
+## Commands (typical)
 
-### 2. Track Holdings
-
-View your portfolio:
-
-```
+```text
 /market holdings
+/market withdraw <material> [amount]
+/market withdraw all
 ```
 
-Shows:
-- Quantity of each material
-- Average cost basis
-- Current market price
-- Profit/Loss per item
+## Related
 
-### 3. Withdraw to Inventory
+- [Delivery System](delivery.md) — overflow protection
+- [Investments](investments.md) — lock items and earn APR
 
-When you need items, withdraw them:
+- [REST API](../web-api/rest-api.md) — holdings endpoints## Why Virtual Holdings?
 
-```
-/market withdraw diamond         # All diamonds
-/market withdraw diamond 32      # Just 32
-/market withdraw all             # Everything
-```
-
----
-
-## Why Virtual Holdings?
 
 | Benefit | Description |
 |---------|-------------|
