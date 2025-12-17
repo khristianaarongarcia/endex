@@ -5,54 +5,56 @@
   "colors": {
     "primary": "#7c3aed"
   },
-  "navigation": [
-    {
-      "group": "Getting Started",
-      "pages": [
-        "introduction",
-        "getting-started/installation",
-        "getting-started/quick-start"
-      ]
-    },
-    {
-      "group": "Features",
-      "pages": [
-        "features/pricing",
-        "features/holdings",
-        "features/delivery",
-        "features/events",
-        "features/investments"
-      ]
-    },
-    {
-      "group": "Reference",
-      "pages": [
-        "reference/commands",
-        "reference/configuration",
-        "reference/permissions"
-      ]
-    },
-    {
-      "group": "Web API",
-      "pages": [
-        "web-api/dashboard",
-        "web-api/rest-api"
-      ]
-    },
-    {
-      "group": "Developers",
-      "pages": [
-        "developers/api",
-        "developers/addons"
-      ]
-    },
-    {
-      "group": "Support",
-      "pages": [
-        "support/faq",
-        "support/changelog",
-        "support/troubleshooting"
-      ]
-    }
-  ]
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "getting-started/installation",
+          "getting-started/quick-start"
+        ]
+      },
+      {
+        "group": "Features",
+        "pages": [
+          "features/pricing",
+          "features/holdings",
+          "features/delivery",
+          "features/events",
+          "features/investments"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/commands",
+          "reference/configuration",
+          "reference/permissions"
+        ]
+      },
+      {
+        "group": "Web API",
+        "pages": [
+          "web-api/dashboard",
+          "web-api/rest-api"
+        ]
+      },
+      {
+        "group": "Developers",
+        "pages": [
+          "developers/api",
+          "developers/addons"
+        ]
+      },
+      {
+        "group": "Support",
+        "pages": [
+          "support/faq",
+          "support/changelog",
+          "support/troubleshooting"
+        ]
+      }
+    ]
+  }
 }
