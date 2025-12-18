@@ -43,7 +43,13 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
             
             "market" -> {
                 if (sender is Player) {
-                    plugin.marketGUI.open(sender)
+                    // Check shop mode - CUSTOM opens category-based shop, DEFAULT opens market
+                    val shopMode = plugin.config.getString("shop.mode", "DEFAULT")?.uppercase() ?: "DEFAULT"
+                    if (shopMode == "CUSTOM" && plugin.customShopGUI != null) {
+                        plugin.customShopGUI!!.openMainMenu(sender)
+                    } else {
+                        plugin.marketGUI.open(sender)
+                    }
                 } else {
                     sender.sendMessage("${ChatColor.RED}Only players can open the market GUI.")
                 }

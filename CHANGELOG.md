@@ -7,6 +7,35 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.4] - 2025-12-19
+### Added
+- **bStats Metrics Integration:** Plugin analytics for tracking usage patterns.
+  - Plugin ID: 28421
+  - Custom charts: storage mode, shop mode, web UI status, holdings status, tracked items count
+  - Fully anonymized data collection via bStats platform
+
+- **Custom Shop GUI Enhancements:**
+  - **Holdings Button:** View your virtual holdings directly from category pages (slot 45)
+  - **Sort Button:** Cycle through sorting options (Name, Price, Change) in category pages (slot 53)
+  - **Filter-Based Auto-Population:** Categories now use `filter` property to automatically populate items
+  - Items matching category filters are dynamically included without manual listing
+
+- **Default Market GUI Improvements:**
+  - Removed Amount button from main market view for cleaner interface
+  - Sort button moved to slot 49 for better layout
+  - Sort order fixed: Price and Change now sort descending (highest first)
+
+### Fixed
+- **Hotbar Click Blocking:** Fixed issue where players couldn't interact with their hotbar while market GUI was open
+- **Sort Order:** Price and Change sorting now correctly shows highest values first (descending order)
+- **Holdings Button:** Holdings icon in Custom Shop GUI now properly opens the holdings panel
+- **`/ex market` Command:** Now correctly opens DEFAULT or CUSTOM shop based on `shop.mode` config setting
+
+### Technical
+- bStats dependency added with proper Shadow relocation (`org.bstats` → `org.lokixcz.theendex.bstats`)
+- `MarketGUI.openHoldings()` made public for cross-GUI access
+- Improved click event handling with proper cancellation placement
+
 ## [1.5.3] - 2025-12-18
 ### Added
 - **PlaceholderAPI Integration:** Full support for PlaceholderAPI with 30+ placeholders for scoreboards, holograms, and other plugins.

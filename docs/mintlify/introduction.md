@@ -28,12 +28,13 @@ It provides:
 | Addon Support | Extend functionality with addons |
 | Investments | APR-based investment certificates |
 
-## What's New in 1.5.3
+## What's New in 1.5.4
 
-- **PlaceholderAPI Integration** — 30+ placeholders for prices, trends, holdings, leaderboards
-- **Update Checker** — Automatic notifications when new versions are available
-- **GUI Customization** — Per-GUI config files for layout, colors, slot positions
-- **Command Aliases** — Create custom shortcuts (e.g., /shop → /market)
+- **bStats Integration** — Plugin analytics with custom usage charts
+- **Custom Shop Enhancements** — Holdings & Sort buttons now available in category pages
+- **Filter-Based Categories** — Auto-populate shop categories using material filters
+- **Improved Default GUI** — Cleaner layout with proper sort ordering (highest first)
+- **Bug Fixes** — Hotbar interaction, sort order, and Holdings button all fixed
 
 ## Compatibility
 
@@ -73,4 +74,4 @@ It provides:
 
 ***
 
-_Last updated: December 18, 2025 | Version 1.5.3_
+_Last updated: December 19, 2025 | Version 1.5.4_

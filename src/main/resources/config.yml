@@ -539,6 +539,79 @@ gui:
   details-chart: true
 
 # ───────────────────────────────────────────────────────────────────────────────
+# SHOP SYSTEM MODE
+# ───────────────────────────────────────────────────────────────────────────────
+# Choose between the DEFAULT scrollable market or a CUSTOM category-based shop.
+#
+# DEFAULT Mode:
+#   - Standard market GUI with all items in one scrollable list
+#   - Uses the existing /market command
+#   - Best for servers that want a simple stock-market feel
+#
+# CUSTOM Mode:
+#   - EconomyShopGUI-style category-based shop interface
+#   - Main menu with category icons → Category pages with items
+#   - Supports multiple shops with custom layouts
+#   - Configure in plugins/TheEndex/shops/ folder
+#
+shop:
+  # Shop display mode: DEFAULT or CUSTOM
+  # DEFAULT = Original scrollable market list
+  # CUSTOM = Category-based shop with main menu
+  mode: DEFAULT
+  
+  # When mode is CUSTOM, which shop config to use as the main shop.
+  # This refers to a file in plugins/TheEndex/shops/ folder.
+  # Example: "main" loads shops/main.yml
+  main-shop: main
+  
+  # Custom command alias for the custom shop (only used in CUSTOM mode).
+  # Players can type /shop to open the custom shop menu.
+  # Leave empty to disable the /shop command.
+  command: shop
+  
+  # Settings for CUSTOM shop mode
+  custom:
+    # Number of item slots per page in category views (excluding navigation).
+    # Common values: 28 (4 rows of 7), 36 (4 rows of 9), 45 (5 rows of 9)
+    items-per-page: 45
+    
+    # Show back button in category pages
+    show-back-button: true
+    
+    # Slot for the back button (bottom row recommended)
+    back-button-slot: 49
+    
+    # Show page navigation buttons
+    show-pagination: true
+    
+    # Slots for pagination (prev/next)
+    prev-page-slot: 48
+    next-page-slot: 50
+    
+    # Show amount selector button (same as default market GUI)
+    # Allows players to select buy/sell amount: 1, 8, 16, 32, 64
+    show-amount-button: true
+    
+    # Slot for the amount selector button
+    amount-button-slot: 45
+    
+    # Allow admins to edit items via Shift+Click (requires endex.shop.admin)
+    admin-edit: true
+    
+    # Price display format in item lore
+    # Available placeholders: %buy_price%, %sell_price%, %market_price%, %stock%, %demand%
+    price-lore:
+      - "&7"
+      - "&aLeft Click: &fBuy: &6$%buy_price%"
+      - "&cRight Click: &fSell: &6$%sell_price%"
+      - "&7"
+      - "&8Stock: %stock% | Demand: %demand%"
+    
+    # Admin lore line (shown to players with endex.shop.admin permission)
+    admin-lore: "&e⚡ Shift Click: Edit item (Admin)"
+
+# ───────────────────────────────────────────────────────────────────────────────
 # INVESTMENT SYSTEM
 # ───────────────────────────────────────────────────────────────────────────────
 # Players can invest in items to earn passive income over time.

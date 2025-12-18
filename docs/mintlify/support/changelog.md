@@ -16,6 +16,86 @@ Before upgrading, back up `plugins/TheEndex/` and skim the release notes for bre
 
 ---
 
+## Version 1.5.4 — December 19, 2025
+
+### bStats Metrics Integration
+
+Plugin analytics for tracking usage patterns:
+
+- **Plugin ID:** 28421
+- **Custom Charts:**
+  - Storage mode (yaml/sqlite)
+  - Shop mode (DEFAULT/CUSTOM)
+  - Web UI status (enabled/disabled)
+  - Holdings status (enabled/disabled)
+  - Tracked items count (1-10, 11-25, 26-50, 51-100, 100+)
+
+### Custom Shop GUI Enhancements
+
+- **Holdings Button** — View virtual holdings directly from category pages (slot 45)
+- **Sort Button** — Cycle through sorting options (Name, Price, Change) in category pages (slot 53)
+- **Filter-Based Auto-Population** — Categories now use `filter` property to automatically populate items matching criteria
+
+### Default Market GUI Improvements
+
+- Removed Amount button for cleaner interface
+- Sort button moved to slot 49 for better layout
+- Sort order fixed: Price and Change now sort descending (highest first)
+
+### Bug Fixes
+
+- **Hotbar Clicks** — Fixed issue where players couldn't interact with their hotbar while GUI was open
+- **Sort Order** — Price and Change sorting now correctly shows highest values first
+- **Holdings Button** — Holdings icon in Custom Shop GUI now properly opens the holdings panel
+- **`/ex market` Command** — Now correctly opens DEFAULT or CUSTOM shop based on `shop.mode` config
+
+### Technical
+
+- bStats dependency with Shadow relocation (`org.bstats` → `org.lokixcz.theendex.bstats`)
+- `MarketGUI.openHoldings()` made public for cross-GUI access
+
+---
+
+## Version 1.6.0 — December 2025
+
+### Custom Shop System
+
+EconomyShopGUI-style category-based shop interface:
+
+- **Category Navigation** — Main menu with category icons → Category pages with items
+- **Custom Layouts** — Full control over slot positions, decorations, and borders
+- **Market Integration** — Items use dynamic market prices with buy/sell spread
+- **Fixed Prices** — Override specific items with static prices
+- **Multiple Shops** — Create different shops for different purposes (main, VIP, seasonal)
+- **Pagination** — Automatic page navigation for large categories
+- **Admin Editing** — Shift+click items to edit (with permission)
+- **Sound Effects** — Customizable sounds for all interactions
+- **Permission Items** — Restrict items to specific player groups
+
+#### Enabling Custom Shop Mode
+
+```yaml
+shop:
+  mode: CUSTOM        # DEFAULT or CUSTOM
+  main-shop: main     # Shop config to use
+  command: shop       # Custom command alias
+```
+
+#### Shop Configuration
+
+Shops are defined in `plugins/TheEndex/shops/` as YAML files with categories and items.
+
+See the [Custom Shop Guide](../features/custom-shop) for full documentation.
+
+#### New Commands
+
+| Command | Description |
+|---------|-------------|
+| `/market shop [id]` | Open a specific custom shop |
+| `/market stock` | Open default market (bypasses mode) |
+
+---
+
 ## Version 1.5.3 — December 18, 2025
 
 ### PlaceholderAPI Integration

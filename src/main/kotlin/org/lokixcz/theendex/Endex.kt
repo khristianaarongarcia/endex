@@ -3,6 +3,7 @@ package org.lokixcz.theendex
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.Bukkit
 import org.lokixcz.theendex.market.MarketManager
+import org.lokixcz.theendex.market.ItemsConfigManager
 import org.lokixcz.theendex.commands.MarketCommand
 import org.lokixcz.theendex.commands.EndexCommand
 import org.lokixcz.theendex.commands.MarketTabCompleter
@@ -16,6 +17,8 @@ import org.lokixcz.theendex.events.EventManager
 import org.lokixcz.theendex.web.WebServer
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
+import org.bstats.bukkit.Metrics
+import org.bstats.charts.SimplePie
 import java.io.File
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
@@ -28,6 +31,8 @@ import org.bukkit.scheduler.BukkitTask
 class Endex : JavaPlugin() {
 
     lateinit var marketManager: MarketManager
+        private set
+    lateinit var itemsConfigManager: ItemsConfigManager
         private set
     var economy: Economy? = null
         private set
@@ -47,6 +52,12 @@ class Endex : JavaPlugin() {
     private var guiConfigManager: GuiConfigManager? = null
     private var commandAliasManager: CommandAliasManager? = null
     private var updateChecker: org.lokixcz.theendex.util.UpdateChecker? = null
+    
+    // Custom Shop System (EconomyShopGUI-style)
+    var customShopManager: org.lokixcz.theendex.shop.CustomShopManager? = null
+        private set
+    var customShopGUI: org.lokixcz.theendex.shop.CustomShopGUI? = null
+        private set
 
     private var priceTask: BukkitTask? = null
     private var backupTask: BukkitTask? = null
@@ -82,11 +93,39 @@ class Endex : JavaPlugin() {
             }
         } catch (_: Throwable) {}
 
+        // Initialize items config manager (items.yml)
+        itemsConfigManager = ItemsConfigManager(this)
+        val itemsLoaded = itemsConfigManager.load()
+        
         // Initialize market manager and load data
         val useSqlite = config.getBoolean("storage.sqlite", false)
-    marketManager = if (useSqlite) MarketManager(this, org.lokixcz.theendex.market.SqliteStore(this)) else MarketManager(this)
+        val sqliteStore = if (useSqlite) org.lokixcz.theendex.market.SqliteStore(this) else null
+        marketManager = if (useSqlite) MarketManager(this, sqliteStore) else MarketManager(this)
         marketManager.load()
-    logx.info("Market loaded (storage=${if (useSqlite) "sqlite" else "yaml"})")
+        
+        // Sync items.yml with market.db
+        if (!itemsLoaded) {
+            // First run or no items.yml - export from existing market data
+            if (marketManager.allItems().isNotEmpty()) {
+                itemsConfigManager.importFromMarketManager(marketManager)
+                itemsConfigManager.save()
+                logx.info("Created items.yml from existing market data (${itemsConfigManager.count()} items)")
+            } else {
+                // No existing data - seed defaults to items.yml
+                seedDefaultItems()
+                itemsConfigManager.save()
+                logx.info("Created items.yml with default items (${itemsConfigManager.count()} items)")
+            }
+        }
+        
+        // Sync items.yml pricing rules to market.db
+        val syncResult = itemsConfigManager.syncToMarketManager(marketManager, sqliteStore)
+        if (syncResult.added > 0 || syncResult.updated > 0) {
+            marketManager.save()
+            logx.info("Synced items.yml to market: ${syncResult.added} added, ${syncResult.updated} updated")
+        }
+        
+        logx.info("Market loaded (storage=${if (useSqlite) "sqlite" else "yaml"}, items=${itemsConfigManager.enabledCount()})")
 
         // Initialize delivery manager (for pending item deliveries)
         try {
@@ -134,6 +173,22 @@ class Endex : JavaPlugin() {
             logx.info("GUI configs loaded from guis/ folder")
         } catch (t: Throwable) {
             logx.warn("Failed to load GUI configs: ${t.message}")
+        }
+
+        // Custom Shop System (EconomyShopGUI-style)
+        try {
+            val csm = org.lokixcz.theendex.shop.CustomShopManager(this)
+            csm.load()
+            customShopManager = csm
+            
+            val csg = org.lokixcz.theendex.shop.CustomShopGUI(this)
+            server.pluginManager.registerEvents(csg, this)
+            customShopGUI = csg
+            
+            val mode = config.getString("shop.mode", "DEFAULT") ?: "DEFAULT"
+            logx.info("Shop system loaded (mode=$mode, shops=${csm.all().size})")
+        } catch (t: Throwable) {
+            logx.warn("Failed to initialize custom shop system: ${t.message}")
         }
 
         // Command Aliases
@@ -255,6 +310,48 @@ class Endex : JavaPlugin() {
             }
         } catch (t: Throwable) {
             logx.warn("Failed to register PlaceholderAPI expansion: ${t.message}")
+        }
+
+        // bStats Metrics
+        try {
+            val pluginId = 28421 // The Endex bStats plugin ID
+            val metrics = Metrics(this, pluginId)
+            
+            // Custom chart: Storage mode (yaml/sqlite)
+            metrics.addCustomChart(SimplePie("storage_mode") {
+                if (config.getBoolean("storage.sqlite", false)) "sqlite" else "yaml"
+            })
+            
+            // Custom chart: Shop mode (DEFAULT/CUSTOM)
+            metrics.addCustomChart(SimplePie("shop_mode") {
+                config.getString("shop.mode", "DEFAULT") ?: "DEFAULT"
+            })
+            
+            // Custom chart: Web UI enabled
+            metrics.addCustomChart(SimplePie("web_ui_enabled") {
+                if (config.getBoolean("web.enabled", true)) "enabled" else "disabled"
+            })
+            
+            // Custom chart: Holdings system enabled
+            metrics.addCustomChart(SimplePie("holdings_enabled") {
+                if (config.getBoolean("holdings.enabled", true)) "enabled" else "disabled"
+            })
+            
+            // Custom chart: Number of tracked items
+            metrics.addCustomChart(SimplePie("tracked_items") {
+                val count = itemsConfigManager.enabledCount()
+                when {
+                    count <= 10 -> "1-10"
+                    count <= 25 -> "11-25"
+                    count <= 50 -> "26-50"
+                    count <= 100 -> "51-100"
+                    else -> "100+"
+                }
+            })
+            
+            logx.debug("bStats metrics initialized")
+        } catch (t: Throwable) {
+            logx.debug("Failed to initialize bStats metrics: ${t.message}")
         }
     }
 
@@ -404,8 +501,17 @@ class Endex : JavaPlugin() {
         // Reload command aliases
         try { commandAliasManager?.reload() } catch (t: Throwable) { logx.warn("Failed to reload command aliases: ${t.message}") }
 
-        // Reload market data from disk to apply any edits
-    try { marketManager.load() } catch (t: Throwable) { logx.warn("Failed to reload market: ${t.message}") }
+        // Reload items.yml and market data
+        try {
+            itemsConfigManager.load()
+            marketManager.load()
+            val sqliteStore = marketManager.sqliteStore()
+            val syncResult = itemsConfigManager.syncToMarketManager(marketManager, sqliteStore)
+            if (syncResult.added > 0 || syncResult.updated > 0) {
+                marketManager.save()
+            }
+            logx.info("Reloaded items.yml and market data (${itemsConfigManager.enabledCount()} items)")
+        } catch (t: Throwable) { logx.warn("Failed to reload market: ${t.message}") }
 
         // Reschedule tasks with new settings
         scheduleTasks()
@@ -483,6 +589,95 @@ class Endex : JavaPlugin() {
         } catch (t: Throwable) {
             logx.error("Config migration failed: ${t.message}")
             false
+        }
+    }
+    
+    /**
+     * Seed default items to items.yml based on config settings.
+     */
+    private fun seedDefaultItems() {
+        val seedAll = config.getBoolean("seed-all-materials", false)
+        val addCurated = config.getBoolean("include-default-important-items", true)
+        val blacklist = config.getStringList("blacklist-items").map { it.uppercase() }.toSet()
+        
+        val materials = if (seedAll) {
+            org.bukkit.Material.entries
+                .filter { !it.isAir && !it.name.startsWith("LEGACY_") && it.name !in blacklist }
+        } else if (addCurated) {
+            curatedImportantMaterials().filter { it.name !in blacklist }
+        } else {
+            emptyList()
+        }
+        
+        for (mat in materials) {
+            val basePrice = defaultBasePriceFor(mat)
+            itemsConfigManager.addItem(mat, basePrice)
+        }
+    }
+    
+    /**
+     * Get list of curated important materials for default market.
+     */
+    private fun curatedImportantMaterials(): List<org.bukkit.Material> = listOf(
+        // Ores, ingots, gems
+        "COAL", "IRON_INGOT", "GOLD_INGOT", "COPPER_INGOT", "NETHERITE_INGOT",
+        "DIAMOND", "EMERALD", "LAPIS_LAZULI", "REDSTONE", "QUARTZ",
+        // Wood/logs
+        "OAK_LOG", "SPRUCE_LOG", "BIRCH_LOG", "JUNGLE_LOG", "ACACIA_LOG", "DARK_OAK_LOG",
+        "MANGROVE_LOG", "CHERRY_LOG", "CRIMSON_STEM", "WARPED_STEM", "BAMBOO",
+        // Stone/building basics
+        "COBBLESTONE", "STONE", "DEEPSLATE", "SAND", "GRAVEL", "GLASS",
+        // Crops and plants
+        "WHEAT", "CARROT", "POTATO", "BEETROOT", "SUGAR_CANE", "PUMPKIN", "MELON_SLICE",
+        "CACTUS", "NETHER_WART", "COCOA_BEANS",
+        // Foods (processed)
+        "BREAD", "COOKED_BEEF", "COOKED_PORKCHOP", "COOKED_CHICKEN", "COOKED_MUTTON",
+        "COOKED_RABBIT", "COOKED_COD", "COOKED_SALMON",
+        // Mob drops / rares
+        "ROTTEN_FLESH", "BONE", "STRING", "GUNPOWDER", "ENDER_PEARL", "BLAZE_ROD",
+        "GHAST_TEAR", "SLIME_BALL", "SPIDER_EYE", "LEATHER", "FEATHER", "INK_SAC", "SHULKER_SHELL",
+        // Misc commodities
+        "PAPER", "BOOK", "SUGAR", "HONEY_BOTTLE", "HONEYCOMB", "CLAY_BALL", "BRICK"
+    ).mapNotNull { org.bukkit.Material.matchMaterial(it) }
+    
+    /**
+     * Get default base price for a material based on its type/rarity.
+     */
+    private fun defaultBasePriceFor(mat: org.bukkit.Material): Double {
+        val name = mat.name
+        return when {
+            name == "NETHERITE_INGOT" -> 2000.0
+            name == "DIAMOND" -> 800.0
+            name == "EMERALD" -> 400.0
+            name == "LAPIS_LAZULI" -> 80.0
+            name == "REDSTONE" -> 30.0
+            name == "QUARTZ" -> 60.0
+            name.endsWith("_INGOT") && name.startsWith("GOLD") -> 200.0
+            name.endsWith("_INGOT") && name.startsWith("IRON") -> 120.0
+            name.endsWith("_INGOT") && name.startsWith("COPPER") -> 60.0
+            name.endsWith("_LOG") || name.endsWith("_STEM") || name == "BAMBOO" -> 25.0
+            name in listOf("COBBLESTONE") -> 4.0
+            name in listOf("STONE", "DEEPSLATE") -> 6.0
+            name in listOf("SAND", "GRAVEL") -> 8.0
+            name == "GLASS" -> 12.0
+            name in listOf("WHEAT", "CARROT", "POTATO", "BEETROOT", "SUGAR_CANE") -> 12.0
+            name in listOf("PUMPKIN", "MELON_SLICE", "CACTUS", "NETHER_WART", "COCOA_BEANS") -> 14.0
+            name.startsWith("COOKED_") -> 20.0
+            name in listOf("ROTTEN_FLESH") -> 2.0
+            name in listOf("BONE", "FEATHER", "SPIDER_EYE") -> 6.0
+            name in listOf("STRING", "INK_SAC", "CLAY_BALL", "BRICK") -> 8.0
+            name == "SLIME_BALL" -> 20.0
+            name == "GUNPOWDER" -> 25.0
+            name == "ENDER_PEARL" -> 80.0
+            name == "BLAZE_ROD" -> 90.0
+            name == "GHAST_TEAR" -> 400.0
+            name == "SHULKER_SHELL" -> 300.0
+            name == "PAPER" -> 6.0
+            name == "BOOK" -> 20.0
+            name == "SUGAR" -> 6.0
+            name == "HONEY_BOTTLE" -> 25.0
+            name == "HONEYCOMB" -> 12.0
+            else -> 100.0
         }
     }
 }

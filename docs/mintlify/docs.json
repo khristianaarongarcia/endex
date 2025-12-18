@@ -19,6 +19,7 @@
         "group": "Features",
         "pages": [
           "features/pricing",
+          "features/custom-shop",
           "features/holdings",
           "features/delivery",
           "features/events",

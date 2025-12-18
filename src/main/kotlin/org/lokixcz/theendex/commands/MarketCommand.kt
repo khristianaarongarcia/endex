@@ -19,7 +19,13 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (args.isEmpty()) {
             if (sender is Player) {
-                plugin.marketGUI.open(sender)
+                // Check shop mode - CUSTOM opens category-based shop, DEFAULT opens market
+                val shopMode = plugin.config.getString("shop.mode", "DEFAULT")?.uppercase() ?: "DEFAULT"
+                if (shopMode == "CUSTOM" && plugin.customShopGUI != null) {
+                    plugin.customShopGUI!!.openMainMenu(sender)
+                } else {
+                    plugin.marketGUI.open(sender)
+                }
             } else {
                 sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.YELLOW}Use: /market help for a list of commands")
             }
@@ -36,11 +42,56 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             "delivery", "deliveries" -> handleDelivery(sender, args)
             "withdraw" -> handleWithdraw(sender, args)
             "holdings" -> handleHoldings(sender, args)
+            "shop" -> handleShop(sender, args)  // New: Direct shop access
+            "default", "stock" -> handleDefaultMarket(sender)  // New: Force default market
+            // Admin item management commands
+            "add" -> handleAddItem(sender, args)
+            "remove" -> handleRemoveItem(sender, args)
+            "setbase" -> handleSetBase(sender, args)
+            "setmin" -> handleSetMin(sender, args)
+            "setmax" -> handleSetMax(sender, args)
+            "setprice" -> handleSetPrice(sender, args)
+            "enable" -> handleEnableItem(sender, args)
+            "disable" -> handleDisableItem(sender, args)
+            "items" -> handleListItems(sender, args)
             else -> {
                 sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use ${ChatColor.YELLOW}/market help ${ChatColor.RED}for a list of commands.")
                 true
             }
         }
+    }
+    
+    /**
+     * Open custom shop directly (if enabled).
+     */
+    private fun handleShop(sender: CommandSender, args: Array<out String>): Boolean {
+        if (sender !is Player) {
+            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            return true
+        }
+        
+        val gui = plugin.customShopGUI
+        if (gui == null) {
+            sender.sendMessage("${ChatColor.RED}Custom shop system is not available.")
+            return true
+        }
+        
+        val shopId = if (args.size > 1) args[1] else null
+        gui.openMainMenu(sender, shopId)
+        return true
+    }
+    
+    /**
+     * Force open default market GUI (bypasses shop mode).
+     */
+    private fun handleDefaultMarket(sender: CommandSender): Boolean {
+        if (sender !is Player) {
+            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            return true
+        }
+        
+        plugin.marketGUI.open(sender)
+        return true
     }
 
     private fun handleHelp(sender: CommandSender): Boolean {
@@ -48,7 +99,9 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         sender.sendMessage("${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}The Endex ${ChatColor.GRAY}- Market Commands")
         sender.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
         sender.sendMessage("")
-        sender.sendMessage("${ChatColor.YELLOW}/market ${ChatColor.GRAY}- Open market GUI")
+        sender.sendMessage("${ChatColor.YELLOW}/market ${ChatColor.GRAY}- Open market/shop GUI")
+        sender.sendMessage("${ChatColor.YELLOW}/market shop [id] ${ChatColor.GRAY}- Open custom shop (if enabled)")
+        sender.sendMessage("${ChatColor.YELLOW}/market stock ${ChatColor.GRAY}- Open default stock market GUI")
         sender.sendMessage("${ChatColor.YELLOW}/market price <item> ${ChatColor.GRAY}- Check item price")
         sender.sendMessage("${ChatColor.YELLOW}/market buy <item> <amount> ${ChatColor.GRAY}- Buy items")
         sender.sendMessage("${ChatColor.YELLOW}/market sell <item> <amount> ${ChatColor.GRAY}- Sell items")
@@ -69,11 +122,21 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         
         if (sender.hasPermission("theendex.admin")) {
             sender.sendMessage("")
-            sender.sendMessage("${ChatColor.RED}Admin:")
+            sender.sendMessage("${ChatColor.RED}Admin Events:")
             sender.sendMessage("${ChatColor.YELLOW}/market event ${ChatColor.GRAY}- List/trigger events")
             sender.sendMessage("${ChatColor.YELLOW}/market event <name> ${ChatColor.GRAY}- Trigger an event")
             sender.sendMessage("${ChatColor.YELLOW}/market event end <name> ${ChatColor.GRAY}- End an event")
             sender.sendMessage("${ChatColor.YELLOW}/market event clear ${ChatColor.GRAY}- Clear all events")
+            sender.sendMessage("")
+            sender.sendMessage("${ChatColor.RED}Admin Item Management:")
+            sender.sendMessage("${ChatColor.YELLOW}/market add <item> <base> [min] [max] ${ChatColor.GRAY}- Add item")
+            sender.sendMessage("${ChatColor.YELLOW}/market remove <item> ${ChatColor.GRAY}- Remove item")
+            sender.sendMessage("${ChatColor.YELLOW}/market setbase <item> <price> ${ChatColor.GRAY}- Set base price")
+            sender.sendMessage("${ChatColor.YELLOW}/market setmin <item> <price> ${ChatColor.GRAY}- Set min price")
+            sender.sendMessage("${ChatColor.YELLOW}/market setmax <item> <price> ${ChatColor.GRAY}- Set max price")
+            sender.sendMessage("${ChatColor.YELLOW}/market setprice <item> <price> ${ChatColor.GRAY}- Set current price (temp)")
+            sender.sendMessage("${ChatColor.YELLOW}/market enable/disable <item> ${ChatColor.GRAY}- Enable/disable item")
+            sender.sendMessage("${ChatColor.YELLOW}/market items [page] ${ChatColor.GRAY}- List configured items")
         }
         
         sender.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
@@ -929,6 +992,356 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             player.sendMessage("${ChatColor.GRAY}Make space and use ${ChatColor.YELLOW}/market withdraw all ${ChatColor.GRAY}again.")
         }
         
+        return true
+    }
+
+    // ==================== ADMIN ITEM MANAGEMENT COMMANDS ====================
+
+    private fun handleAddItem(sender: CommandSender, args: Array<out String>): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage("${ChatColor.RED}No permission.")
+            return true
+        }
+        if (args.size < 3) {
+            sender.sendMessage("${ChatColor.RED}Usage: /market add <material> <basePrice> [minPrice] [maxPrice]")
+            return true
+        }
+
+        val mat = Material.matchMaterial(args[1].uppercase())
+        if (mat == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            return true
+        }
+
+        val basePrice = args[2].toDoubleOrNull()?.takeIf { it > 0 }
+        if (basePrice == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid base price: ${args[2]}")
+            return true
+        }
+
+        val minPrice = if (args.size >= 4) args[3].toDoubleOrNull()?.takeIf { it >= 0 } ?: (basePrice * 0.1) else (basePrice * 0.1)
+        val maxPrice = if (args.size >= 5) args[4].toDoubleOrNull()?.takeIf { it > minPrice } ?: (basePrice * 10.0) else (basePrice * 10.0)
+
+        // Check if already exists
+        val existing = plugin.itemsConfigManager.get(mat)
+        if (existing != null) {
+            sender.sendMessage("${ChatColor.YELLOW}${mat.name} already exists. Use /market setbase to modify prices.")
+            return true
+        }
+
+        // Add to items.yml
+        plugin.itemsConfigManager.addItem(mat, basePrice, minPrice, maxPrice)
+        plugin.itemsConfigManager.save()
+
+        // Sync to market
+        val db = plugin.marketManager.sqliteStore()
+        plugin.itemsConfigManager.syncToMarketManager(plugin.marketManager, db)
+
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Added ${prettyName(mat)} to market!")
+        sender.sendMessage("${ChatColor.GRAY}  Base: ${ChatColor.AQUA}${format(basePrice)} ${ChatColor.GRAY}| Min: ${ChatColor.AQUA}${format(minPrice)} ${ChatColor.GRAY}| Max: ${ChatColor.AQUA}${format(maxPrice)}")
+        return true
+    }
+
+    private fun handleRemoveItem(sender: CommandSender, args: Array<out String>): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage("${ChatColor.RED}No permission.")
+            return true
+        }
+        if (args.size < 2) {
+            sender.sendMessage("${ChatColor.RED}Usage: /market remove <material>")
+            return true
+        }
+
+        val mat = Material.matchMaterial(args[1].uppercase())
+        if (mat == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            return true
+        }
+
+        val existing = plugin.itemsConfigManager.get(mat)
+        if (existing == null) {
+            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config.")
+            return true
+        }
+
+        // Remove from items.yml
+        plugin.itemsConfigManager.remove(mat)
+        plugin.itemsConfigManager.save()
+
+        // Note: Item will remain in market.db until server restart or manual removal
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Removed ${prettyName(mat)} from items.yml.")
+        sender.sendMessage("${ChatColor.GRAY}Note: Use ${ChatColor.YELLOW}/endex reload ${ChatColor.GRAY}to fully remove from market.")
+        return true
+    }
+
+    private fun handleSetBase(sender: CommandSender, args: Array<out String>): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage("${ChatColor.RED}No permission.")
+            return true
+        }
+        if (args.size < 3) {
+            sender.sendMessage("${ChatColor.RED}Usage: /market setbase <material> <price>")
+            return true
+        }
+
+        val mat = Material.matchMaterial(args[1].uppercase())
+        if (mat == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            return true
+        }
+
+        val price = args[2].toDoubleOrNull()?.takeIf { it > 0 }
+        if (price == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid price: ${args[2]}")
+            return true
+        }
+
+        val existing = plugin.itemsConfigManager.get(mat)
+        if (existing == null) {
+            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config. Use /market add first.")
+            return true
+        }
+
+        // Update items.yml
+        plugin.itemsConfigManager.setBasePrice(mat, price)
+        plugin.itemsConfigManager.save()
+
+        // Update market manager
+        val marketItem = plugin.marketManager.get(mat)
+        if (marketItem != null) {
+            marketItem.basePrice = price
+            marketItem.currentPrice = price.coerceIn(existing.minPrice, existing.maxPrice)
+        }
+
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Set base price for ${prettyName(mat)} to ${ChatColor.AQUA}${format(price)}")
+        return true
+    }
+
+    private fun handleSetMin(sender: CommandSender, args: Array<out String>): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage("${ChatColor.RED}No permission.")
+            return true
+        }
+        if (args.size < 3) {
+            sender.sendMessage("${ChatColor.RED}Usage: /market setmin <material> <price>")
+            return true
+        }
+
+        val mat = Material.matchMaterial(args[1].uppercase())
+        if (mat == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            return true
+        }
+
+        val price = args[2].toDoubleOrNull()?.takeIf { it >= 0 }
+        if (price == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid price: ${args[2]}")
+            return true
+        }
+
+        val existing = plugin.itemsConfigManager.get(mat)
+        if (existing == null) {
+            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config. Use /market add first.")
+            return true
+        }
+
+        // Update items.yml
+        plugin.itemsConfigManager.setMinPrice(mat, price)
+        plugin.itemsConfigManager.save()
+
+        // Update market manager
+        val marketItem = plugin.marketManager.get(mat)
+        if (marketItem != null) {
+            marketItem.minPrice = price
+            // Clamp current price to new range
+            marketItem.currentPrice = marketItem.currentPrice.coerceIn(price, existing.maxPrice)
+        }
+
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Set min price for ${prettyName(mat)} to ${ChatColor.AQUA}${format(price)}")
+        return true
+    }
+
+    private fun handleSetMax(sender: CommandSender, args: Array<out String>): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage("${ChatColor.RED}No permission.")
+            return true
+        }
+        if (args.size < 3) {
+            sender.sendMessage("${ChatColor.RED}Usage: /market setmax <material> <price>")
+            return true
+        }
+
+        val mat = Material.matchMaterial(args[1].uppercase())
+        if (mat == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            return true
+        }
+
+        val price = args[2].toDoubleOrNull()?.takeIf { it > 0 }
+        if (price == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid price: ${args[2]}")
+            return true
+        }
+
+        val existing = plugin.itemsConfigManager.get(mat)
+        if (existing == null) {
+            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config. Use /market add first.")
+            return true
+        }
+
+        if (price <= existing.minPrice) {
+            sender.sendMessage("${ChatColor.RED}Max price must be greater than min price (${format(existing.minPrice)})")
+            return true
+        }
+
+        // Update items.yml
+        plugin.itemsConfigManager.setMaxPrice(mat, price)
+        plugin.itemsConfigManager.save()
+
+        // Update market manager
+        val marketItem = plugin.marketManager.get(mat)
+        if (marketItem != null) {
+            marketItem.maxPrice = price
+            // Clamp current price to new range
+            marketItem.currentPrice = marketItem.currentPrice.coerceIn(existing.minPrice, price)
+        }
+
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Set max price for ${prettyName(mat)} to ${ChatColor.AQUA}${format(price)}")
+        return true
+    }
+
+    private fun handleSetPrice(sender: CommandSender, args: Array<out String>): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage("${ChatColor.RED}No permission.")
+            return true
+        }
+        if (args.size < 3) {
+            sender.sendMessage("${ChatColor.RED}Usage: /market setprice <material> <price>")
+            sender.sendMessage("${ChatColor.GRAY}Note: This only sets the current price temporarily. Use /market setbase for permanent changes.")
+            return true
+        }
+
+        val mat = Material.matchMaterial(args[1].uppercase())
+        if (mat == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            return true
+        }
+
+        val price = args[2].toDoubleOrNull()?.takeIf { it > 0 }
+        if (price == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid price: ${args[2]}")
+            return true
+        }
+
+        val marketItem = plugin.marketManager.get(mat)
+        if (marketItem == null) {
+            sender.sendMessage("${ChatColor.RED}${mat.name} is not tracked by the market.")
+            return true
+        }
+
+        // Set current price (temporary, will drift back based on supply/demand)
+        val clamped = price.coerceIn(marketItem.minPrice, marketItem.maxPrice)
+        marketItem.currentPrice = clamped
+
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Set current price for ${prettyName(mat)} to ${ChatColor.AQUA}${format(clamped)}")
+        if (clamped != price) {
+            sender.sendMessage("${ChatColor.YELLOW}(Clamped to min/max range: ${format(marketItem.minPrice)} - ${format(marketItem.maxPrice)})")
+        }
+        sender.sendMessage("${ChatColor.GRAY}Note: This is temporary. Price will drift based on supply/demand.")
+        return true
+    }
+
+    private fun handleEnableItem(sender: CommandSender, args: Array<out String>): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage("${ChatColor.RED}No permission.")
+            return true
+        }
+        if (args.size < 2) {
+            sender.sendMessage("${ChatColor.RED}Usage: /market enable <material>")
+            return true
+        }
+
+        val mat = Material.matchMaterial(args[1].uppercase())
+        if (mat == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            return true
+        }
+
+        val existing = plugin.itemsConfigManager.get(mat)
+        if (existing == null) {
+            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config. Use /market add first.")
+            return true
+        }
+
+        plugin.itemsConfigManager.enable(mat)
+        plugin.itemsConfigManager.save()
+        val db = plugin.marketManager.sqliteStore()
+        plugin.itemsConfigManager.syncToMarketManager(plugin.marketManager, db)
+
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Enabled ${prettyName(mat)} in the market.")
+        return true
+    }
+
+    private fun handleDisableItem(sender: CommandSender, args: Array<out String>): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage("${ChatColor.RED}No permission.")
+            return true
+        }
+        if (args.size < 2) {
+            sender.sendMessage("${ChatColor.RED}Usage: /market disable <material>")
+            return true
+        }
+
+        val mat = Material.matchMaterial(args[1].uppercase())
+        if (mat == null) {
+            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            return true
+        }
+
+        val existing = plugin.itemsConfigManager.get(mat)
+        if (existing == null) {
+            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config.")
+            return true
+        }
+
+        plugin.itemsConfigManager.disable(mat)
+        plugin.itemsConfigManager.save()
+
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.YELLOW}Disabled ${prettyName(mat)} in items.yml.")
+        sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/endex reload ${ChatColor.GRAY}to remove from active market.")
+        return true
+    }
+
+    private fun handleListItems(sender: CommandSender, args: Array<out String>): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage("${ChatColor.RED}No permission.")
+            return true
+        }
+
+        val items = plugin.itemsConfigManager.all()
+        if (items.isEmpty()) {
+            sender.sendMessage("${ChatColor.GRAY}No items configured in items.yml")
+            return true
+        }
+
+        val page = if (args.size >= 2) args[1].toIntOrNull()?.coerceAtLeast(1) ?: 1 else 1
+        val perPage = 10
+        val totalPages = (items.size + perPage - 1) / perPage
+        val startIndex = (page - 1) * perPage
+        val endIndex = minOf(startIndex + perPage, items.size)
+
+        val sortedItems = items.sortedBy { it.material.name }
+        val pageItems = sortedItems.subList(startIndex.coerceIn(0, sortedItems.size), endIndex.coerceIn(0, sortedItems.size))
+
+        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.AQUA}Configured Items (Page $page/$totalPages):")
+        pageItems.forEach { entry ->
+            val status = if (entry.enabled) "${ChatColor.GREEN}✓" else "${ChatColor.RED}✗"
+            sender.sendMessage("$status ${ChatColor.AQUA}${prettyName(entry.material)} ${ChatColor.GRAY}B:${format(entry.basePrice)} Min:${format(entry.minPrice)} Max:${format(entry.maxPrice)}")
+        }
+        
+        if (totalPages > 1) {
+            sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market items <page> ${ChatColor.GRAY}for more.")
+        }
         return true
     }
 }

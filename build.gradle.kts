@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "org.lokixcz"
-version = "1.5.3"
+version = "1.5.4"
 
 repositories {
     mavenCentral()
@@ -30,6 +30,8 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT")
     // Keep Kotlin stdlib shaded to avoid runtime dependency mismatch
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    // bStats for plugin metrics
+    implementation("org.bstats:bstats-bukkit:3.1.0")
     // Vault API (provided by Vault plugin at runtime)
     compileOnly("com.github.MilkBowl:VaultAPI:1.7.1")
     // PlaceholderAPI (provided by PlaceholderAPI plugin at runtime)
@@ -52,6 +54,8 @@ dependencies {
     add("spigotShade", "org.jetbrains.kotlin:kotlin-stdlib-common")
     // Include SQLite so Spigot can use SQLite mode without extra setup (increases size)
     add("spigotShade", "org.xerial:sqlite-jdbc:3.46.0.0")
+    // bStats for plugin metrics
+    add("spigotShade", "org.bstats:bstats-bukkit:3.1.0")
 }
 
 tasks {
@@ -85,6 +89,8 @@ tasks.processResources {
 tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
     archiveBaseName.set("TheEndex")
     archiveClassifier.set("")
+    // Relocate bStats to avoid conflicts with other plugins
+    relocate("org.bstats", "org.lokixcz.theendex.bstats")
 }
 
 // After building, copy jar into local test server plugins folder, overwriting existing jar
@@ -120,6 +126,8 @@ val shadowJarSpigot by tasks.registering(com.github.jengelman.gradle.plugins.sha
     archiveClassifier.set("spigot")
     from(sourceSets.main.get().output)
     configurations = listOf(project.configurations.getByName("spigotShade"))
+    // Relocate bStats to avoid conflicts with other plugins
+    relocate("org.bstats", "org.lokixcz.theendex.bstats")
     // Try to keep size reasonable by stripping unused classes
     minimize()
 }

@@ -146,8 +146,8 @@ class MarketGUI(private val plugin: Endex) : Listener {
         val items = filtered.sortedWith { a, b ->
             when (state.sort) {
                 SortBy.NAME -> prettyName(a.material).lowercase().compareTo(prettyName(b.material).lowercase())
-                SortBy.PRICE -> a.currentPrice.compareTo(b.currentPrice)
-                SortBy.CHANGE -> changePercent(a.history).compareTo(changePercent(b.history))
+                SortBy.PRICE -> b.currentPrice.compareTo(a.currentPrice) // Descending - highest price first
+                SortBy.CHANGE -> changePercent(b.history).compareTo(changePercent(a.history)) // Descending - biggest change first
             }
         }
 
@@ -242,8 +242,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
         inv.setItem(46, namedItem(Material.BOOK, "${ChatColor.AQUA}Category: ${state.category.name} ${ChatColor.GRAY}(click)"))
         inv.setItem(47, namedItem(Material.LECTERN, "${ChatColor.LIGHT_PURPLE}Group: ${if (state.groupBy) "Category A–Z (ON)" else "Off"} ${ChatColor.GRAY}(click)"))
         inv.setItem(48, namedItem(Material.OAK_SIGN, "${ChatColor.AQUA}Search: ${if (state.search.isBlank()) "${ChatColor.DARK_GRAY}<none>" else state.search} ${ChatColor.GRAY}(Left: set, Right: clear)"))
-        inv.setItem(49, namedItem(Material.HOPPER, "${ChatColor.AQUA}Amount: ${amounts[state.amountIdx]} ${ChatColor.GRAY}(click)"))
-        inv.setItem(50, namedItem(Material.COMPARATOR, "${ChatColor.LIGHT_PURPLE}Sort: ${state.sort.name} ${ChatColor.GRAY}(click)"))
+        inv.setItem(49, namedItem(Material.COMPARATOR, "${ChatColor.LIGHT_PURPLE}Sort: ${state.sort.name} ${ChatColor.GRAY}(click)"))
         
         // Holdings button (replaces deliveries for virtual holdings system)
         val holdingsEnabled = plugin.config.getBoolean("holdings.enabled", true)
@@ -307,13 +306,13 @@ class MarketGUI(private val plugin: Endex) : Listener {
         // Only handle MARKET gui here (other guis have their own handlers)
         if (guiType != GuiType.MARKET) return
         
-        // Cancel the event FIRST to prevent item taking/moving in all cases
-        e.isCancelled = true
-        
-        // Only block if clicking in player's bottom inventory (not the GUI)
+        // Allow clicks in player's bottom inventory (hotbar, etc.)
         if (e.rawSlot >= e.view.topInventory.size) {
             return
         }
+        
+        // Cancel the event to prevent item taking/moving in the GUI
+        e.isCancelled = true
         
         // Block all item movement actions (shift-click, number keys, drag, etc.)
         if (e.click == ClickType.SHIFT_LEFT || e.click == ClickType.SHIFT_RIGHT ||
@@ -384,12 +383,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
                     awaitingSearchInput.add(player.uniqueId)
                 }
             }
-            49 -> { // amount cycle
-                state.amountIdx = (state.amountIdx + 1) % amounts.size
-                persist(player, state)
-                open(player, state.page)
-            }
-            50 -> { // sort cycle
+            49 -> { // sort cycle
                 state.sort = when (state.sort) {
                     SortBy.NAME -> SortBy.PRICE
                     SortBy.PRICE -> SortBy.CHANGE
@@ -518,8 +512,8 @@ class MarketGUI(private val plugin: Endex) : Listener {
         plugin.server.onlinePlayers.forEach { p -> refreshOpenFor(p) }
     }
 
-    // Details view
-    private fun openDetails(player: Player, mat: Material) {
+    // Details view - public so MarketActions can call it from CustomShopGUI
+    fun openDetails(player: Player, mat: Material) {
         val state = states[player.uniqueId] ?: load(player)
         state.inDetails = true
         state.detailOf = mat
@@ -783,7 +777,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
     }
     
     // Holdings panel (Virtual Holdings System)
-    private fun openHoldings(player: Player) {
+    fun openHoldings(player: Player) {
         val db = plugin.marketManager.sqliteStore() ?: run {
             player.sendMessage("${ChatColor.RED}[TheEndex] Holdings system is not available.")
             return
