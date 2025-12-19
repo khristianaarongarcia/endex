@@ -140,8 +140,20 @@ class Endex : JavaPlugin() {
             server.servicesManager.register(org.lokixcz.theendex.api.EndexAPI::class.java, org.lokixcz.theendex.api.EndexAPIImpl(this), this, org.bukkit.plugin.ServicePriority.Normal)
         } catch (_: Throwable) {}
 
-        // Setup Vault economy if present
-    setupEconomy()
+        // Setup Vault economy if present (with delayed retry for late-loading economy plugins)
+        setupEconomy()
+        if (economy == null) {
+            // Some economy plugins (like SimpleEconomy) register with Vault after other plugins load
+            // Schedule a delayed retry to catch late registrations
+            Bukkit.getScheduler().runTaskLater(this, Runnable {
+                if (economy == null) {
+                    setupEconomy()
+                    if (economy != null) {
+                        logx.info("Economy provider found on delayed check: ${economy?.name}")
+                    }
+                }
+            }, 40L) // 2 seconds after server finishes loading
+        }
 
         // Schedule periodic tasks
         scheduleTasks()

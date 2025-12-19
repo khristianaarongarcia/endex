@@ -3,7 +3,8 @@ version: '${version}'
 main: org.lokixcz.theendex.Endex
 api-version: '1.21'
 authors: [ TheLokia ]
-softdepend: [ Vault, PlaceholderAPI ]
+# Economy plugins listed to ensure they load before TheEndex
+softdepend: [ Vault, PlaceholderAPI, Essentials, EssentialsX, CMI, SimpleEconomy, Economy, iConomy, Fe, XConomy, PlayerPoints, TokenManager, CoinsEngine, GemsEconomy, RoyaleEconomy, TheNewEconomy ]
 description: Dynamic, demand-driven market with GUI, events, and Vault economy
 libraries:
   - org.xerial:sqlite-jdbc:3.46.0.0

@@ -7,6 +7,17 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.5] - 2025-12-20
+### Fixed
+- **Economy Plugin Compatibility:** Fixed "Economy unavailable" error with late-loading economy plugins (SimpleEconomy, etc.)
+  - Added delayed retry (2 seconds) for economy provider detection
+  - Economy plugins that register with Vault after TheEndex loads are now properly detected
+  - Added common economy plugins to `softdepend` list to improve load order
+
+### Technical
+- Expanded `softdepend` in plugin.yml to include: Essentials, EssentialsX, CMI, SimpleEconomy, Economy, iConomy, Fe, XConomy, PlayerPoints, TokenManager, CoinsEngine, GemsEconomy, RoyaleEconomy, TheNewEconomy
+- Scheduled delayed economy check runs 40 ticks (2 seconds) after server finishes loading
+
 ## [1.5.4] - 2025-12-19
 ### Added
 - **bStats Metrics Integration:** Plugin analytics for tracking usage patterns.
