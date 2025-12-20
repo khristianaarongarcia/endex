@@ -31,6 +31,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 base.forEach { sender.sendMessage(it) }
                 if (sender.hasPermission("theendex.admin")) {
                     sender.sendMessage("${ChatColor.AQUA}/endex reload${ChatColor.GRAY} — Reload configs and market data")
+                    sender.sendMessage("${ChatColor.AQUA}/endex shopedit${ChatColor.GRAY} — Open the shop editor GUI")
                     sender.sendMessage("${ChatColor.AQUA}/endex webui export${ChatColor.GRAY} — Export (overwrite) embedded web UI to custom folder")
                     sender.sendMessage("${ChatColor.AQUA}/endex webui reload${ChatColor.GRAY} — Force next load to re-read custom index.html")
                     sender.sendMessage("${ChatColor.AQUA}/market event [list|<name>|end <name>|clear]${ChatColor.GRAY} — Manage events")
@@ -167,6 +168,10 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 return true
             }
             
+            "shopedit" -> {
+                return handleShopEdit(sender)
+            }
+            
             else -> {
                 // Try addon router
                 val routed = plugin.getAddonCommandRouter()?.dispatch(sender, label, args)
@@ -175,5 +180,30 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 return true
             }
         }
+    }
+    
+    /**
+     * Handle /endex shopedit command - opens the shop editor GUI.
+     * Also handles /market editor, /shop editor via aliases.
+     */
+    private fun handleShopEdit(sender: CommandSender): Boolean {
+        if (sender !is Player) {
+            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            return true
+        }
+        
+        if (!sender.hasPermission("endex.shop.editor")) {
+            sender.sendMessage("${ChatColor.RED}You don't have permission to use the shop editor.")
+            return true
+        }
+        
+        val editor = plugin.shopEditorGUI
+        if (editor == null) {
+            sender.sendMessage("${ChatColor.RED}Shop editor is not available.")
+            return true
+        }
+        
+        editor.openShopManager(sender)
+        return true
     }
 }

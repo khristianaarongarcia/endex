@@ -2,8 +2,14 @@ package org.lokixcz.theendex.market
 
 import org.bukkit.Material
 import org.bukkit.configuration.file.YamlConfiguration
+import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.util.io.BukkitObjectInputStream
+import org.bukkit.util.io.BukkitObjectOutputStream
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.Base64
 
 /**
  * Static item configuration - defines which items exist in the market
@@ -32,33 +38,163 @@ data class ItemConfig(
 }
 
 /**
+ * Custom item configuration - for items with NBT data (ItemsAdder, Oraxen, etc.)
+ * 
+ * Custom items are identified by a unique ID and store full serialized ItemStack data.
+ * They can be assigned to categories via the shop editor.
+ */
+data class CustomItemConfig(
+    val id: String,
+    val material: Material,
+    val displayName: String,
+    val serializedData: String,  // Base64 encoded ItemStack
+    var basePrice: Double,
+    var minPrice: Double,
+    var maxPrice: Double,
+    var sellPrice: Double,
+    var enabled: Boolean = true,
+    val shopId: String? = null,      // Which shop this item belongs to
+    val categoryId: String? = null,   // Which category within the shop
+    val categoryFilter: String? = null // Category filter type for auto-assignment (e.g., "ALL", "BLOCKS", "TOOLS")
+) {
+    companion object {
+        /**
+         * Serialize an ItemStack to Base64 string.
+         */
+        fun serializeItem(item: ItemStack): String {
+            return try {
+                ByteArrayOutputStream().use { byteOut ->
+                    BukkitObjectOutputStream(byteOut).use { objOut ->
+                        objOut.writeObject(item)
+                    }
+                    Base64.getEncoder().encodeToString(byteOut.toByteArray())
+                }
+            } catch (e: Exception) {
+                ""
+            }
+        }
+        
+        /**
+         * Deserialize a Base64 string back to an ItemStack.
+         */
+        fun deserializeItem(data: String): ItemStack? {
+            return try {
+                // Remove any whitespace from the Base64 string (YAML may add newlines)
+                val cleanData = data.replace(Regex("\\s"), "")
+                val bytes = Base64.getDecoder().decode(cleanData)
+                ByteArrayInputStream(bytes).use { byteIn ->
+                    BukkitObjectInputStream(byteIn).use { objIn ->
+                        objIn.readObject() as? ItemStack
+                    }
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
+        /**
+         * Create a CustomItemConfig from an ItemStack.
+         */
+        fun fromItemStack(
+            id: String,
+            item: ItemStack,
+            basePrice: Double,
+            sellPrice: Double = basePrice * 0.5,
+            shopId: String? = null,
+            categoryId: String? = null,
+            categoryFilter: String? = null
+        ): CustomItemConfig {
+            val displayName = item.itemMeta?.displayName 
+                ?: item.type.name.replace("_", " ").lowercase()
+                    .replaceFirstChar { it.uppercase() }
+            
+            return CustomItemConfig(
+                id = id,
+                material = item.type,
+                displayName = displayName,
+                serializedData = serializeItem(item),
+                basePrice = basePrice,
+                minPrice = (basePrice * 0.30).coerceAtLeast(1.0),
+                maxPrice = (basePrice * 6.0),
+                sellPrice = sellPrice,
+                enabled = true,
+                shopId = shopId,
+                categoryId = categoryId,
+                categoryFilter = categoryFilter
+            )
+        }
+    }
+    
+    /**
+     * Recreate the original ItemStack from serialized data.
+     */
+    fun toItemStack(): ItemStack? = deserializeItem(serializedData)
+}
+
+/**
  * Manager for items.yml - the static item configuration file.
  * 
  * Responsibilities:
- * - Load/save items.yml
+ * - Load/save items.yml (both vanilla and custom items)
  * - Provide item configs to MarketManager
  * - Sync with admin commands (add, remove, setprice)
  * - Auto-export from existing market.db on first run
+ * - Manage custom items with full NBT serialization
  */
 class ItemsConfigManager(private val plugin: JavaPlugin) {
     
     private val items: MutableMap<Material, ItemConfig> = mutableMapOf()
+    private val customItems: MutableMap<String, CustomItemConfig> = mutableMapOf()
     private val itemsFile: File get() = File(plugin.dataFolder, "items.yml")
     
     /**
-     * Get all configured items.
+     * Get all configured vanilla items.
      */
     fun all(): Collection<ItemConfig> = items.values
     
     /**
-     * Get all enabled items.
+     * Get all enabled vanilla items.
      */
     fun allEnabled(): Collection<ItemConfig> = items.values.filter { it.enabled }
+    
+    /**
+     * Get all custom items.
+     */
+    fun allCustomItems(): Collection<CustomItemConfig> = customItems.values
+    
+    /**
+     * Get all enabled custom items.
+     */
+    fun allEnabledCustomItems(): Collection<CustomItemConfig> = customItems.values.filter { it.enabled }
+    
+    /**
+     * Get custom items for a specific category filter.
+     * Used by FILTER mode categories to include custom items.
+     */
+    fun getCustomItemsByFilter(filter: String): List<CustomItemConfig> {
+        return customItems.values.filter { 
+            it.enabled && (it.categoryFilter?.equals(filter, ignoreCase = true) == true || it.categoryFilter == "ALL")
+        }
+    }
+    
+    /**
+     * Get custom items for a specific shop and category.
+     */
+    fun getCustomItemsForCategory(shopId: String, categoryId: String): List<CustomItemConfig> {
+        return customItems.values.filter { 
+            it.enabled && it.shopId == shopId && it.categoryId == categoryId
+        }
+    }
     
     /**
      * Get config for a specific material.
      */
     fun get(material: Material): ItemConfig? = items[material]
+    
+    /**
+     * Get a custom item by ID.
+     */
+    fun getCustomItem(id: String): CustomItemConfig? = customItems[id]
     
     /**
      * Check if an item is configured and enabled.
@@ -76,6 +212,16 @@ class ItemsConfigManager(private val plugin: JavaPlugin) {
     }
     
     /**
+     * Add or update a custom item configuration.
+     * Returns true if item was added, false if updated.
+     */
+    fun setCustomItem(config: CustomItemConfig): Boolean {
+        val isNew = !customItems.containsKey(config.id)
+        customItems[config.id] = config
+        return isNew
+    }
+    
+    /**
      * Add a new item with the given parameters.
      */
     fun addItem(material: Material, basePrice: Double, minPrice: Double? = null, maxPrice: Double? = null): ItemConfig {
@@ -87,10 +233,34 @@ class ItemsConfigManager(private val plugin: JavaPlugin) {
     }
     
     /**
+     * Add a custom item from an ItemStack.
+     */
+    fun addCustomItem(
+        id: String,
+        item: ItemStack,
+        basePrice: Double,
+        sellPrice: Double = basePrice * 0.5,
+        shopId: String? = null,
+        categoryId: String? = null,
+        categoryFilter: String? = null
+    ): CustomItemConfig {
+        val config = CustomItemConfig.fromItemStack(id, item, basePrice, sellPrice, shopId, categoryId, categoryFilter)
+        customItems[id] = config
+        return config
+    }
+    
+    /**
      * Remove an item from the configuration.
      */
     fun remove(material: Material): Boolean {
         return items.remove(material) != null
+    }
+    
+    /**
+     * Remove a custom item from the configuration.
+     */
+    fun removeCustomItem(id: String): Boolean {
+        return customItems.remove(id) != null
     }
     
     /**
@@ -144,27 +314,59 @@ class ItemsConfigManager(private val plugin: JavaPlugin) {
      */
     fun load(): Boolean {
         items.clear()
+        customItems.clear()
         
         if (!itemsFile.exists()) {
             return false
         }
         
         val yaml = YamlConfiguration.loadConfiguration(itemsFile)
-        val itemsSection = yaml.getConfigurationSection("items") ?: return false
         
-        for (key in itemsSection.getKeys(false)) {
-            val mat = Material.matchMaterial(key.uppercase()) ?: continue
-            val section = itemsSection.getConfigurationSection(key) ?: continue
-            
-            val basePrice = section.getDouble("base-price", 100.0)
-            val minPrice = section.getDouble("min-price", basePrice * 0.3)
-            val maxPrice = section.getDouble("max-price", basePrice * 6.0)
-            val enabled = section.getBoolean("enabled", true)
-            
-            items[mat] = ItemConfig(mat, basePrice, minPrice, maxPrice, enabled)
+        // Load vanilla items
+        val itemsSection = yaml.getConfigurationSection("items")
+        if (itemsSection != null) {
+            for (key in itemsSection.getKeys(false)) {
+                val mat = Material.matchMaterial(key.uppercase()) ?: continue
+                val section = itemsSection.getConfigurationSection(key) ?: continue
+                
+                val basePrice = section.getDouble("base-price", 100.0)
+                val minPrice = section.getDouble("min-price", basePrice * 0.3)
+                val maxPrice = section.getDouble("max-price", basePrice * 6.0)
+                val enabled = section.getBoolean("enabled", true)
+                
+                items[mat] = ItemConfig(mat, basePrice, minPrice, maxPrice, enabled)
+            }
         }
         
-        plugin.logger.info("Loaded ${items.size} items from items.yml")
+        // Load custom items
+        val customSection = yaml.getConfigurationSection("custom-items")
+        if (customSection != null) {
+            for (key in customSection.getKeys(false)) {
+                val section = customSection.getConfigurationSection(key) ?: continue
+                
+                val matName = section.getString("material") ?: continue
+                val mat = Material.matchMaterial(matName.uppercase()) ?: continue
+                
+                val config = CustomItemConfig(
+                    id = key,
+                    material = mat,
+                    displayName = section.getString("display-name") ?: key,
+                    serializedData = section.getString("serialized-data") ?: continue,
+                    basePrice = section.getDouble("base-price", 100.0),
+                    minPrice = section.getDouble("min-price", 30.0),
+                    maxPrice = section.getDouble("max-price", 600.0),
+                    sellPrice = section.getDouble("sell-price", 50.0),
+                    enabled = section.getBoolean("enabled", true),
+                    shopId = section.getString("shop"),
+                    categoryId = section.getString("category"),
+                    categoryFilter = section.getString("category-filter")
+                )
+                
+                customItems[key] = config
+            }
+        }
+        
+        plugin.logger.info("Loaded ${items.size} vanilla items and ${customItems.size} custom items from items.yml")
         return true
     }
     
@@ -184,11 +386,22 @@ class ItemsConfigManager(private val plugin: JavaPlugin) {
             "",
             "This file defines which items are tradeable in the market and their pricing rules.",
             "",
-            "For each item:",
-            "  base-price: The 'natural' price that the market gravitates toward",
-            "  min-price: Floor price - items cannot go below this",
-            "  max-price: Ceiling price - items cannot exceed this",
-            "  enabled: Whether the item appears in the market (true/false)",
+            "VANILLA ITEMS (items section):",
+            "  For each item:",
+            "    base-price: The 'natural' price that the market gravitates toward",
+            "    min-price: Floor price - items cannot go below this",
+            "    max-price: Ceiling price - items cannot exceed this",
+            "    enabled: Whether the item appears in the market (true/false)",
+            "",
+            "CUSTOM ITEMS (custom-items section):",
+            "  For custom items with NBT data (ItemsAdder, Oraxen, etc.):",
+            "    material: The base material type",
+            "    display-name: The item's display name",
+            "    serialized-data: Base64 encoded ItemStack (do not edit manually)",
+            "    base-price, min-price, max-price, sell-price: Pricing",
+            "    shop: Which shop this item belongs to (optional)",
+            "    category: Which category within the shop (optional)",
+            "    category-filter: Auto-assign to categories with this filter (e.g., ALL, BLOCKS)",
             "",
             "Dynamic data (current price, supply/demand) is stored in market.db",
             "",
@@ -196,15 +409,12 @@ class ItemsConfigManager(private val plugin: JavaPlugin) {
             "  /market add <item> <base> [min] [max] - Add item to market",
             "  /market remove <item> - Remove item from market",
             "  /market setbase <item> <price> - Set base price",
-            "  /market setmin <item> <price> - Set minimum price",
-            "  /market setmax <item> <price> - Set maximum price",
-            "  /market enable <item> - Enable a disabled item",
-            "  /market disable <item> - Disable an item (keeps config)",
+            "  /market editor - Open the GUI editor to add custom items",
             "",
             "═══════════════════════════════════════════════════════════════════════════════"
         ))
         
-        // Sort items alphabetically for easier editing
+        // Save vanilla items - Sort alphabetically for easier editing
         val sortedItems = items.entries.sortedBy { it.key.name }
         
         for ((mat, config) in sortedItems) {
@@ -215,8 +425,26 @@ class ItemsConfigManager(private val plugin: JavaPlugin) {
             yaml.set("$path.enabled", config.enabled)
         }
         
+        // Save custom items - Sort by ID
+        val sortedCustomItems = customItems.entries.sortedBy { it.key }
+        
+        for ((id, config) in sortedCustomItems) {
+            val path = "custom-items.$id"
+            yaml.set("$path.material", config.material.name)
+            yaml.set("$path.display-name", config.displayName)
+            yaml.set("$path.serialized-data", config.serializedData)
+            yaml.set("$path.base-price", config.basePrice)
+            yaml.set("$path.min-price", config.minPrice)
+            yaml.set("$path.max-price", config.maxPrice)
+            yaml.set("$path.sell-price", config.sellPrice)
+            yaml.set("$path.enabled", config.enabled)
+            if (config.shopId != null) yaml.set("$path.shop", config.shopId)
+            if (config.categoryId != null) yaml.set("$path.category", config.categoryId)
+            if (config.categoryFilter != null) yaml.set("$path.category-filter", config.categoryFilter)
+        }
+        
         yaml.save(itemsFile)
-        plugin.logger.info("Saved ${items.size} items to items.yml")
+        plugin.logger.info("Saved ${items.size} vanilla items and ${customItems.size} custom items to items.yml")
     }
     
     /**

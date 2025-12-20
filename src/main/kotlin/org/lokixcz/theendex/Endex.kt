@@ -58,6 +58,8 @@ class Endex : JavaPlugin() {
         private set
     var customShopGUI: org.lokixcz.theendex.shop.CustomShopGUI? = null
         private set
+    var shopEditorGUI: org.lokixcz.theendex.shop.editor.ShopEditorGUI? = null
+        private set
 
     private var priceTask: BukkitTask? = null
     private var backupTask: BukkitTask? = null
@@ -196,6 +198,11 @@ class Endex : JavaPlugin() {
             val csg = org.lokixcz.theendex.shop.CustomShopGUI(this)
             server.pluginManager.registerEvents(csg, this)
             customShopGUI = csg
+            
+            // Shop Editor GUI (Admin tool for creating/editing custom shops)
+            val seg = org.lokixcz.theendex.shop.editor.ShopEditorGUI(this)
+            server.pluginManager.registerEvents(seg, this)
+            shopEditorGUI = seg
             
             val mode = config.getString("shop.mode", "DEFAULT") ?: "DEFAULT"
             logx.info("Shop system loaded (mode=$mode, shops=${csm.all().size})")

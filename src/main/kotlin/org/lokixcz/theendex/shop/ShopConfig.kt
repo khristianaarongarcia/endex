@@ -42,7 +42,8 @@ enum class MarketCategoryFilter {
 
 /**
  * A category in the shop containing items.
- * Items are automatically populated from items.yml based on the filter.
+ * Items are automatically populated from items.yml based on the filter (FILTER mode)
+ * or manually defined with full ItemStack serialization (MANUAL mode).
  */
 data class ShopCategory(
     val id: String,
@@ -56,8 +57,125 @@ data class ShopCategory(
     val fillEmpty: Boolean,
     val emptyMaterial: Material,
     val sortOrder: Int,
-    val filter: MarketCategoryFilter = MarketCategoryFilter.ALL  // Filter to determine which items show
+    val filter: MarketCategoryFilter = MarketCategoryFilter.ALL,  // Filter to determine which items show (FILTER mode)
+    val isManualMode: Boolean = false,  // Whether this category uses manual items
+    val manualItems: List<ManualShopItem> = emptyList()  // Items for MANUAL mode
 )
+
+/**
+ * Represents an item in a MANUAL mode category.
+ * Supports both vanilla items and custom items with full NBT serialization.
+ */
+data class ManualShopItem(
+    /** Unique identifier for this item */
+    val id: String,
+    
+    /** The base material type */
+    val material: Material,
+    
+    /** Display name for reference */
+    val displayName: String,
+    
+    /** Buy price (what players pay) */
+    val buyPrice: Double,
+    
+    /** Sell price (what players receive) */
+    val sellPrice: Double,
+    
+    /** Slot position in the category (-1 = auto-assign) */
+    val slot: Int = -1,
+    
+    /** Whether this item is enabled */
+    val enabled: Boolean = true,
+    
+    /** Whether this is a custom item with NBT data */
+    val isCustomItem: Boolean = false,
+    
+    /** Base64-encoded ItemStack data (only for custom items) */
+    val serializedData: String? = null,
+    
+    /** Permission required to buy this item */
+    val permission: String = "",
+    
+    /** Stock limit per player (-1 = unlimited) */
+    val stockLimit: Int = -1
+) {
+    /**
+     * Get the ItemStack for this shop item.
+     * For custom items, deserializes from Base64.
+     * For vanilla items, creates a new ItemStack.
+     */
+    fun toItemStack(amount: Int = 1): ItemStack {
+        return if (isCustomItem && serializedData != null) {
+            deserializeItem(serializedData)?.clone()?.apply { this.amount = amount } 
+                ?: ItemStack(material, amount)
+        } else {
+            ItemStack(material, amount)
+        }
+    }
+    
+    /**
+     * Check if this item matches another ItemStack for selling.
+     */
+    fun matches(itemStack: ItemStack): Boolean {
+        if (itemStack.type != material) return false
+        
+        if (!isCustomItem) {
+            // For vanilla items, just match material and no custom data
+            val meta = itemStack.itemMeta ?: return true
+            return !meta.hasDisplayName() && !meta.hasCustomModelData()
+        }
+        
+        // For custom items, compare serialized data
+        val otherSerialized = serializeItem(itemStack)
+        return serializedData == otherSerialized
+    }
+    
+    companion object {
+        /**
+         * Serialize an ItemStack to Base64 string.
+         */
+        fun serializeItem(itemStack: ItemStack): String {
+            return try {
+                java.io.ByteArrayOutputStream().use { outputStream ->
+                    org.bukkit.util.io.BukkitObjectOutputStream(outputStream).use { dataOutput ->
+                        dataOutput.writeObject(itemStack)
+                    }
+                    org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder.encodeLines(outputStream.toByteArray())
+                }
+            } catch (e: Exception) {
+                // Fallback: try YAML serialization
+                val yaml = org.bukkit.configuration.file.YamlConfiguration()
+                yaml.set("item", itemStack)
+                org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder.encodeLines(yaml.saveToString().toByteArray())
+            }
+        }
+        
+        /**
+         * Deserialize an ItemStack from Base64 string.
+         */
+        fun deserializeItem(data: String): ItemStack? {
+            return try {
+                val bytes = org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder.decodeLines(data)
+                java.io.ByteArrayInputStream(bytes).use { inputStream ->
+                    org.bukkit.util.io.BukkitObjectInputStream(inputStream).use { dataInput ->
+                        dataInput.readObject() as ItemStack
+                    }
+                }
+            } catch (e: Exception) {
+                // Try YAML fallback
+                try {
+                    val bytes = org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder.decodeLines(data)
+                    val yaml = org.bukkit.configuration.file.YamlConfiguration()
+                    yaml.loadFromString(String(bytes))
+                    yaml.getItemStack("item")
+                } catch (e2: Exception) {
+                    null
+                }
+            }
+        }
+    }
+}
 
 /**
  * Slot configuration for the main menu.

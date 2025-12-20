@@ -137,7 +137,7 @@ class CustomShopManager(private val plugin: Endex) {
     
     /**
      * Parse categories from config.
-     * Categories auto-populate items from items.yml based on the filter setting.
+     * Categories can be FILTER mode (auto-populate from items.yml) or MANUAL mode (custom items list).
      */
     private fun parseCategories(config: YamlConfiguration): Map<String, ShopCategory> {
         val categories = mutableMapOf<String, ShopCategory>()
@@ -146,6 +146,17 @@ class CustomShopManager(private val plugin: Endex) {
         var sortOrder = 0
         for (key in section.getKeys(false)) {
             val catSection = section.getConfigurationSection(key) ?: continue
+            
+            // Check if this is a MANUAL mode category
+            val modeStr = catSection.getString("mode", "FILTER")?.uppercase() ?: "FILTER"
+            val isManualMode = modeStr == "MANUAL"
+            
+            // Parse manual items if in MANUAL mode
+            val manualItems = if (isManualMode) {
+                parseManualItems(catSection)
+            } else {
+                emptyList()
+            }
             
             categories[key] = ShopCategory(
                 id = key,
@@ -164,11 +175,52 @@ class CustomShopManager(private val plugin: Endex) {
                     MarketCategoryFilter.valueOf(catSection.getString("filter", "ALL")?.uppercase() ?: "ALL")
                 } catch (e: IllegalArgumentException) {
                     MarketCategoryFilter.ALL
-                }
+                },
+                // Manual mode settings
+                isManualMode = isManualMode,
+                manualItems = manualItems
             )
         }
         
         return categories
+    }
+    
+    /**
+     * Parse manual items from a category configuration.
+     * These are custom items with optional NBT serialization.
+     */
+    private fun parseManualItems(catSection: org.bukkit.configuration.ConfigurationSection): List<ManualShopItem> {
+        val items = mutableListOf<ManualShopItem>()
+        val itemsList = catSection.getMapList("items")
+        
+        for (itemMap in itemsList) {
+            try {
+                val id = itemMap["id"]?.toString() ?: continue
+                val materialName = itemMap["material"]?.toString() ?: continue
+                val material = Material.matchMaterial(materialName) ?: continue
+                
+                val item = ManualShopItem(
+                    id = id,
+                    material = material,
+                    displayName = itemMap["display-name"]?.toString() ?: material.name,
+                    buyPrice = (itemMap["buy-price"] as? Number)?.toDouble() ?: 100.0,
+                    sellPrice = (itemMap["sell-price"] as? Number)?.toDouble() ?: 50.0,
+                    slot = (itemMap["slot"] as? Number)?.toInt() ?: -1,
+                    enabled = itemMap["enabled"] as? Boolean ?: true,
+                    isCustomItem = itemMap["is-custom"] as? Boolean ?: false,
+                    serializedData = itemMap["serialized-data"]?.toString(),
+                    permission = itemMap["permission"]?.toString() ?: "",
+                    stockLimit = (itemMap["stock-limit"] as? Number)?.toInt() ?: -1
+                )
+                
+                items.add(item)
+                plugin.logger.info("[Shop] Loaded manual item: ${item.id} (${item.displayName})")
+            } catch (e: Exception) {
+                plugin.logger.warning("[Shop] Failed to parse manual item: ${e.message}")
+            }
+        }
+        
+        return items
     }
     
     /**

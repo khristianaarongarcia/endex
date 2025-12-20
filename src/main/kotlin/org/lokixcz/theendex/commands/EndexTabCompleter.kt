@@ -20,6 +20,7 @@ class EndexTabCompleter : TabCompleter {
         
         if (sender.hasPermission("theendex.admin")) {
             commands.add("reload")
+            commands.add("shopedit")
             // webui already in base; keep for clarity
         }
         

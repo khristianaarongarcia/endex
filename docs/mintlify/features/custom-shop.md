@@ -6,7 +6,7 @@ description: "Create EconomyShopGUI-style category-based shops with custom layou
 # Custom Shop System
 
 <Info>
-Available since v1.6.0. Enhanced in v1.5.4 with filter-based categories and Holdings/Sort buttons.
+Available since v1.5.0. Enhanced in v1.5.4 with filter-based categories and Holdings/Sort buttons. Layout Editor fixed in v1.5.6.
 </Info>
 
 ## Overview
@@ -20,6 +20,7 @@ The Custom Shop System provides an alternative to the default scrollable market 
 - **Holdings button** - Access virtual holdings from any category page (v1.5.4+)
 - **Sort button** - Sort items by Name, Price, or Change within categories (v1.5.4+)
 - **Custom layouts** - Full control over slot positions, decorations, and borders
+- **In-game Layout Editor** - Visual GUI editor for shop layouts (v1.5.6 fixes)
 - **Market price integration** - Items automatically use dynamic market prices
 - **Fixed prices** - Override specific items with static buy/sell prices
 - **Multiple shops** - Create different shops for different purposes
@@ -360,6 +361,62 @@ shop:
     next-page-slot: 50
     admin-edit: true        # Allow admin shift-click editing
 ```
+
+## In-Game Layout Editor (v1.5.6)
+
+<Info>
+The Layout Editor received a complete overhaul in v1.5.6 fixing all major issues with editing, saving, and mode switching.
+</Info>
+
+The Layout Editor provides a visual GUI for creating and editing shop layouts without touching config files.
+
+### Opening the Editor
+
+```
+/endex shop editor <shop-id>
+```
+
+Example: `/endex shop editor main`
+
+### Editor Modes
+
+The editor has 5 modes, selected via the bottom toolbar:
+
+| Mode | Description |
+|------|-------------|
+| **Place Category** | Click an empty slot to place a category icon |
+| **Place Decoration** | Click an empty slot to place decorative items |
+| **Place Button** | Click an empty slot to place navigation buttons |
+| **Edit Slot** | Click any existing item to modify its name/lore |
+| **Remove Slot** | Click any existing item to delete it |
+
+### Editing Names & Lores
+
+1. Switch to **Edit Slot** mode (pencil icon)
+2. **Right-click** any existing item
+3. Type the new **name** in chat (or "skip" to keep current)
+4. Type the new **lore** in chat (lines separated by `|`)
+5. Changes appear immediately in the preview
+
+<Warning>
+Remember to click **Save** before closing the editor! Unsaved changes are preserved while navigating within the editor but lost on close.
+</Warning>
+
+### Toolbar Buttons
+
+| Slot | Button | Function |
+|------|--------|----------|
+| 45 | 💾 Save | Save layout to config file |
+| 46 | ❌ Cancel | Discard changes and close |
+| 47-51 | Mode buttons | Switch editor mode |
+| 53 | ℹ️ Help | Show editor instructions |
+
+### Tips
+
+- **Left-click** existing items to use their default action (depends on mode)
+- **Right-click** existing items in Edit mode opens name/lore prompt
+- Changes are preserved when selecting categories or buttons from sub-menus
+- The editor uses a distinct red title prefix (`§4§l⚙`) to avoid conflicts with the player shop
 
 ## Multiple Shops
 

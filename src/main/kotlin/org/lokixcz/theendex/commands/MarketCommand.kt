@@ -44,6 +44,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             "holdings" -> handleHoldings(sender, args)
             "shop" -> handleShop(sender, args)  // New: Direct shop access
             "default", "stock" -> handleDefaultMarket(sender)  // New: Force default market
+            "editor" -> handleEditor(sender)  // New: Shop editor
             // Admin item management commands
             "add" -> handleAddItem(sender, args)
             "remove" -> handleRemoveItem(sender, args)
@@ -93,6 +94,30 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         plugin.marketGUI.open(sender)
         return true
     }
+    
+    /**
+     * Open shop editor GUI (/market editor).
+     */
+    private fun handleEditor(sender: CommandSender): Boolean {
+        if (sender !is Player) {
+            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            return true
+        }
+        
+        if (!sender.hasPermission("endex.shop.editor")) {
+            sender.sendMessage("${ChatColor.RED}You don't have permission to use the shop editor.")
+            return true
+        }
+        
+        val editor = plugin.shopEditorGUI
+        if (editor == null) {
+            sender.sendMessage("${ChatColor.RED}Shop editor is not available.")
+            return true
+        }
+        
+        editor.openShopManager(sender)
+        return true
+    }
 
     private fun handleHelp(sender: CommandSender): Boolean {
         sender.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
@@ -127,6 +152,9 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             sender.sendMessage("${ChatColor.YELLOW}/market event <name> ${ChatColor.GRAY}- Trigger an event")
             sender.sendMessage("${ChatColor.YELLOW}/market event end <name> ${ChatColor.GRAY}- End an event")
             sender.sendMessage("${ChatColor.YELLOW}/market event clear ${ChatColor.GRAY}- Clear all events")
+            sender.sendMessage("")
+            sender.sendMessage("${ChatColor.RED}Admin Shop Editor:")
+            sender.sendMessage("${ChatColor.YELLOW}/market editor ${ChatColor.GRAY}- Open shop editor GUI")
             sender.sendMessage("")
             sender.sendMessage("${ChatColor.RED}Admin Item Management:")
             sender.sendMessage("${ChatColor.YELLOW}/market add <item> <base> [min] [max] ${ChatColor.GRAY}- Add item")

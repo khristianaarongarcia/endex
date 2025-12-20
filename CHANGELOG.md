@@ -7,6 +7,28 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.6] - 2025-12-21
+### Added
+- **In-Game Layout Editor:** Complete visual GUI editor for custom shop layouts — no config editing required!
+  - Open with `/endex shop editor <shop-id>` (e.g., `/endex shop editor main`)
+  - **5 Editor Modes:** Place Category, Place Decoration, Place Button, Edit Slot, Remove Slot
+  - **Custom Items Support:** Add any material as decoration or custom items with personalized names and lores
+  - **Visual Preview:** See changes in real-time before saving
+  - **Right-Click Editing:** Right-click any placed item to customize its display name and lore
+  - **Chained Prompts:** Edit name then lore in sequence via chat input
+  - **State Preservation:** Navigate between editor dialogs without losing unsaved changes
+  - **One-Click Save:** Save button writes layout directly to shop config file
+
+- **Custom Category Icons:** Categories can now have fully customized display names and lores
+  - Set via layout editor or directly in shop config
+  - Custom names/lores display correctly in `/market` player view
+
+### Technical
+- `TITLE_PREFIX = "§4§l⚙ "` distinguishes editor GUIs from player shop GUIs
+- `reopenLayoutEditor()` preserves `tempLayout` and `unsavedChanges` state across dialogs
+- Mode priority system ensures Edit/Remove modes work on existing items
+- Chained text input via `pendingInputType` for name → lore flow
+
 ## [1.5.5] - 2025-12-20
 ### Fixed
 - **Economy Plugin Compatibility:** Fixed "Economy unavailable" error with late-loading economy plugins (SimpleEconomy, etc.)

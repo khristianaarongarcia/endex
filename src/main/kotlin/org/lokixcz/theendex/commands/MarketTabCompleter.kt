@@ -8,7 +8,7 @@ import org.bukkit.entity.Player
 
 class MarketTabCompleter : TabCompleter {
     private val sub = listOf("buy", "sell", "price", "top", "event", "holdings", "withdraw", "delivery", "invest", "shop", "stock", "help")
-    private val adminSub = listOf("add", "remove", "setbase", "setmin", "setmax", "setprice", "enable", "disable", "items")
+    private val adminSub = listOf("add", "remove", "setbase", "setmin", "setmax", "setprice", "enable", "disable", "items", "editor")
     private val amounts = listOf("1", "8", "16", "32", "64", "128", "256")
     private val priceAmounts = listOf("1", "5", "10", "25", "50", "100", "500", "1000")
     private val deliverySub = listOf("list", "claim", "claim-all", "gui")

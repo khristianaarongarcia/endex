@@ -17,8 +17,32 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
 import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.gui.MarketActions
+import org.lokixcz.theendex.market.CustomItemConfig
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import java.util.*
+
+/**
+ * Represents an item in the shop - can be either vanilla (Material) or custom (with NBT).
+ */
+sealed class ShopDisplayItem {
+    /** Vanilla item - just a Material from the market */
+    data class Vanilla(val mat: Material) : ShopDisplayItem()
+    
+    /** Custom item with full NBT data from items.yml custom-items section */
+    data class Custom(val config: CustomItemConfig) : ShopDisplayItem()
+    
+    /** Get the material for sorting/filtering purposes */
+    fun getMaterial(): Material = when (this) {
+        is Vanilla -> mat
+        is Custom -> config.material
+    }
+    
+    /** Get display name for sorting/search */
+    fun getDisplayName(): String = when (this) {
+        is Vanilla -> MarketActions.prettyName(mat)
+        is Custom -> config.displayName
+    }
+}
 
 /**
  * Custom Shop GUI - EconomyShopGUI-style category-based shop interface.
@@ -50,6 +74,9 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
     
     // Track players waiting for search input
     private val awaitingSearchInput: MutableSet<UUID> = mutableSetOf()
+    
+    // Track custom items being displayed for click handling
+    private val displayedCustomItems: MutableMap<UUID, MutableMap<Int, CustomItemConfig>> = mutableMapOf()
     
     /**
      * Get the CustomShopManager from plugin.
@@ -140,7 +167,7 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
                 MenuSlotType.CATEGORY -> {
                     val category = shop.categories[slotConfig.categoryId]
                     if (category != null) {
-                        createCategoryIcon(category)
+                        createCategoryIcon(category, slotConfig.name, slotConfig.lore)
                     } else null
                 }
                 MenuSlotType.DECORATION -> {
@@ -183,6 +210,10 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
     
     /**
      * Open a category page.
+     * 
+     * In FILTER mode, this shows:
+     * 1. Vanilla items from market that match the category filter
+     * 2. Custom items from items.yml that have matching category-filter
      */
     fun openCategory(player: Player, shopId: String, categoryId: String, page: Int = 0, amountIdx: Int? = null, search: String? = null, sort: SortBy? = null) {
         val manager = shopManager() ?: return
@@ -195,46 +226,90 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         val actualSearch = search ?: existingState?.search ?: ""
         val actualSort = sort ?: existingState?.sort ?: SortBy.NAME
         
-        // Get items from market based on filter - all categories auto-populate from items.yml
-        var materials: List<Material> = MarketActions.getMarketItemsByFilter(plugin, category.filter)
+        // Get items based on category mode
+        val isManual = category.isManualMode
+        
+        // Build the list of items to display (both vanilla and custom)
+        var displayItems: List<ShopDisplayItem> = if (isManual) {
+            // MANUAL mode: Get items from manually configured items in shop YAML
+            category.manualItems.filter { it.enabled }.map { ShopDisplayItem.Vanilla(it.material) }
+        } else {
+            // FILTER mode: Get vanilla items from market + custom items from items.yml
+            val vanillaItems = MarketActions.getMarketItemsByFilter(plugin, category.filter)
+                .map { ShopDisplayItem.Vanilla(it) }
+            
+            // Also get custom items that match this category's filter
+            val filterName = category.filter.name
+            val customItems = plugin.itemsConfigManager.getCustomItemsByFilter(filterName)
+                .map { ShopDisplayItem.Custom(it) }
+            
+            // Also include custom items specifically assigned to this shop/category
+            val categoryCustomItems = plugin.itemsConfigManager.getCustomItemsForCategory(shopId, categoryId)
+                .map { ShopDisplayItem.Custom(it) }
+            
+            // Combine all items (dedupe by ID for custom items)
+            val allCustom = (customItems + categoryCustomItems).distinctBy { 
+                (it as ShopDisplayItem.Custom).config.id 
+            }
+            
+            vanillaItems + allCustom
+        }
         
         // Apply search filter if set
         if (actualSearch.isNotBlank()) {
-            materials = materials.filter { 
-                it.name.contains(actualSearch, ignoreCase = true) ||
-                MarketActions.prettyName(it).contains(actualSearch, ignoreCase = true)
+            displayItems = displayItems.filter { item ->
+                item.getDisplayName().contains(actualSearch, ignoreCase = true) ||
+                item.getMaterial().name.contains(actualSearch, ignoreCase = true)
             }
         }
         
         // Apply sorting
-        materials = when (actualSort) {
-            SortBy.NAME -> materials.sortedBy { MarketActions.prettyName(it).lowercase() }
-            SortBy.PRICE -> materials.sortedByDescending { plugin.marketManager.get(it)?.currentPrice ?: 0.0 }
-            SortBy.CHANGE -> materials.sortedByDescending { 
-                val mi = plugin.marketManager.get(it) ?: return@sortedByDescending 0.0
-                val history = mi.history.toList()
-                if (history.size < 2) 0.0
-                else {
-                    val prev = history[history.lastIndex - 1].price
-                    val curr = history.last().price
-                    if (prev != 0.0) (curr - prev) / prev * 100.0 else 0.0
+        displayItems = when (actualSort) {
+            SortBy.NAME -> displayItems.sortedBy { it.getDisplayName().lowercase() }
+            SortBy.PRICE -> displayItems.sortedByDescending { item ->
+                when (item) {
+                    is ShopDisplayItem.Vanilla -> plugin.marketManager.get(item.mat)?.currentPrice ?: 0.0
+                    is ShopDisplayItem.Custom -> item.config.basePrice
+                }
+            }
+            SortBy.CHANGE -> displayItems.sortedByDescending { item ->
+                when (item) {
+                    is ShopDisplayItem.Vanilla -> {
+                        val mi = plugin.marketManager.get(item.mat) ?: return@sortedByDescending 0.0
+                        val history = mi.history.toList()
+                        if (history.size < 2) 0.0
+                        else {
+                            val prev = history[history.lastIndex - 1].price
+                            val curr = history.last().price
+                            if (prev != 0.0) (curr - prev) / prev * 100.0 else 0.0
+                        }
+                    }
+                    is ShopDisplayItem.Custom -> 0.0  // Custom items don't have price history yet
                 }
             }
         }
         
         val itemsPerPage = manager.itemsPerPage
-        val totalPages = if (materials.isEmpty()) 1 else ((materials.size - 1) / itemsPerPage + 1)
+        val totalPages = if (displayItems.isEmpty()) 1 else ((displayItems.size - 1) / itemsPerPage + 1)
         val safePage = page.coerceIn(0, totalPages - 1)
         
         // Calculate page items
         val from = safePage * itemsPerPage
-        val to = (from + itemsPerPage).coerceAtMost(materials.size)
-        val pageItems = if (from < materials.size) materials.subList(from, to) else emptyList()
+        val to = (from + itemsPerPage).coerceAtMost(displayItems.size)
+        val pageItems = if (from < displayItems.size) displayItems.subList(from, to) else emptyList()
+        
+        // For MANUAL mode, we also need the ManualShopItem data for custom items
+        val manualItemsMap = if (isManual) {
+            category.manualItems.associateBy { it.material }
+        } else {
+            emptyMap()
+        }
         
         // Create title with page indicator, sort, and search info
+        val modeIndicator = if (isManual) "${ChatColor.GOLD}[M] " else ""
         val sortInfo = "[${actualSort.name}]"
         val searchInfo = if (actualSearch.isNotBlank()) " ${ChatColor.YELLOW}[${actualSearch}]" else ""
-        val title = "${category.pageTitle} ${ChatColor.DARK_GRAY}$sortInfo (${safePage + 1}/$totalPages)$searchInfo"
+        val title = "$modeIndicator${category.pageTitle} ${ChatColor.DARK_GRAY}$sortInfo (${safePage + 1}/$totalPages)$searchInfo"
         val inv = Bukkit.createInventory(null, category.pageSize, title)
         
         // Fill empty slots if enabled
@@ -248,18 +323,41 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         // Create state now so item creation can access amount
         val state = ShopPageState.category(shopId, categoryId, safePage, actualAmountIdx, actualSearch, actualSort)
         
-        // Place items - use MarketActions.createMarketItem for consistent display
+        // Clear and rebuild custom items tracking for this player
+        displayedCustomItems[player.uniqueId] = mutableMapOf()
+        
+        // Place items
         val slots = category.itemSlots.toList()
-        pageItems.forEachIndexed { idx, material ->
+        pageItems.forEachIndexed { idx, item ->
             val slot = if (idx < slots.size) {
                 slots[idx]
             } else {
                 return@forEachIndexed
             }
             
-            // Use MarketActions for consistent item display (same as default MarketGUI)
-            val itemStack = MarketActions.createMarketItem(plugin, player, material, state.getAmount())
-            inv.setItem(slot, itemStack)
+            when (item) {
+                is ShopDisplayItem.Vanilla -> {
+                    if (isManual) {
+                        // MANUAL mode: Use custom item data with full NBT support
+                        val manualItem = manualItemsMap[item.mat]
+                        if (manualItem != null) {
+                            val itemStack = createManualShopItem(player, manualItem, state.getAmount())
+                            inv.setItem(slot, itemStack)
+                        }
+                    } else {
+                        // FILTER mode: Use MarketActions for consistent item display
+                        val itemStack = MarketActions.createMarketItem(plugin, player, item.mat, state.getAmount())
+                        inv.setItem(slot, itemStack)
+                    }
+                }
+                is ShopDisplayItem.Custom -> {
+                    // Custom item from items.yml - create display with pricing info
+                    val itemStack = createCustomShopItem(player, item.config, state.getAmount())
+                    inv.setItem(slot, itemStack)
+                    // Track this custom item for click handling
+                    displayedCustomItems[player.uniqueId]?.set(slot, item.config)
+                }
+            }
         }
         
         // Navigation buttons
@@ -295,7 +393,7 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
             } else {
                 listOf(
                     "${ChatColor.GRAY}Current: ${ChatColor.AQUA}$actualSearch",
-                    "${ChatColor.GRAY}Found: ${ChatColor.WHITE}${materials.size} items",
+                    "${ChatColor.GRAY}Found: ${ChatColor.WHITE}${displayItems.size} items",
                     "",
                     "${ChatColor.YELLOW}Left-click: ${ChatColor.WHITE}New search",
                     "${ChatColor.RED}Right-click: ${ChatColor.WHITE}Clear search"
@@ -379,16 +477,23 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
      * Create a category icon ItemStack.
      * Shows item count from market based on filter.
      */
-    private fun createCategoryIcon(category: ShopCategory): ItemStack {
+    private fun createCategoryIcon(category: ShopCategory, customName: String? = null, customLore: List<String>? = null): ItemStack {
         val item = ItemStack(category.icon)
         val meta = item.itemMeta ?: return item
-        meta.setDisplayName(category.iconName)
+        
+        // Use custom name from layout if provided, otherwise category default
+        meta.setDisplayName(customName ?: category.iconName)
         
         // Get item count based on filter (all categories use market items)
         val itemCount = MarketActions.getMarketItemsByFilter(plugin, category.filter).size
         
         val lore = mutableListOf<String>()
-        lore.addAll(category.iconLore)
+        // Use custom lore from layout if provided, otherwise category default
+        if (customLore != null && customLore.isNotEmpty()) {
+            lore.addAll(customLore)
+        } else {
+            lore.addAll(category.iconLore)
+        }
         lore.add("")
         lore.add("${ChatColor.GRAY}$itemCount items")
         lore.add("${ChatColor.YELLOW}Click to browse")
@@ -450,6 +555,174 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
     }
     
     /**
+     * Create a shop item for MANUAL mode categories.
+     * Uses the custom item data including full NBT serialization for custom items.
+     */
+    private fun createManualShopItem(player: Player, item: ManualShopItem, amount: Int): ItemStack {
+        // Get the actual ItemStack - either deserialized custom or vanilla
+        val itemStack = item.toItemStack(amount)
+        val meta = itemStack.itemMeta ?: return itemStack
+        
+        // Get dynamic price from market if available, otherwise use static price
+        val marketItem = plugin.marketManager.get(item.material)
+        val currentPrice = marketItem?.currentPrice ?: item.buyPrice
+        val sellPrice = item.sellPrice
+        
+        // Build lore - preserve original lore for custom items, then add market info
+        val lore = mutableListOf<String>()
+        
+        // Preserve original lore from custom items
+        if (item.isCustomItem) {
+            meta.lore?.let { originalLore ->
+                lore.addAll(originalLore)
+                lore.add("")  // Separator
+            }
+        }
+        
+        // Add market info
+        lore.add("${ChatColor.DARK_GRAY}────────────────")
+        lore.add("")
+        lore.add("${ChatColor.GREEN}Buy Price: ${ChatColor.WHITE}${formatPrice(currentPrice * amount)}")
+        lore.add("${ChatColor.RED}Sell Price: ${ChatColor.WHITE}${formatPrice(sellPrice * amount)}")
+        lore.add("")
+        
+        // Show dynamic price info if using market prices
+        if (marketItem != null) {
+            val change = if (marketItem.history.size >= 2) {
+                val prev = marketItem.history.toList()[marketItem.history.size - 2].price
+                val curr = marketItem.currentPrice
+                if (prev != 0.0) (curr - prev) / prev * 100.0 else 0.0
+            } else 0.0
+            
+            val changeColor = if (change >= 0) ChatColor.GREEN else ChatColor.RED
+            val changeSymbol = if (change >= 0) "▲" else "▼"
+            lore.add("${ChatColor.GRAY}Change: $changeColor$changeSymbol ${String.format("%.1f", kotlin.math.abs(change))}%")
+            lore.add("")
+        }
+        
+        // Permission warning
+        if (item.permission.isNotEmpty() && !player.hasPermission(item.permission)) {
+            lore.add("${ChatColor.RED}⚠ Requires: ${item.permission}")
+            lore.add("")
+        }
+        
+        // Click instructions
+        lore.add("${ChatColor.YELLOW}Left-click: ${ChatColor.WHITE}Buy x$amount")
+        lore.add("${ChatColor.YELLOW}Right-click: ${ChatColor.WHITE}Sell x$amount")
+        lore.add("${ChatColor.YELLOW}Shift-click: ${ChatColor.WHITE}Quick sell all")
+        lore.add("")
+        lore.add("${ChatColor.DARK_GRAY}────────────────")
+        
+        meta.lore = lore
+        itemStack.itemMeta = meta
+        
+        return itemStack
+    }
+    
+    /**
+     * Create a shop item for custom items from items.yml.
+     * Uses the serialized ItemStack data and adds market pricing info.
+     */
+    private fun createCustomShopItem(player: Player, config: CustomItemConfig, amount: Int): ItemStack {
+        // Deserialize the original ItemStack
+        val originalItem = config.toItemStack() ?: ItemStack(config.material, amount)
+        val itemStack = originalItem.clone()
+        itemStack.amount = amount.coerceIn(1, 64)
+        
+        val meta = itemStack.itemMeta ?: return itemStack
+        
+        // Get dynamic price from market if available (for custom items with matching material)
+        val marketItem = plugin.marketManager.get(config.material)
+        val current = marketItem?.currentPrice ?: config.basePrice
+        val sellPrice = config.sellPrice
+        
+        // Calculate price change
+        val list = marketItem?.history?.toList() ?: emptyList()
+        val prev = if (list.size >= 2) list[list.lastIndex - 1].price else current
+        val diff = current - prev
+        val pct = if (prev != 0.0) (diff / prev * 100.0) else 0.0
+        val arrow = when {
+            diff > 0.0001 -> "${ChatColor.GREEN}↑"
+            diff < -0.0001 -> "${ChatColor.RED}↓"
+            else -> "${ChatColor.YELLOW}→"
+        }
+        
+        // Calculate buy/sell prices with spread
+        val spreadEnabled = plugin.config.getBoolean("spread.enabled", true)
+        val buyMarkupPct = if (spreadEnabled) plugin.config.getDouble("spread.buy-markup-percent", 1.5).coerceAtLeast(0.0) else 0.0
+        val sellMarkdownPct = if (spreadEnabled) plugin.config.getDouble("spread.sell-markdown-percent", 1.5).coerceAtLeast(0.0) else 0.0
+        
+        // Get event multiplier
+        val mul = plugin.eventManager.multiplierFor(config.material)
+        val effectivePrice = current * mul
+        val buyPrice = effectivePrice * (1.0 + buyMarkupPct / 100.0)
+        val effectiveSellPrice = sellPrice * mul * (1.0 - sellMarkdownPct / 100.0)
+        
+        // Player stats
+        val bal = plugin.economy?.getBalance(player) ?: 0.0
+        val invCount = player.inventory.contents.filterNotNull()
+            .filter { it.type == config.material }
+            .sumOf { it.amount }
+        
+        // Build lore - preserve original lore, then add market info
+        val lore = mutableListOf<String>()
+        
+        // Preserve original lore from custom items
+        meta.lore?.let { originalLore ->
+            lore.addAll(originalLore)
+            lore.add("")  // Separator
+        }
+        
+        // Add market info in standard format
+        lore.add("${ChatColor.GRAY}Price: ${ChatColor.GREEN}${format(current)} ${ChatColor.GRAY}($arrow ${format(diff)}, ${formatPct(pct)})")
+        
+        // Show buy/sell prices with spread
+        if (spreadEnabled && (buyMarkupPct > 0 || sellMarkdownPct > 0)) {
+            lore.add("${ChatColor.GREEN}Buy: ${format(buyPrice)} ${ChatColor.GRAY}| ${ChatColor.YELLOW}Sell: ${format(effectiveSellPrice)}")
+        }
+        
+        // Show demand/supply if we have market data
+        if (marketItem != null) {
+            val ds = marketItem.lastDemand - marketItem.lastSupply
+            val sens = plugin.config.getDouble("price-sensitivity", 0.05)
+            val estPct = ds * sens * 100.0
+            lore.add("${ChatColor.DARK_GRAY}Last cycle: ${ChatColor.GRAY}D ${format(marketItem.lastDemand)} / S ${format(marketItem.lastSupply)} (${formatPct(estPct)})")
+            
+            if (mul != 1.0) {
+                lore.add("${ChatColor.DARK_AQUA}Event: x${format(mul)} ${ChatColor.GRAY}Eff: ${ChatColor.GREEN}${format(effectivePrice)}")
+            }
+            
+            lore.add("${ChatColor.DARK_GRAY}Min ${format(marketItem.minPrice)}  Max ${format(marketItem.maxPrice)}")
+            
+            val last5 = marketItem.history.takeLast(5).map { String.format("%.2f", it.price) }
+            if (last5.isNotEmpty()) {
+                lore.add("${ChatColor.GRAY}History: ${last5.joinToString(" ${ChatColor.DARK_GRAY}| ${ChatColor.GRAY}")}")
+            }
+        } else {
+            // Static pricing for items not in market
+            lore.add("${ChatColor.DARK_GRAY}Static pricing (not tracked)")
+            if (mul != 1.0) {
+                lore.add("${ChatColor.DARK_AQUA}Event: x${format(mul)} ${ChatColor.GRAY}Eff: ${ChatColor.GREEN}${format(effectivePrice)}")
+            }
+        }
+        
+        // Click instructions & player info
+        lore.add("${ChatColor.DARK_GRAY}Left: Buy  Right: Sell  Amount: $amount")
+        lore.add("${ChatColor.DARK_GRAY}Shift/Middle-click: Details")
+        lore.add("${ChatColor.GRAY}You have: ${ChatColor.AQUA}$invCount ${config.material.name}")
+        lore.add("${ChatColor.GRAY}Balance: ${ChatColor.GOLD}${format(bal)}")
+        
+        // Custom item indicator
+        lore.add("")
+        lore.add("${ChatColor.LIGHT_PURPLE}✦ Custom Item")
+        
+        meta.lore = lore
+        itemStack.itemMeta = meta
+        
+        return itemStack
+    }
+    
+    /**
      * Create a filler/decoration item.
      */
     private fun createFillerItem(material: Material): ItemStack {
@@ -502,17 +775,22 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
     fun onInventoryClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
         
+        // Skip if this is a shop editor GUI (editor has priority)
+        val title = event.view.title
+        if (title.startsWith("§4§l⚙ ")) return
+        
         // Check if this player has our GUI open using UUID tracking (reliable across MC versions)
         val guiType = openGuis[player.uniqueId]
         if (guiType == null || guiType == GuiType.NONE) return
         
-        // Cancel the event FIRST to prevent item taking/moving in all cases
-        event.isCancelled = true
-        
-        // Only block if clicking in player's bottom inventory (not the GUI)
+        // Allow player inventory interaction (hotbar, etc.)
+        // Check this BEFORE cancelling the event
         if (event.rawSlot >= event.view.topInventory.size) {
-            return
+            return  // Don't cancel - allow normal inventory interaction
         }
+        
+        // Cancel the event to prevent item taking/moving in the shop GUI
+        event.isCancelled = true
         
         // Block all item movement actions EXCEPT shift-left-click (for details view)
         // This matches the default MarketGUI behavior exactly
@@ -647,7 +925,38 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         val mat = item.type
         if (mat == Material.AIR) return
         
-        // CRITICAL: Only handle items that exist in the market
+        // Check if this is a custom item first
+        val customItem = displayedCustomItems[player.uniqueId]?.get(slot)
+        
+        if (customItem != null) {
+            // Handle custom item click - these items may not be in the market
+            val amount = state.getAmount()
+            
+            when {
+                click == ClickType.SHIFT_LEFT || click == ClickType.MIDDLE -> {
+                    // For custom items, we can't use the details view since it requires market data
+                    // Show a message with item info instead
+                    player.sendMessage("${ChatColor.LIGHT_PURPLE}✦ ${ChatColor.WHITE}${customItem.displayName}")
+                    player.sendMessage("${ChatColor.GREEN}Buy: ${ChatColor.WHITE}${formatPrice(customItem.basePrice * amount)} ${ChatColor.GRAY}| ${ChatColor.RED}Sell: ${ChatColor.WHITE}${formatPrice(customItem.sellPrice * amount)}")
+                    playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING.name)
+                }
+                click == ClickType.LEFT || click.isLeftClick -> {
+                    // Buy custom item
+                    buyCustomItem(player, customItem, amount) {
+                        openCategory(player, state.shopId, state.categoryId!!, state.page, state.amountIdx, state.search, state.sort)
+                    }
+                }
+                click == ClickType.RIGHT || click.isRightClick -> {
+                    // Sell custom item
+                    sellCustomItem(player, customItem, amount) {
+                        openCategory(player, state.shopId, state.categoryId!!, state.page, state.amountIdx, state.search, state.sort)
+                    }
+                }
+            }
+            return
+        }
+        
+        // CRITICAL: Only handle vanilla items that exist in the market
         // This matches the default MarketGUI behavior exactly
         if (!MarketActions.isInMarket(plugin, mat)) {
             return
@@ -871,6 +1180,10 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
     fun onInventoryDrag(event: InventoryDragEvent) {
         val player = event.whoClicked as? Player ?: return
         
+        // Skip if this is a shop editor GUI (editor has priority)
+        val title = event.view.title
+        if (title.startsWith("§4§l⚙ ")) return
+        
         // Check if this player has our GUI open using UUID tracking
         val guiType = openGuis[player.uniqueId]
         if (guiType == null || guiType == GuiType.NONE) return
@@ -959,6 +1272,130 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         return material.name.lowercase()
             .split('_')
             .joinToString(" ") { it.replaceFirstChar { c -> c.titlecase() } }
+    }
+    
+    /**
+     * Buy a custom item.
+     * Custom items are purchased at their configured base price.
+     * The actual item given is the full serialized ItemStack with NBT data.
+     */
+    private fun buyCustomItem(player: Player, config: CustomItemConfig, amount: Int, onComplete: () -> Unit) {
+        val economy = plugin.economy
+        if (economy == null) {
+            player.sendMessage("${ChatColor.RED}Economy system not available!")
+            onComplete()
+            return
+        }
+        
+        val totalPrice = config.basePrice * amount
+        val balance = economy.getBalance(player)
+        
+        if (balance < totalPrice) {
+            player.sendMessage("${ChatColor.RED}Not enough money! Need ${formatPrice(totalPrice)}, have ${formatPrice(balance)}")
+            playSound(player, Sound.ENTITY_VILLAGER_NO.name)
+            onComplete()
+            return
+        }
+        
+        // Check inventory space
+        if (player.inventory.firstEmpty() == -1) {
+            player.sendMessage("${ChatColor.RED}Your inventory is full!")
+            playSound(player, Sound.ENTITY_VILLAGER_NO.name)
+            onComplete()
+            return
+        }
+        
+        // Withdraw money
+        val result = economy.withdrawPlayer(player, totalPrice)
+        if (!result.transactionSuccess()) {
+            player.sendMessage("${ChatColor.RED}Transaction failed: ${result.errorMessage}")
+            onComplete()
+            return
+        }
+        
+        // Give the custom item
+        val itemStack = config.toItemStack()?.clone() ?: ItemStack(config.material, amount)
+        itemStack.amount = amount.coerceIn(1, 64)
+        
+        val leftover = player.inventory.addItem(itemStack)
+        if (leftover.isNotEmpty()) {
+            // Drop remaining items at player's feet
+            leftover.values.forEach { item ->
+                player.world.dropItem(player.location, item)
+            }
+        }
+        
+        player.sendMessage("${ChatColor.GREEN}Purchased ${ChatColor.WHITE}${amount}x ${config.displayName} ${ChatColor.GREEN}for ${ChatColor.WHITE}${formatPrice(totalPrice)}")
+        playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP.name)
+        
+        onComplete()
+    }
+    
+    /**
+     * Sell a custom item.
+     * Custom items are sold at their configured sell price.
+     * Requires the player to have a matching item in their inventory (with NBT data if applicable).
+     */
+    private fun sellCustomItem(player: Player, config: CustomItemConfig, amount: Int, onComplete: () -> Unit) {
+        val economy = plugin.economy
+        if (economy == null) {
+            player.sendMessage("${ChatColor.RED}Economy system not available!")
+            onComplete()
+            return
+        }
+        
+        // Find matching items in player inventory
+        // For custom items, we need to match the full serialized data
+        val templateItem = config.toItemStack()
+        var remaining = amount
+        val toRemove = mutableListOf<Pair<Int, Int>>()  // slot to amount
+        
+        for ((idx, invItem) in player.inventory.contents.withIndex()) {
+            if (invItem == null || invItem.type == Material.AIR) continue
+            
+            // Check if this item matches the custom item
+            val matches = if (config.serializedData.isNotEmpty() && templateItem != null) {
+                // Custom item - check if the item is similar (same type, name, lore, etc.)
+                invItem.isSimilar(templateItem)
+            } else {
+                // Vanilla-ish item - just match material
+                invItem.type == config.material
+            }
+            
+            if (matches) {
+                val take = minOf(invItem.amount, remaining)
+                toRemove.add(idx to take)
+                remaining -= take
+                if (remaining <= 0) break
+            }
+        }
+        
+        val actualSold = amount - remaining
+        if (actualSold == 0) {
+            player.sendMessage("${ChatColor.RED}You don't have any ${config.displayName} to sell!")
+            playSound(player, Sound.ENTITY_VILLAGER_NO.name)
+            onComplete()
+            return
+        }
+        
+        // Remove items from inventory
+        for ((slotIdx, takeAmount) in toRemove) {
+            val invItem = player.inventory.getItem(slotIdx) ?: continue
+            if (takeAmount >= invItem.amount) {
+                player.inventory.setItem(slotIdx, null)
+            } else {
+                invItem.amount -= takeAmount
+            }
+        }
+        
+        // Give money
+        val totalPrice = config.sellPrice * actualSold
+        economy.depositPlayer(player, totalPrice)
+        
+        player.sendMessage("${ChatColor.GREEN}Sold ${ChatColor.WHITE}${actualSold}x ${config.displayName} ${ChatColor.GREEN}for ${ChatColor.WHITE}${formatPrice(totalPrice)}")
+        playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP.name)
+        
+        onComplete()
     }
     
     /**
