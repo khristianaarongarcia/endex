@@ -12,13 +12,15 @@ import org.lokixcz.theendex.Endex
 class AliasCommand(
     name: String,
     private val targetCommand: String,
-    private val plugin: Endex
+    private val plugin: Endex,
+    customPermission: String? = null,
+    customDescription: String? = null
 ) : Command(name) {
     
     init {
-        description = "Alias for /$targetCommand"
+        description = customDescription ?: "Alias for /$targetCommand"
         usage = "/$name"
-        permission = null // Inherit permission from target command
+        permission = customPermission // Use custom permission if provided, otherwise inherit from target
     }
     
     override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean {

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "org.lokixcz"
-version = "1.5.6"
+version = "1.5.6-dec0759"
 
 repositories {
     mavenCentral()

@@ -7,6 +7,30 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.6-DEC0759] - 2025-12-28
+### Fixed
+- **Minecraft 1.20.1 Compatibility:** Lowered `api-version` from `'1.21'` to `'1.20'` to restore support for 1.20.1+ servers
+  - This was preventing the plugin from loading on Arclight and other 1.20.x servers
+
+## [1.5.6-DEC0338] - 2025-12-22
+### Fixed
+- **Plugin Data Folder:** Reverted plugin name back to `TheEndex` to keep data folder as `plugins/TheEndex/`
+  - Previous snapshot accidentally changed folder to `plugins/Endex/`, breaking existing configs
+
+## [1.5.6-DEC0252] - 2025-12-22
+### Fixed
+- **`/shop` Command:** Fixed `/shop` not working — command now properly registered as alias for `/market`
+- **GUI Conflict with Other Plugins:** Fixed issue where The Endex would intercept inventory clicks in other plugins' GUIs
+  - Added title verification to click/drag handlers to prevent intercepting non-Endex inventories
+  - Improved inventory close handler to properly clean up tracking when another plugin opens a GUI
+- **Command Alias Registration:** Fixed `CommandAliasManager` not reading the `shortcuts` section from `commands.yml`
+  - Now properly parses nested shortcut config (target, permission, description)
+
+### Changed
+- **Command Aliases:** Added built-in aliases in plugin.yml for better Bukkit registration
+  - `/market` aliases: `shop`, `m`, `trade`, `exchange`, `bazaar`
+  - `/endex` aliases: `ex`
+
 ## [1.5.6] - 2025-12-21
 ### Added
 - **In-Game Layout Editor:** Complete visual GUI editor for custom shop layouts — no config editing required!

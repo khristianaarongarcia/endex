@@ -33,24 +33,46 @@ class CommandAliasManager(private val plugin: Endex) {
             return
         }
         
-        val aliasesSection = config.getConfigurationSection("aliases") ?: return
-        
         // Get the command map via reflection
         val commandMap = getCommandMap() ?: run {
             plugin.logger.warning("[Commands] Could not access command map. Aliases will not work.")
             return
         }
         
-        for (alias in aliasesSection.getKeys(false)) {
-            val target = aliasesSection.getString(alias) ?: continue
-            
-            try {
-                val aliasCommand = AliasCommand(alias, target, plugin)
-                commandMap.register(plugin.name.lowercase(), aliasCommand)
-                registeredAliases.add(alias)
-                plugin.logger.info("[Commands] Registered alias: /$alias -> /$target")
-            } catch (e: Exception) {
-                plugin.logger.warning("[Commands] Failed to register alias /$alias: ${e.message}")
+        // Load shortcuts section (new format with target, permission, description)
+        val shortcutsSection = config.getConfigurationSection("shortcuts")
+        if (shortcutsSection != null) {
+            for (alias in shortcutsSection.getKeys(false)) {
+                val shortcutSection = shortcutsSection.getConfigurationSection(alias)
+                val target = shortcutSection?.getString("target") ?: continue
+                val permission = shortcutSection.getString("permission")
+                val description = shortcutSection.getString("description") ?: "Shortcut for /$target"
+                
+                try {
+                    val aliasCommand = AliasCommand(alias, target, plugin, permission, description)
+                    commandMap.register(plugin.name.lowercase(), aliasCommand)
+                    registeredAliases.add(alias)
+                    plugin.logger.info("[Commands] Registered shortcut: /$alias -> /$target")
+                } catch (e: Exception) {
+                    plugin.logger.warning("[Commands] Failed to register shortcut /$alias: ${e.message}")
+                }
+            }
+        }
+        
+        // Also load legacy 'aliases' section for backwards compatibility (simple alias: target format)
+        val aliasesSection = config.getConfigurationSection("aliases")
+        if (aliasesSection != null) {
+            for (alias in aliasesSection.getKeys(false)) {
+                val target = aliasesSection.getString(alias) ?: continue
+                
+                try {
+                    val aliasCommand = AliasCommand(alias, target, plugin)
+                    commandMap.register(plugin.name.lowercase(), aliasCommand)
+                    registeredAliases.add(alias)
+                    plugin.logger.info("[Commands] Registered alias: /$alias -> /$target")
+                } catch (e: Exception) {
+                    plugin.logger.warning("[Commands] Failed to register alias /$alias: ${e.message}")
+                }
             }
         }
         

@@ -783,6 +783,17 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         val guiType = openGuis[player.uniqueId]
         if (guiType == null || guiType == GuiType.NONE) return
         
+        // Additional safety check: verify the inventory title belongs to our shop
+        // This prevents intercepting other plugins' GUIs if our tracking is stale
+        if (!isOurShop(title)) {
+            // Not our inventory - clear stale tracking and return
+            openGuis.remove(player.uniqueId)
+            playerStates.remove(player.uniqueId)
+            viewingShop.remove(player.uniqueId)
+            displayedCustomItems.remove(player.uniqueId)
+            return
+        }
+        
         // Allow player inventory interaction (hotbar, etc.)
         // Check this BEFORE cancelling the event
         if (event.rawSlot >= event.view.topInventory.size) {
@@ -1188,6 +1199,16 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         val guiType = openGuis[player.uniqueId]
         if (guiType == null || guiType == GuiType.NONE) return
         
+        // Additional safety check: verify the inventory title belongs to our shop
+        if (!isOurShop(title)) {
+            // Not our inventory - clear stale tracking and return
+            openGuis.remove(player.uniqueId)
+            playerStates.remove(player.uniqueId)
+            viewingShop.remove(player.uniqueId)
+            displayedCustomItems.remove(player.uniqueId)
+            return
+        }
+        
         // Cancel all drag events in our GUI
         event.isCancelled = true
     }
@@ -1199,23 +1220,37 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
     fun onInventoryClose(event: InventoryCloseEvent) {
         val player = event.player as? Player ?: return
         
-        // We need to handle this carefully:
-        // When switching between our GUIs (main menu -> category), the close event fires 
-        // AFTER we've already set the new GUI type in openCategory/openMainMenu.
-        // So we check on next tick if the player still has a GUI open with us.
+        // Check if this player had our GUI open using UUID tracking
+        val guiType = openGuis[player.uniqueId]
+        if (guiType == null || guiType == GuiType.NONE) return
+        
+        // Check if the closed inventory was ours by checking the title
+        val closedTitle = event.view.title
+        if (!isOurShop(closedTitle)) {
+            // Not our GUI being closed, clean up immediately since another GUI took over
+            openGuis.remove(player.uniqueId)
+            playerStates.remove(player.uniqueId)
+            viewingShop.remove(player.uniqueId)
+            displayedCustomItems.remove(player.uniqueId)
+            return
+        }
+        
+        // It was our GUI - use delayed check to handle internal GUI switching
+        // (e.g., main menu -> category page triggers close event but immediately opens new inventory)
         Bukkit.getScheduler().runTaskLater(plugin, Runnable {
             // If player's inventory is no longer our custom inventory, clean up
-            val guiType = openGuis[player.uniqueId]
-            if (guiType != null) {
-                // Check if player's current open inventory matches our expected state
-                // If they have no inventory open or it's not ours, clean up
-                val topInv = player.openInventory.topInventory
-                if (topInv.size == 0) {
-                    // No GUI open - clean up
-                    openGuis.remove(player.uniqueId)
-                    playerStates.remove(player.uniqueId)
-                    viewingShop.remove(player.uniqueId)
-                }
+            val currentGuiType = openGuis[player.uniqueId] ?: return@Runnable
+            
+            // Check if player's current open inventory matches our expected state
+            val topInv = player.openInventory.topInventory
+            val newTitle = player.openInventory.title
+            
+            // Clean up if no GUI open OR if the new GUI isn't ours
+            if (topInv.size == 0 || !isOurShop(newTitle)) {
+                openGuis.remove(player.uniqueId)
+                playerStates.remove(player.uniqueId)
+                viewingShop.remove(player.uniqueId)
+                displayedCustomItems.remove(player.uniqueId)
             }
         }, 1L)
     }
