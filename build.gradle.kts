@@ -130,6 +130,14 @@ val shadowJarSpigot by tasks.registering(com.github.jengelman.gradle.plugins.sha
     relocate("org.bstats", "org.lokixcz.theendex.bstats")
     // Try to keep size reasonable by stripping unused classes
     minimize()
+    
+    // Use plugin-spigot.yml (without libraries section) for Spigot/Arclight/hybrid servers
+    // This avoids the LibraryLoader which fails on non-Paper servers
+    exclude("plugin.yml")
+    from("src/main/resources/plugin-spigot.yml") {
+        rename { "plugin.yml" }
+        expand("version" to project.version)
+    }
 }
 
 // Copy the spigot jar to release folder as well
@@ -173,4 +181,106 @@ tasks.build {
 tasks.register("distributeAddons") {
     dependsOn(copyCryptoToTestServer)
     dependsOn(copyCryptoToRelease)
+}
+
+// =============================================================================
+// GitHub Release Task
+// =============================================================================
+// Usage:
+//   .\gradlew.bat githubRelease -Pnotes="Your release notes here"
+//   .\gradlew.bat githubRelease -Pnotes="## Fixed\n- Bug fix 1\n- Bug fix 2"
+//   .\gradlew.bat githubRelease -Ptag="v1.5.7" -Ptitle="Custom Title" -Pnotes="Notes"
+//   .\gradlew.bat githubRelease -Pdraft=true -Pnotes="Draft release"
+//   .\gradlew.bat githubRelease -Pprerelease=true -Pnotes="Beta release"
+//
+// Properties:
+//   -Pnotes      (REQUIRED) Release notes/changelog
+//   -Ptag        (optional) Git tag, defaults to "v${version}"
+//   -Ptitle      (optional) Release title, defaults to "The Endex ${version}"
+//   -Pdraft      (optional) Create as draft release (true/false)
+//   -Pprerelease (optional) Mark as pre-release (true/false)
+// =============================================================================
+
+tasks.register<Exec>("githubRelease") {
+    dependsOn("build")
+    group = "publishing"
+    description = "Creates a GitHub release with both Paper and Spigot JARs"
+    
+    doFirst {
+        // Validate that notes are provided
+        if (!project.hasProperty("notes") || project.property("notes").toString().isBlank()) {
+            throw GradleException("""
+                |
+                |ERROR: Release notes are required!
+                |
+                |Usage: .\gradlew.bat githubRelease -Pnotes="Your release notes"
+                |
+                |Examples:
+                |  .\gradlew.bat githubRelease -Pnotes="## Fixed\n- Bug fix"
+                |  .\gradlew.bat githubRelease -Ptag="v1.5.7" -Pnotes="Release notes"
+                |  .\gradlew.bat githubRelease -Pdraft=true -Pnotes="Draft notes"
+                |
+            """.trimMargin())
+        }
+    }
+    
+    // Get properties with defaults
+    val releaseTag = if (project.hasProperty("tag")) project.property("tag").toString() else "v${version}"
+    val releaseTitle = if (project.hasProperty("title")) project.property("title").toString() else "The Endex ${version}"
+    val releaseNotes = if (project.hasProperty("notes")) project.property("notes").toString() else ""
+    val isDraft = project.hasProperty("draft") && project.property("draft").toString().toBoolean()
+    val isPrerelease = project.hasProperty("prerelease") && project.property("prerelease").toString().toBoolean()
+    
+    // Build the gh release command
+    val paperJar = "release/TheEndex-${version}.jar"
+    val spigotJar = "release/TheEndex-${version}-spigot.jar"
+    
+    // Construct full release notes with download info
+    val fullNotes = """
+        |${releaseNotes.replace("\\n", "\n")}
+        |
+        |## Downloads
+        |- **TheEndex-${version}.jar** - For Paper servers (lightweight, uses Paper's library loader)
+        |- **TheEndex-${version}-spigot.jar** - For Spigot/other servers (all-in-one with bundled dependencies)
+    """.trimMargin()
+    
+    // Build command arguments
+    val args = mutableListOf(
+        "gh", "release", "create", releaseTag,
+        "--title", releaseTitle,
+        "--notes", fullNotes,
+        paperJar, spigotJar
+    )
+    
+    if (isDraft) args.addAll(listOf("--draft"))
+    if (isPrerelease) args.addAll(listOf("--prerelease"))
+    
+    commandLine(args)
+    
+    doLast {
+        println("")
+        println("✅ GitHub Release created successfully!")
+        println("   Tag: $releaseTag")
+        println("   Title: $releaseTitle")
+        println("   URL: https://github.com/khristianaarongarcia/endex/releases/tag/$releaseTag")
+        println("")
+    }
+}
+
+// Quick release task that just builds and copies without GitHub upload
+tasks.register("prepareRelease") {
+    dependsOn("build")
+    group = "publishing"
+    description = "Builds both JARs and copies to release folder (no GitHub upload)"
+    
+    doLast {
+        println("")
+        println("✅ Release JARs prepared in release/ folder:")
+        println("   - TheEndex-${version}.jar (Paper)")
+        println("   - TheEndex-${version}-spigot.jar (Spigot)")
+        println("")
+        println("To upload to GitHub, run:")
+        println("   .\\gradlew.bat githubRelease -Pnotes=\"Your release notes\"")
+        println("")
+    }
 }
