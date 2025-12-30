@@ -19,8 +19,12 @@
 The Endex is a dynamic economy plugin that brings realistic market mechanics to your Minecraft server. Prices fluctuate based on player trading activity, server-wide item storage, and random market events.
 
 ### 🆕 Version 1.5.7-dec1022 Highlights:
-- **Web Translation** — Google Translate widget for automatic page translation in any language!
-- **GUI Bug Fix** — Fixed ArrayIndexOutOfBoundsException in market details panel (slots 33/35)
+- **Web Dashboard Translation** — Google Translate integration for 26+ languages!
+- **GUI Bug Fix** — Fixed ArrayIndexOutOfBoundsException when middle-clicking items
+- **Performance Indicators** — Config options now show `[PERF: LOW/MEDIUM/HIGH]` impact tags
+- **Translated Configs** — Pre-translated config files in 9 languages (Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian, Arabic)
+
+**Previous 1.5.7 Features:**
 - **Sell from Holdings** — Sell items directly from virtual holdings without withdrawing first!
 - **Arclight/Hybrid Server Support** — Fixed compatibility issues with Arclight, Mohist, and other hybrid servers
 
@@ -236,8 +240,11 @@ web:
 <summary>📜 Full Changelog</summary>
 
 ### New in 1.5.7-dec1022:
-- Web Translation: Integrated Google Translate widget for automatic page translation (defaults to English)
-- GUI Bug Fix: Fixed ArrayIndexOutOfBoundsException in market details panel — inventory slots increased from 27 to 36 to accommodate slots 33 & 35
+- Web Dashboard Translation: Google Translate integration for 26+ languages
+- GUI Bug Fix: Fixed ArrayIndexOutOfBoundsException when middle-clicking items in market details
+- Performance Indicators: Config options now show `[PERF: LOW/MEDIUM/HIGH]` impact tags
+- Translated Configs: Pre-translated config files in 9 languages (Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian, Arabic)
+- Market GUI: Increased details inventory size from 27 to 36 slots to fix button placement
 
 ### New in 1.5.7:
 - Sell from Holdings: Sell items directly from virtual holdings without withdrawing to inventory first
