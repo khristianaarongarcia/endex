@@ -11,6 +11,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.lokixcz.theendex.Endex
+import org.lokixcz.theendex.lang.Lang
 import org.lokixcz.theendex.util.EndexLogger
 import java.io.File
 import java.io.FileOutputStream
@@ -73,8 +74,18 @@ class WebServer(private val plugin: Endex) {
                 if (!base.exists()) base.mkdirs()
                 customRootDir = base
             }
+            // Check if compression is enabled in config (default: true)
+            val compressionEnabled = runCatching { plugin.config.getBoolean("web.compression.enabled", true) }.getOrDefault(true)
+            val compressionLevel = runCatching { plugin.config.getInt("web.compression.level", 4) }.getOrDefault(4)
+            
             app = Javalin.create { config ->
                 config.showJavalinBanner = false
+                // Enable gzip compression for API responses (reduces bandwidth significantly)
+                if (compressionEnabled) {
+                    config.compression.gzipOnly(compressionLevel)
+                } else {
+                    config.compression.none()
+                }
                 if (customEnabled) {
                     // Serve any additional static assets (css/js/images) from custom root
                     val dir = customRootDir?.absolutePath
@@ -489,6 +500,34 @@ class WebServer(private val plugin: Endex) {
                 ctx.status(400).json(mapOf("error" to "Sell failed"))
             } else {
                 ctx.json(mapOf("success" to true))
+            }
+        }
+
+        // Sell from holdings endpoint
+        app.post("/api/sell-holdings") { ctx ->
+            val session = validateSession(ctx) ?: return@post
+            if (session.role != "TRADER") { ctx.status(403).json(mapOf("error" to "Trading not allowed")); return@post }
+            if (!checkRateLimit(ctx, session.token)) return@post
+            val player = Bukkit.getPlayer(session.playerUuid)
+            if (player == null) {
+                ctx.status(400).json(mapOf("error" to "Player not online"))
+                return@post
+            }
+            val req = runCatching { objectMapper.readValue(ctx.body(), TradeRequest::class.java) }.getOrNull()
+            if (req == null) {
+                ctx.status(400).json(mapOf("error" to "Invalid request body"))
+                return@post
+            }
+            val material = runCatching { Material.valueOf(req.material) }.getOrNull()
+            if (material == null || req.amount <= 0) {
+                ctx.status(400).json(mapOf("error" to "Invalid material or amount"))
+                return@post
+            }
+            val result = performSellFromHoldings(player, material, req.amount)
+            if (!result.first) {
+                ctx.status(400).json(mapOf("error" to (result.second ?: "Sell from holdings failed")))
+            } else {
+                ctx.json(mapOf("success" to true, "sold" to result.third, "message" to result.second))
             }
         }
 
@@ -1186,6 +1225,7 @@ class WebServer(private val plugin: Endex) {
                     <div class="header-info">
                         <span class="balance">Balance: $<span id="balance">0.00</span></span>
                         <span class="player-name" id="player-name">Loading...</span>
+                        <div id="google_translate_element"></div>
                         <label class="theme-toggle"><input type="checkbox" id="theme-toggle"> Darker</label>
                     </div>
                 </div>
@@ -1227,8 +1267,8 @@ class WebServer(private val plugin: Endex) {
                             <div class="search-bar">
                                 <div class="search-row">
                                     <input type="text" id="search-input" placeholder="Search items..." class="search-input">
-                                    <label class="watchlist-toggle"><input type="checkbox" id="favorites-only"> Favorites only</label>
-                                    <label class="watchlist-toggle"><input type="checkbox" id="group-by-category" checked> Group by category (A–Z)</label>
+                                    <label class="watchlist-toggle"><input type="checkbox" id="favorites-only"> <span>Favorites only</span></label>
+                                    <label class="watchlist-toggle"><input type="checkbox" id="group-by-category" checked> <span>Group by category (A–Z)</span></label>
                                     <button id="toggle-filters" class="filters-btn" type="button">Filters ▸</button>
                                 </div>
                                 <div class="filters-row" id="filters-row" style="display:none;">
@@ -1248,7 +1288,7 @@ class WebServer(private val plugin: Endex) {
                                         <option value="change">Sort: Change</option>
                                         <option value="volume">Sort: Volume</option>
                                     </select>
-                                    <label class="watchlist-toggle" style="justify-self:start"><input type="checkbox" id="sort-desc"> Descending</label>
+                                    <label class="watchlist-toggle" style="justify-self:start"><input type="checkbox" id="sort-desc"> <span>Descending</span></label>
                                 </div>
                             </div>
                             <div class="items-container" id="items-container">
@@ -1354,6 +1394,19 @@ class WebServer(private val plugin: Endex) {
             <script>
                 ${getAppJs()}
             </script>
+            
+            <!-- Google Translate -->
+            <script type="text/javascript">
+                function googleTranslateElementInit() {
+                    new google.translate.TranslateElement({
+                        pageLanguage: 'en',
+                        includedLanguages: 'en,zh-CN,es,fr,de,ja,ko,pt,ru,it,th,vi,id,tr,pl,nl,sv,da,fi,cs,ro,uk,hi,bn,tl,ar',
+                        layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                        autoDisplay: false
+                    }, 'google_translate_element');
+                }
+            </script>
+            <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
         </body>
         </html>
     """.trimIndent()
@@ -1454,6 +1507,38 @@ class WebServer(private val plugin: Endex) {
             font-weight: 500;
         }
         .theme-toggle { font-size: 13px; color: #c4b5fd; user-select: none }
+        
+        /* Google Translate Widget Styling */
+        #google_translate_element {
+            display: inline-block !important;
+        }
+        .goog-te-gadget {
+            font-family: inherit !important;
+            font-size: 0 !important;
+        }
+        .goog-te-gadget > span { display: none !important; }
+        .goog-te-gadget select,
+        .goog-te-combo {
+            background: #2d2d3d !important;
+            color: #ffffff !important;
+            border: 1px solid #a78bfa !important;
+            border-radius: 8px !important;
+            padding: 8px 12px !important;
+            font-size: 13px !important;
+            cursor: pointer !important;
+            font-family: inherit !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
+        }
+        .goog-te-combo option {
+            background: #2d2d3d !important;
+            color: #ffffff !important;
+            padding: 8px !important;
+        }
+        .goog-te-gadget-simple { background: transparent !important; border: none !important; }
+        .goog-te-gadget-icon { display: none !important; }
+        .goog-te-banner-frame.skiptranslate { display: none !important; }
+        body { top: 0 !important; }
         
         .balance {
             background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
@@ -2424,7 +2509,7 @@ class WebServer(private val plugin: Endex) {
                 });
 
                 if (!filteredItems || filteredItems.length === 0) {
-                    container.innerHTML = '<div class="loading">No items match your search</div>';
+                    container.innerHTML = '<div class="loading">' + this.tr('no_items_match', 'No items match your search') + '</div>';
                     return;
                 }
 
@@ -2888,11 +2973,11 @@ class WebServer(private val plugin: Endex) {
             renderHoldings(list) {
                 const c = document.getElementById('holdings-container');
                 if (!c) return;
-                if (!list || list.length === 0) { c.innerHTML = '<div class="loading">No holdings yet</div>'; return; }
+                if (!list || list.length === 0) { c.innerHTML = '<div class="loading">' + this.tr('no_holdings', 'No holdings yet') + '</div>'; return; }
                 
                 // Add withdraw all button at top
                 let html = `<div class="holdings-header">
-                    <button class="btn btn-withdraw-all" onclick="window.endexApp.withdrawAll()">Withdraw All</button>
+                    <button class="btn btn-withdraw-all" onclick="window.endexApp.withdrawAll()">${'$'}{this.tr('withdraw_all', 'Withdraw All')}</button>
                 </div>`;
                 
                 html += list.map(h => {
@@ -2906,7 +2991,7 @@ class WebServer(private val plugin: Endex) {
                     const invBadge = invQty > 0 ? `<span class="badge">Inv ${'$'}{invQty}</span>` : '';
                     const investBadge = investQty > 0 ? `<span class="badge badge-holdings">Hold ${'$'}{investQty}</span>` : '';
                     // Only show withdraw button for items in holdings (not just inventory)
-                    const withdrawBtn = investQty > 0 && mat !== 'CRYPTO' ? `<button class="btn-withdraw" onclick="window.endexApp.withdraw('${'$'}{mat}', ${'$'}{investQty})" title="Withdraw to inventory">Get</button>` : '';
+                    const withdrawBtn = investQty > 0 && mat !== 'CRYPTO' ? `<button class="btn-withdraw" onclick="window.endexApp.withdraw('${'$'}{mat}', ${'$'}{investQty})" title="${'$'}{this.tr('withdraw_tooltip', 'Withdraw to inventory')}">${'$'}{this.tr('withdraw_btn', 'Get')}</button>` : '';
                     return `<div class="row">
                         <div class="left"><div class="item-icon">${'$'}{(mat).substring(0,2)}</div><div>${'$'}{name} ${'$'}{invBadge}${'$'}{investBadge}</div></div>
                         <div class="right ${'$'}{cls}">${'$'}{totalQty} • ${'$'}${'$'}{(h.currentPrice||0).toFixed(2)} • PnL ${'$'}${'$'}{pnl.toFixed(2)} ${'$'}{withdrawBtn}</div>
@@ -2981,7 +3066,7 @@ class WebServer(private val plugin: Endex) {
             renderReceipts(list) {
                 const c = document.getElementById('receipts-container');
                 if (!c) return;
-                if (!list || list.length === 0) { c.innerHTML = '<div class="loading">No receipts yet</div>'; return; }
+                if (!list || list.length === 0) { c.innerHTML = '<div class="loading">' + this.tr('no_receipts', 'No receipts yet') + '</div>'; return; }
                 c.innerHTML = list.map(r => {
                     const dt = new Date((r.time || r.timestamp) * 1000).toLocaleTimeString();
                     const color = r.type === 'BUY' ? '#f87171' : '#4ade80';
@@ -3150,7 +3235,7 @@ class WebServer(private val plugin: Endex) {
                 val success = db.addToHoldings(player.uniqueId.toString(), material, requestedAmount, unit)
                 if (!success) {
                     val maxHoldings = plugin.config.getInt("holdings.max-total-per-player", 100000)
-                    player.sendMessage("§c[TheEndex] Holdings limit reached ($maxHoldings items max). Withdraw some items first.")
+                    player.sendMessage(Lang.colorize(Lang.get("web-trading.holdings-limit", "limit" to maxHoldings.toString())))
                     return false
                 }
                 
@@ -3167,9 +3252,9 @@ class WebServer(private val plugin: Endex) {
                 
                 plugin.marketManager.addDemand(material, requestedAmount.toDouble())
                 
-                player.sendMessage("§6[TheEndex] §aBought $requestedAmount ${material.name}!")
-                player.sendMessage("§e  → Items added to your §dHoldings§e.")
-                player.sendMessage("§7Use /market withdraw ${material.name} to claim items.")
+                player.sendMessage(Lang.colorize(Lang.get("web-trading.buy-success-simple", "amount" to requestedAmount.toString(), "item" to material.name)))
+                player.sendMessage(Lang.colorize(Lang.get("web-trading.items-added-holdings")))
+                player.sendMessage(Lang.colorize(Lang.get("web-trading.buy-withdraw-hint", "item" to material.name)))
                 
                 return true
             }
@@ -3185,11 +3270,11 @@ class WebServer(private val plugin: Endex) {
                     // Old behavior: cap the purchase
                     amount = maxCapacity
                     if (amount <= 0) {
-                        player.sendMessage("§c[TheEndex] Your inventory is full. Please make space and try again.")
+                        player.sendMessage(Lang.colorize(Lang.get("web-trading.inventory-full-web")))
                         return false
                     }
-                    player.sendMessage("§e[TheEndex] §6Purchase capped to $amount ${material.name} due to inventory space (requested: $requestedAmount).")
-                    player.sendMessage("§7Tip: Empty your inventory or use Ender Chest for larger orders.")
+                    player.sendMessage(Lang.colorize(Lang.get("web-trading.buy-capped", "amount" to amount.toString(), "item" to material.name, "requested" to requestedAmount.toString())))
+                    player.sendMessage(Lang.colorize(Lang.get("web-trading.tip-empty-inventory")))
                 }
                 // Else: delivery enabled, we'll charge for full amount and overflow goes to pending
             }
@@ -3245,8 +3330,8 @@ class WebServer(private val plugin: Endex) {
             
             // Send appropriate message
             if (pendingDelivery > 0) {
-                player.sendMessage("§6[TheEndex] §aBought $amount ${material.name}.")
-                player.sendMessage("§e  Delivered: $delivered | Pending: $pendingDelivery §7(click Ender Chest in market GUI)")
+                player.sendMessage(Lang.colorize(Lang.get("web-trading.buy-with-delivery", "amount" to amount.toString(), "item" to material.name)))
+                player.sendMessage(Lang.colorize(Lang.get("web-trading.buy-delivery-status", "delivered" to delivered.toString(), "pending" to pendingDelivery.toString())))
             }
             
             return true
@@ -3299,6 +3384,62 @@ class WebServer(private val plugin: Endex) {
         } catch (e: Exception) {
             logger.warn("Sell operation failed: ${e.message}")
             return false
+        }
+    }
+    
+    /**
+     * Sell items directly from virtual holdings (not from player inventory).
+     * Returns Triple<success, message, amountSold>
+     */
+    private fun performSellFromHoldings(player: Player, material: Material, amount: Int): Triple<Boolean, String?, Int> {
+        try {
+            if (plugin.economy == null) return Triple(false, "Economy not available", 0)
+            
+            val item = plugin.marketManager.get(material) ?: return Triple(false, "Item not tracked", 0)
+            val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
+            
+            // Apply spread markdown for selling (anti-arbitrage protection)
+            val spreadEnabled = plugin.config.getBoolean("spread.enabled", true)
+            val sellMarkdownPct = if (spreadEnabled) plugin.config.getDouble("spread.sell-markdown-percent", 1.5).coerceAtLeast(0.0) else 0.0
+            val unit = item.currentPrice * plugin.eventManager.multiplierFor(material) * (1.0 - sellMarkdownPct / 100.0)
+            
+            // Check holdings
+            val db = plugin.marketManager.sqliteStore() ?: return Triple(false, "Database not available", 0)
+            val holdingsData = db.getHolding(player.uniqueId.toString(), material)
+            val holdingsQty = holdingsData?.first ?: 0
+            
+            if (holdingsQty <= 0) {
+                return Triple(false, "No items in holdings", 0)
+            }
+            
+            // Remove from holdings
+            val removed = db.removeFromHoldings(player.uniqueId.toString(), material, amount)
+            if (removed <= 0) {
+                return Triple(false, "Failed to remove from holdings", 0)
+            }
+            
+            val subtotal = unit * removed
+            val tax = subtotal * (taxPct / 100.0)
+            val total = subtotal - tax
+            
+            val eco = plugin.economy!!
+            val deposit = eco.depositPlayer(player, total)
+            if (!deposit.transactionSuccess()) {
+                // Try to restore holdings if payment failed
+                runCatching { db.addToHoldings(player.uniqueId.toString(), material, removed, unit) }
+                return Triple(false, "Payment failed", 0)
+            }
+            
+            plugin.marketManager.addSupply(material, removed.toDouble())
+            // Record trade
+            runCatching {
+                db.insertTrade(player.uniqueId.toString(), material, "SELL_HOLDINGS", removed, unit, total)
+            }
+            
+            return Triple(true, "Sold $removed $material from holdings for ${String.format("%.2f", total)}", removed)
+        } catch (e: Exception) {
+            logger.warn("Sell from holdings failed: ${e.message}")
+            return Triple(false, e.message ?: "Unknown error", 0)
         }
     }
     
@@ -3411,9 +3552,9 @@ class WebServer(private val plugin: Endex) {
         val newHolding = db.getHolding(player.uniqueId.toString(), material)
         val stillHave = newHolding?.first ?: 0
         
-        player.sendMessage("§a[TheEndex] Withdrew §6$removed ${material.name}§a to inventory!")
+        player.sendMessage(Lang.colorize(Lang.get("web-trading.withdraw-success", "amount" to removed.toString(), "item" to material.name)))
         if (stillHave > 0) {
-            player.sendMessage("§e[TheEndex] $stillHave ${material.name} still in holdings.")
+            player.sendMessage(Lang.colorize(Lang.get("web-trading.withdraw-remaining", "remaining" to stillHave.toString(), "item" to material.name)))
         }
         
         return mapOf(
@@ -3494,9 +3635,9 @@ class WebServer(private val plugin: Endex) {
             )
         }
         
-        player.sendMessage("§a[TheEndex] Withdrew §6$totalWithdrawn §aitems from holdings!")
+        player.sendMessage(Lang.colorize(Lang.get("web-trading.withdraw-all-success", "total" to totalWithdrawn.toString())))
         if (totalRemaining > 0) {
-            player.sendMessage("§e[TheEndex] $totalRemaining items still in holdings (inventory full).")
+            player.sendMessage(Lang.colorize(Lang.get("web-trading.withdraw-all-remaining", "remaining" to totalRemaining.toString())))
         }
         
         return mapOf(

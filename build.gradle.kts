@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "org.lokixcz"
-version = "1.5.6-dec0759"
+version = "1.5.7-dec1022"
 
 repositories {
     mavenCentral()
@@ -56,6 +56,8 @@ dependencies {
     add("spigotShade", "org.xerial:sqlite-jdbc:3.46.0.0")
     // bStats for plugin metrics
     add("spigotShade", "org.bstats:bstats-bukkit:3.1.0")
+    // SLF4J simple logger for Javalin on hybrid servers (Arclight/Mohist/etc)
+    add("spigotShade", "org.slf4j:slf4j-simple:2.0.7")
 }
 
 tasks {
@@ -120,23 +122,43 @@ tasks.build {
     finalizedBy(copyToRelease)
 }
 
+// Process resources for Spigot build - copy plugin-spigot.yml as plugin.yml with version expansion
+val processSpigotResources by tasks.registering(Copy::class) {
+    from("src/main/resources") {
+        exclude("plugin.yml")
+        exclude("plugin-spigot.yml")
+    }
+    from("src/main/resources/plugin-spigot.yml") {
+        rename { "plugin.yml" }
+    }
+    into(layout.buildDirectory.dir("spigot-resources"))
+    // Expand version - match on SOURCE filename before rename
+    filesMatching("plugin-spigot.yml") {
+        expand("version" to project.version)
+    }
+}
+
 // Optional: produce an all-in-one Spigot jar with shaded dependencies
 val shadowJarSpigot by tasks.registering(com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) {
+    dependsOn(processSpigotResources)
     archiveBaseName.set("TheEndex")
     archiveClassifier.set("spigot")
-    from(sourceSets.main.get().output)
+    // Include compiled classes
+    from(sourceSets.main.get().output.classesDirs)
+    // Include processed resources (with plugin-spigot.yml renamed to plugin.yml)
+    from(layout.buildDirectory.dir("spigot-resources"))
     configurations = listOf(project.configurations.getByName("spigotShade"))
     // Relocate bStats to avoid conflicts with other plugins
     relocate("org.bstats", "org.lokixcz.theendex.bstats")
-    // Try to keep size reasonable by stripping unused classes
-    minimize()
-    
-    // Use plugin-spigot.yml (without libraries section) for Spigot/Arclight/hybrid servers
-    // This avoids the LibraryLoader which fails on non-Paper servers
-    exclude("plugin.yml")
-    from("src/main/resources/plugin-spigot.yml") {
-        rename { "plugin.yml" }
-        expand("version" to project.version)
+    // Merge service files for Jetty/SLF4J ServiceLoader compatibility on Arclight/hybrid servers
+    mergeServiceFiles()
+    // Keep size reasonable but preserve classes loaded dynamically via ServiceLoader
+    minimize {
+        // Jetty WebSocket extensions are loaded dynamically via ServiceLoader
+        exclude(dependency("org.eclipse.jetty.websocket:.*:.*"))
+        exclude(dependency("org.eclipse.jetty:jetty-util:.*"))
+        // SLF4J simple logger for Javalin on hybrid servers
+        exclude(dependency("org.slf4j:.*:.*"))
     }
 }
 

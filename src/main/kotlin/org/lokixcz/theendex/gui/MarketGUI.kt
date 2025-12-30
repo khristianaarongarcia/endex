@@ -1,5 +1,7 @@
 package org.lokixcz.theendex.gui
 
+import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.Material
@@ -18,12 +20,30 @@ import org.bukkit.inventory.meta.ItemMeta
 import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.market.PricePoint
 import org.lokixcz.theendex.market.MarketItem
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+import org.lokixcz.theendex.lang.Lang
+import org.lokixcz.theendex.util.ItemNames
 import java.util.*
 
 class MarketGUI(private val plugin: Endex) : Listener {
-    private val titleBase = "${ChatColor.DARK_PURPLE}The Endex"
     private val pageSize = 45 // 5 rows for items, last row for controls
+    
+    // GUI title base - fetched from language file
+    private fun titleBase(): String = Lang.colorize(Lang.get("gui.market.title"))
+    
+    // Helper to serialize Adventure Component to plain text using reflection (Arclight/Spigot compatible)
+    private fun serializeComponentToPlainText(component: Any): String {
+        return try {
+            val serializerClass = Class.forName("net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer")
+            val plainTextMethod = serializerClass.getMethod("plainText")
+            val serializer = plainTextMethod.invoke(null)
+            val componentClass = Class.forName("net.kyori.adventure.text.Component")
+            val serializeMethod = serializerClass.getMethod("serialize", componentClass)
+            serializeMethod.invoke(serializer, component) as? String ?: ""
+        } catch (_: Exception) {
+            // Adventure API not available - try toString fallback
+            component.toString()
+        }
+    }
     
     // Helper to get inventory view title as String for MC 1.20.1 - 1.21+ compatibility
     // MC 1.21+ changed InventoryView from abstract class to interface, breaking direct method calls
@@ -33,7 +53,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
             val titleMethod = view.javaClass.getMethod("title")
             val component = titleMethod.invoke(view)
             if (component != null) {
-                val result = PlainTextComponentSerializer.plainText().serialize(component as net.kyori.adventure.text.Component)
+                val result = serializeComponentToPlainText(component)
                 if (result.isNotEmpty()) return result
             }
         } catch (_: Exception) {}
@@ -43,7 +63,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
             val origTitleMethod = view.javaClass.getMethod("originalTitle")
             val component = origTitleMethod.invoke(view)
             if (component != null) {
-                val result = PlainTextComponentSerializer.plainText().serialize(component as net.kyori.adventure.text.Component)
+                val result = serializeComponentToPlainText(component)
                 if (result.isNotEmpty()) return result
             }
         } catch (_: Exception) {}
@@ -71,14 +91,15 @@ class MarketGUI(private val plugin: Endex) : Listener {
         
         // Strategy 5: Search all methods for anything title-related
         try {
+            val adventureComponentClass = try { Class.forName("net.kyori.adventure.text.Component") } catch (_: Exception) { null }
             for (method in view.javaClass.methods) {
                 if (method.name.lowercase().contains("title") && method.parameterCount == 0) {
                     try {
                         val result = method.invoke(view)
-                        when (result) {
-                            is String -> if (result.isNotEmpty()) return result
-                            is net.kyori.adventure.text.Component -> {
-                                val text = PlainTextComponentSerializer.plainText().serialize(result)
+                        when {
+                            result is String -> if (result.isNotEmpty()) return result
+                            adventureComponentClass != null && adventureComponentClass.isInstance(result) -> {
+                                val text = serializeComponentToPlainText(result)
                                 if (text.isNotEmpty()) return text
                             }
                         }
@@ -97,10 +118,14 @@ class MarketGUI(private val plugin: Endex) : Listener {
     // Check if the title belongs to any of our GUIs
     private fun isOurGui(title: String): Boolean {
         val stripped = ChatColor.stripColor(title) ?: title
-        return stripped.startsWith("The Endex") || 
-               stripped.startsWith("Endex:") || 
-               stripped.startsWith("Pending Deliveries") || 
-               stripped.startsWith("My Holdings")
+        val marketTitle = ChatColor.stripColor(Lang.colorize(Lang.get("gui.market.title"))) ?: "The Endex"
+        val detailsPrefix = ChatColor.stripColor(Lang.colorize(Lang.get("gui.details.title_prefix"))) ?: "Endex:"
+        val deliveriesTitle = ChatColor.stripColor(Lang.colorize(Lang.get("gui.deliveries.title"))) ?: "Pending Deliveries"
+        val holdingsTitle = ChatColor.stripColor(Lang.colorize(Lang.get("gui.holdings.title"))) ?: "My Holdings"
+        return stripped.startsWith(marketTitle) || 
+               stripped.startsWith(detailsPrefix) || 
+               stripped.startsWith(deliveriesTitle) || 
+               stripped.startsWith(holdingsTitle)
     }
 
     private val amounts = listOf(1, 8, 16, 32, 64)
@@ -174,21 +199,22 @@ class MarketGUI(private val plugin: Endex) : Listener {
         val to = (from + pageSize).coerceAtMost(entries.size)
         val pageEntries = if (from in 0..entries.size) entries.subList(from, to) else emptyList()
 
-        val inv: Inventory = Bukkit.createInventory(player, 54, "$titleBase ${ChatColor.DARK_GRAY}[${state.sort.name}] ${ChatColor.GRAY}(${state.page + 1}/$totalPages)")
+        val inv: Inventory = Bukkit.createInventory(player, 54, "${titleBase()} ${ChatColor.DARK_GRAY}[${state.sort.name}] ${ChatColor.GRAY}(${state.page + 1}/$totalPages)")
 
         pageEntries.forEachIndexed { idx, en ->
             if (en.header != null) {
                 val display = ItemStack(Material.PURPLE_STAINED_GLASS_PANE)
                 val meta: ItemMeta = display.itemMeta
                 meta.setDisplayName("${ChatColor.LIGHT_PURPLE}${en.header}")
-                meta.lore = listOf("${ChatColor.DARK_GRAY}Category section")
+                meta.lore = listOf(Lang.colorize(Lang.get("gui.market.category_section")))
                 display.itemMeta = meta
                 inv.setItem(idx, display)
             } else {
                 val mi = en.item ?: return@forEachIndexed
                 val display = ItemStack(mi.material.takeIf { it != Material.AIR } ?: Material.PAPER)
                 val meta: ItemMeta = display.itemMeta
-                meta.setDisplayName("${ChatColor.AQUA}${prettyName(mi.material)}")
+                // Use translatable name so item appears in player's Minecraft client language
+                meta.displayName(ItemNames.translatable(mi.material, NamedTextColor.AQUA))
 
                 val mul = plugin.eventManager.multiplierFor(mi.material)
                 val current = mi.currentPrice
@@ -218,19 +244,19 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 val bal = plugin.economy?.getBalance(player) ?: 0.0
                 val invCount = player.inventory.contents.filterNotNull().filter { it.type == mi.material }.sumOf { it.amount }
                 val loreCore = mutableListOf<String>()
-                loreCore += "${ChatColor.GRAY}Price: ${ChatColor.GREEN}${format(current)} ${ChatColor.GRAY}(${arrow} ${format(diff)}, ${formatPct(pct)})"
+                loreCore += Lang.colorize(Lang.get("gui.item.price", "price" to format(current), "arrow" to arrow, "diff" to format(diff), "pct" to formatPct(pct)))
                 // Show buy/sell prices with spread
                 if (spreadEnabled && (buyMarkupPct > 0 || sellMarkdownPct > 0)) {
-                    loreCore += "${ChatColor.GREEN}Buy: ${format(buyPrice)} ${ChatColor.GRAY}| ${ChatColor.YELLOW}Sell: ${format(sellPrice)}"
+                    loreCore += Lang.colorize(Lang.get("gui.item.buy_sell", "buy" to format(buyPrice), "sell" to format(sellPrice)))
                 }
-                loreCore += "${ChatColor.DARK_GRAY}Last cycle: ${ChatColor.GRAY}Demand ${format(mi.lastDemand)} / Supply ${format(mi.lastSupply)} (${formatPct(estPct)})"
-                if (mul != 1.0) loreCore += "${ChatColor.DARK_AQUA}Event: x${format(mul)} ${ChatColor.GRAY}Eff: ${ChatColor.GREEN}${format(current*mul)}"
-                loreCore += "${ChatColor.DARK_GRAY}Min ${format(mi.minPrice)}  Max ${format(mi.maxPrice)}"
-                loreCore += "${ChatColor.GRAY}History: ${last5.joinToString(" ${ChatColor.DARK_GRAY}| ${ChatColor.GRAY}")}"
-                loreCore += "${ChatColor.DARK_GRAY}Left: Buy  Right: Sell  Amount: ${amounts[state.amountIdx]}"
-                loreCore += "${ChatColor.DARK_GRAY}Shift/Middle-click: Details"
-                loreCore += "${ChatColor.GRAY}You have: ${ChatColor.AQUA}$invCount ${mi.material}"
-                loreCore += "${ChatColor.GRAY}Balance: ${ChatColor.GOLD}${format(bal)}"
+                loreCore += Lang.colorize(Lang.get("gui.item.last_cycle", "demand" to format(mi.lastDemand), "supply" to format(mi.lastSupply), "pct" to formatPct(estPct)))
+                if (mul != 1.0) loreCore += Lang.colorize(Lang.get("gui.item.event_multiplier", "mul" to format(mul), "effective" to format(current*mul)))
+                loreCore += Lang.colorize(Lang.get("gui.item.min_max", "min" to format(mi.minPrice), "max" to format(mi.maxPrice)))
+                loreCore += Lang.colorize(Lang.get("gui.item.history", "history" to last5.joinToString(" ${ChatColor.DARK_GRAY}| ${ChatColor.GRAY}")))
+                loreCore += Lang.colorize(Lang.get("gui.item.click_hint", "amount" to amounts[state.amountIdx].toString()))
+                loreCore += Lang.colorize(Lang.get("gui.item.details_hint"))
+                loreCore += Lang.colorize(Lang.get("gui.item.you_have", "count" to invCount.toString(), "material" to mi.material.name))
+                loreCore += Lang.colorize(Lang.get("gui.item.balance", "balance" to format(bal)))
                 meta.lore = loreCore
                 display.itemMeta = meta
                 inv.setItem(idx, display)
@@ -238,11 +264,11 @@ class MarketGUI(private val plugin: Endex) : Listener {
         }
 
         // Controls (last row)
-        inv.setItem(45, namedItem(Material.ARROW, "${ChatColor.YELLOW}Previous Page"))
-        inv.setItem(46, namedItem(Material.BOOK, "${ChatColor.AQUA}Category: ${state.category.name} ${ChatColor.GRAY}(click)"))
-        inv.setItem(47, namedItem(Material.LECTERN, "${ChatColor.LIGHT_PURPLE}Group: ${if (state.groupBy) "Category A–Z (ON)" else "Off"} ${ChatColor.GRAY}(click)"))
-        inv.setItem(48, namedItem(Material.OAK_SIGN, "${ChatColor.AQUA}Search: ${if (state.search.isBlank()) "${ChatColor.DARK_GRAY}<none>" else state.search} ${ChatColor.GRAY}(Left: set, Right: clear)"))
-        inv.setItem(49, namedItem(Material.COMPARATOR, "${ChatColor.LIGHT_PURPLE}Sort: ${state.sort.name} ${ChatColor.GRAY}(click)"))
+        inv.setItem(45, namedItem(Material.ARROW, Lang.colorize(Lang.get("gui.buttons.prev_page"))))
+        inv.setItem(46, namedItem(Material.BOOK, Lang.colorize(Lang.get("gui.buttons.category", "category" to state.category.name))))
+        inv.setItem(47, namedItem(Material.LECTERN, Lang.colorize(Lang.get("gui.buttons.group", "status" to if (state.groupBy) Lang.get("gui.buttons.group_on") else Lang.get("gui.buttons.group_off")))))
+        inv.setItem(48, namedItem(Material.OAK_SIGN, Lang.colorize(Lang.get("gui.buttons.search", "search" to if (state.search.isBlank()) Lang.get("gui.buttons.search_none") else state.search))))
+        inv.setItem(49, namedItem(Material.COMPARATOR, Lang.colorize(Lang.get("gui.buttons.sort", "sort" to state.sort.name))))
         
         // Holdings button (replaces deliveries for virtual holdings system)
         val holdingsEnabled = plugin.config.getBoolean("holdings.enabled", true)
@@ -255,15 +281,15 @@ class MarketGUI(private val plugin: Endex) : Listener {
             
             val holdingsIcon = ItemStack(Material.CHEST)
             val holdingsMeta = holdingsIcon.itemMeta
-            holdingsMeta.setDisplayName("${ChatColor.LIGHT_PURPLE}My Holdings ${ChatColor.GRAY}(click)")
+            holdingsMeta.setDisplayName(Lang.colorize(Lang.get("gui.buttons.holdings")))
             val holdingsLore = mutableListOf<String>()
             if (totalCount > 0) {
-                holdingsLore += "${ChatColor.GOLD}$totalCount ${ChatColor.YELLOW}/ $maxHoldings items"
-                holdingsLore += "${ChatColor.GRAY}${holdings.size} different materials"
-                holdingsLore += "${ChatColor.DARK_GRAY}Click to view and withdraw"
+                holdingsLore += Lang.colorize(Lang.get("gui.holdings.count", "count" to totalCount.toString(), "max" to maxHoldings.toString()))
+                holdingsLore += Lang.colorize(Lang.get("gui.holdings.materials", "count" to holdings.size.toString()))
+                holdingsLore += Lang.colorize(Lang.get("gui.holdings.click_hint"))
             } else {
-                holdingsLore += "${ChatColor.GRAY}No items in holdings"
-                holdingsLore += "${ChatColor.DARK_GRAY}Buy items to add them here"
+                holdingsLore += Lang.colorize(Lang.get("gui.holdings.empty"))
+                holdingsLore += Lang.colorize(Lang.get("gui.holdings.empty_hint"))
             }
             holdingsMeta.lore = holdingsLore
             holdingsIcon.itemMeta = holdingsMeta
@@ -276,13 +302,13 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 val totalCount = pending.values.sum()
                 val deliveryIcon = ItemStack(Material.ENDER_CHEST)
                 val deliveryMeta = deliveryIcon.itemMeta
-                deliveryMeta.setDisplayName("${ChatColor.LIGHT_PURPLE}Pending Deliveries ${ChatColor.GRAY}(click)")
+                deliveryMeta.setDisplayName(Lang.colorize(Lang.get("gui.buttons.deliveries")))
                 val deliveryLore = mutableListOf<String>()
                 if (totalCount > 0) {
-                    deliveryLore += "${ChatColor.GOLD}You have ${ChatColor.YELLOW}$totalCount ${ChatColor.GOLD}item(s) pending"
-                    deliveryLore += "${ChatColor.DARK_GRAY}Click to view and claim"
+                    deliveryLore += Lang.colorize(Lang.get("gui.deliveries.pending_count", "count" to totalCount.toString()))
+                    deliveryLore += Lang.colorize(Lang.get("gui.deliveries.click_hint"))
                 } else {
-                    deliveryLore += "${ChatColor.GRAY}No pending deliveries"
+                    deliveryLore += Lang.colorize(Lang.get("gui.deliveries.empty"))
                 }
                 deliveryMeta.lore = deliveryLore
                 deliveryIcon.itemMeta = deliveryMeta
@@ -290,7 +316,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
             }
         }
         
-        inv.setItem(53, namedItem(Material.ARROW, "${ChatColor.YELLOW}Next Page"))
+        inv.setItem(53, namedItem(Material.ARROW, Lang.colorize(Lang.get("gui.buttons.next_page"))))
 
         player.openInventory(inv)
         openGuis[player.uniqueId] = GuiType.MARKET
@@ -379,7 +405,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
                     open(player, 0)
                 } else {
                     player.closeInventory()
-                    player.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.YELLOW}Type your search query in chat. Send empty message to clear.")
+                    player.sendMessage(Lang.prefixed("gui.market.search_prompt"))
                     awaitingSearchInput.add(player.uniqueId)
                 }
             }
@@ -500,9 +526,11 @@ class MarketGUI(private val plugin: Endex) : Listener {
         val title = player.openInventory.title
         val state = states[player.uniqueId] ?: return
         Bukkit.getScheduler().runTask(plugin, Runnable {
+            val marketTitle = ChatColor.stripColor(titleBase()) ?: "The Endex"
+            val detailsPrefix = ChatColor.stripColor(Lang.colorize(Lang.get("gui.details.title_prefix"))) ?: "Endex:"
             when {
-                title.startsWith(titleBase) -> open(player, state.page)
-                state.inDetails && state.detailOf != null && title.contains("Endex:") -> openDetails(player, state.detailOf!!)
+                title.startsWith(marketTitle) || title.startsWith(titleBase()) -> open(player, state.page)
+                state.inDetails && state.detailOf != null && (title.contains("Endex:") || title.contains(detailsPrefix)) -> openDetails(player, state.detailOf!!)
             }
         })
     }
@@ -517,7 +545,8 @@ class MarketGUI(private val plugin: Endex) : Listener {
         val state = states[player.uniqueId] ?: load(player)
         state.inDetails = true
         state.detailOf = mat
-        val inv = Bukkit.createInventory(player, 27, "${ChatColor.DARK_PURPLE}Endex: ${ChatColor.AQUA}${prettyName(mat)}")
+        val detailsTitle = Lang.colorize(Lang.get("gui.details.title", "item" to prettyName(mat)))
+        val inv = Bukkit.createInventory(player, 36, detailsTitle)
 
         val mi = plugin.marketManager.get(mat) ?: run {
             open(player, state.page); return
@@ -546,15 +575,19 @@ class MarketGUI(private val plugin: Endex) : Listener {
         
         val bal = plugin.economy?.getBalance(player) ?: 0.0
         val invCount = player.inventory.contents.filterNotNull().filter { it.type == mat }.sumOf { it.amount }
-        meta.setDisplayName("${ChatColor.AQUA}${prettyName(mat)}")
+        // Get holdings count from virtual storage
+        val holdingsData = plugin.marketManager.sqliteStore()?.getHolding(player.uniqueId.toString(), mat)
+        val holdingsCount = holdingsData?.first ?: 0
+        // Use translatable name so item appears in player's Minecraft client language
+        meta.displayName(ItemNames.translatable(mat, NamedTextColor.AQUA))
         val lore = mutableListOf<String>()
-        lore += "${ChatColor.GRAY}Price: ${ChatColor.GREEN}${format(current)} ${ChatColor.GRAY}(${arrow} ${format(diff)}, ${formatPct(pct)})"
+        lore += Lang.colorize(Lang.get("gui.item.price", "price" to format(current), "arrow" to arrow, "diff" to format(diff), "pct" to formatPct(pct)))
         // Show buy/sell prices with spread
         if (spreadEnabled && (buyMarkupPct > 0 || sellMarkdownPct > 0)) {
-            lore += "${ChatColor.GREEN}Buy: ${format(buyPrice)} ${ChatColor.GRAY}| ${ChatColor.YELLOW}Sell: ${format(sellPrice)}"
+            lore += Lang.colorize(Lang.get("gui.item.buy_sell", "buy" to format(buyPrice), "sell" to format(sellPrice)))
         }
-        if (mul != 1.0) lore += "${ChatColor.DARK_AQUA}Event: x${format(mul)} ${ChatColor.GRAY}Eff: ${ChatColor.GREEN}${format(current*mul)}"
-        lore += "${ChatColor.DARK_GRAY}Min ${format(mi.minPrice)}  Max ${format(mi.maxPrice)}"
+        if (mul != 1.0) lore += Lang.colorize(Lang.get("gui.item.event_multiplier", "mul" to format(mul), "effective" to format(current*mul)))
+        lore += Lang.colorize(Lang.get("gui.item.min_max", "min" to format(mi.minPrice), "max" to format(mi.maxPrice)))
         if (plugin.config.getBoolean("gui.details-chart", true)) {
             val last = mi.history.takeLast(12)
             if (last.isNotEmpty()) {
@@ -574,21 +607,24 @@ class MarketGUI(private val plugin: Endex) : Listener {
                         else -> "▁"
                     }
                 }.joinToString("")
-                lore += "${ChatColor.DARK_GRAY}Chart: ${ChatColor.GRAY}${bars}"
+                lore += Lang.colorize(Lang.get("gui.details.chart", "bars" to bars))
             }
         }
-        lore += "${ChatColor.GRAY}You have: ${ChatColor.AQUA}$invCount"
-        lore += "${ChatColor.GRAY}Balance: ${ChatColor.GOLD}${format(bal)}"
+        lore += Lang.colorize(Lang.get("gui.details.inventory_holdings", "inv" to invCount.toString(), "holdings" to holdingsCount.toString()))
+        lore += Lang.colorize(Lang.get("gui.item.balance", "balance" to format(bal)))
         meta.lore = lore
         itemDisplay.itemMeta = meta
         inv.setItem(13, itemDisplay)
 
         // Buttons
-    inv.setItem(18, namedItem(Material.LIME_DYE, "${ChatColor.GREEN}Buy 1"))
-    inv.setItem(20, namedItem(Material.EMERALD_BLOCK, "${ChatColor.GREEN}Buy 64"))
-    inv.setItem(24, namedItem(Material.RED_DYE, "${ChatColor.RED}Sell 1"))
-    inv.setItem(26, namedItem(Material.BARREL, "${ChatColor.RED}Sell All ($invCount)"))
-        inv.setItem(22, namedItem(Material.ARROW, "${ChatColor.YELLOW}Back"))
+    inv.setItem(18, namedItem(Material.LIME_DYE, Lang.colorize(Lang.get("gui.details.buy_1"))))
+    inv.setItem(20, namedItem(Material.EMERALD_BLOCK, Lang.colorize(Lang.get("gui.details.buy_64"))))
+    inv.setItem(24, namedItem(Material.RED_DYE, Lang.colorize(Lang.get("gui.details.sell_1_inv"))))
+    inv.setItem(26, namedItem(Material.BARREL, Lang.colorize(Lang.get("gui.details.sell_all_inv", "count" to invCount.toString()))))
+    // Holdings sell buttons
+    inv.setItem(33, namedItem(Material.PINK_DYE, Lang.colorize(Lang.get("gui.details.sell_1_holdings"))))
+    inv.setItem(35, namedItem(Material.ENDER_CHEST, Lang.colorize(Lang.get("gui.details.sell_all_holdings", "count" to holdingsCount.toString()))))
+        inv.setItem(22, namedItem(Material.ARROW, Lang.colorize(Lang.get("gui.buttons.back"))))
 
         player.openInventory(inv)
         openGuis[player.uniqueId] = GuiType.DETAILS
@@ -640,6 +676,19 @@ class MarketGUI(private val plugin: Endex) : Listener {
                     openDetails(player, mat)
                 })
             }
+            // Sell from holdings buttons
+            33 -> Bukkit.getScheduler().runTask(plugin, Runnable {
+                player.performCommand("market sellholdings ${mat.name} 1")
+                openDetails(player, mat)
+            })
+            35 -> {
+                val holdingsData = plugin.marketManager.sqliteStore()?.getHolding(player.uniqueId.toString(), mat)
+                val holdingsTotal = holdingsData?.first ?: 0
+                Bukkit.getScheduler().runTask(plugin, Runnable {
+                    if (holdingsTotal > 0) player.performCommand("market sellholdings ${mat.name} $holdingsTotal")
+                    openDetails(player, mat)
+                })
+            }
             22 -> { state.inDetails = false; state.detailOf = null; open(player, state.page) }
         }
     }
@@ -647,18 +696,19 @@ class MarketGUI(private val plugin: Endex) : Listener {
     // Deliveries panel
     private fun openDeliveries(player: Player) {
         val deliveryMgr = plugin.getDeliveryManager() ?: run {
-            player.sendMessage("${ChatColor.RED}[TheEndex] Delivery system is not available.")
+            player.sendMessage(Lang.prefixed("gui.deliveries.unavailable"))
             return
         }
         
         val pending = deliveryMgr.listPending(player.uniqueId)
-        val inv = Bukkit.createInventory(player, 54, "${ChatColor.DARK_PURPLE}Pending Deliveries")
+        val deliveriesTitle = Lang.colorize(Lang.get("gui.deliveries.title"))
+        val inv = Bukkit.createInventory(player, 54, deliveriesTitle)
         
         if (pending.isEmpty()) {
             val noItems = ItemStack(Material.BARRIER)
             val meta = noItems.itemMeta
-            meta.setDisplayName("${ChatColor.GRAY}No pending deliveries")
-            meta.lore = listOf("${ChatColor.DARK_GRAY}All items have been claimed!")
+            meta.setDisplayName(Lang.colorize(Lang.get("gui.deliveries.no_pending")))
+            meta.lore = listOf(Lang.colorize(Lang.get("gui.deliveries.all_claimed")))
             noItems.itemMeta = meta
             inv.setItem(22, noItems)
         } else {
@@ -668,14 +718,15 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 val count = pending[mat] ?: 0
                 val display = ItemStack(mat)
                 val meta = display.itemMeta
-                meta.setDisplayName("${ChatColor.AQUA}${prettyName(mat)}")
+                // Use translatable name so item appears in player's Minecraft client language
+                meta.displayName(ItemNames.translatable(mat, NamedTextColor.AQUA))
                 val capacity = deliveryMgr.calculateInventoryCapacity(player, mat)
                 meta.lore = listOf(
-                    "${ChatColor.GOLD}Pending: ${ChatColor.YELLOW}$count",
-                    "${ChatColor.GRAY}Inventory space: ${ChatColor.GREEN}$capacity",
+                    Lang.colorize(Lang.get("gui.deliveries.item_pending", "count" to count.toString())),
+                    Lang.colorize(Lang.get("gui.deliveries.inv_space", "space" to capacity.toString())),
                     "",
-                    "${ChatColor.GREEN}Left-click: ${ChatColor.GRAY}Claim as much as fits",
-                    "${ChatColor.YELLOW}Right-click: ${ChatColor.GRAY}Claim 1 stack (${mat.maxStackSize})"
+                    Lang.colorize(Lang.get("gui.deliveries.left_click")),
+                    Lang.colorize(Lang.get("gui.deliveries.right_click", "stack" to mat.maxStackSize.toString()))
                 )
                 display.itemMeta = meta
                 inv.setItem(idx, display)
@@ -685,17 +736,17 @@ class MarketGUI(private val plugin: Endex) : Listener {
         // Control buttons (last row)
         val claimAllBtn = ItemStack(Material.EMERALD_BLOCK)
         val claimAllMeta = claimAllBtn.itemMeta
-        claimAllMeta.setDisplayName("${ChatColor.GREEN}Claim All")
+        claimAllMeta.setDisplayName(Lang.colorize(Lang.get("gui.deliveries.claim_all")))
         claimAllMeta.lore = listOf(
-            "${ChatColor.GRAY}Claim all pending deliveries",
-            "${ChatColor.DARK_GRAY}(as much as fits in inventory)"
+            Lang.colorize(Lang.get("gui.deliveries.claim_all_desc")),
+            Lang.colorize(Lang.get("gui.deliveries.claim_all_hint"))
         )
         claimAllBtn.itemMeta = claimAllMeta
         inv.setItem(49, claimAllBtn)
         
         val backBtn = ItemStack(Material.ARROW)
         val backMeta = backBtn.itemMeta
-        backMeta.setDisplayName("${ChatColor.YELLOW}Back to Market")
+        backMeta.setDisplayName(Lang.colorize(Lang.get("gui.buttons.back_to_market")))
         backBtn.itemMeta = backMeta
         inv.setItem(53, backBtn)
         
@@ -739,19 +790,19 @@ class MarketGUI(private val plugin: Endex) : Listener {
                     // Claim as much as fits
                     val result = deliveryMgr.claimMaterial(player, mat, Int.MAX_VALUE)
                     if (result.delivered > 0) {
-                        player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}${result.delivered} ${mat.name}${ChatColor.GREEN}!")
+                        player.sendMessage(Lang.prefixed("gui.deliveries.claimed", "count" to result.delivered.toString(), "item" to mat.name))
                     }
                     if (result.remainingPending > 0) {
-                        player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.remainingPending} ${mat.name} still pending (inventory full).")
+                        player.sendMessage(Lang.prefixed("gui.deliveries.still_pending", "count" to result.remainingPending.toString(), "item" to mat.name))
                     }
                 } else if (e.isRightClick) {
                     // Claim 1 stack
                     val result = deliveryMgr.claimMaterial(player, mat, mat.maxStackSize)
                     if (result.delivered > 0) {
-                        player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}${result.delivered} ${mat.name}${ChatColor.GREEN}!")
+                        player.sendMessage(Lang.prefixed("gui.deliveries.claimed", "count" to result.delivered.toString(), "item" to mat.name))
                     }
                     if (result.remainingPending > 0) {
-                        player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.remainingPending} ${mat.name} still pending.")
+                        player.sendMessage(Lang.prefixed("gui.deliveries.still_pending_simple", "count" to result.remainingPending.toString(), "item" to mat.name))
                     }
                 }
                 Bukkit.getScheduler().runTask(plugin, Runnable { openDeliveries(player) })
@@ -760,13 +811,13 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 val result = deliveryMgr.claimAll(player)
                 if (result.delivered.isNotEmpty()) {
                     val totalClaimed = result.delivered.values.sum()
-                    player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}$totalClaimed ${ChatColor.GREEN}items!")
+                    player.sendMessage(Lang.prefixed("gui.deliveries.claimed_total", "count" to totalClaimed.toString()))
                     result.delivered.forEach { (mat, count) ->
-                        player.sendMessage("${ChatColor.GRAY}  • ${ChatColor.AQUA}${prettyName(mat)}: ${ChatColor.GOLD}$count")
+                        player.sendMessage(Lang.colorize(Lang.get("gui.deliveries.item-detail", "item" to prettyName(mat), "count" to count.toString())))
                     }
                 }
                 if (result.totalRemaining > 0) {
-                    player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.totalRemaining} items still pending (inventory full).")
+                    player.sendMessage(Lang.prefixed("gui.deliveries.items_remaining", "count" to result.totalRemaining.toString()))
                 }
                 Bukkit.getScheduler().runTask(plugin, Runnable { openDeliveries(player) })
             }
@@ -779,7 +830,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
     // Holdings panel (Virtual Holdings System)
     fun openHoldings(player: Player) {
         val db = plugin.marketManager.sqliteStore() ?: run {
-            player.sendMessage("${ChatColor.RED}[TheEndex] Holdings system is not available.")
+            player.sendMessage(Lang.prefixed("gui.holdings.unavailable"))
             return
         }
         
@@ -787,15 +838,16 @@ class MarketGUI(private val plugin: Endex) : Listener {
         val totalCount = holdings.values.sumOf { it.first }
         val maxHoldings = plugin.config.getInt("holdings.max-total-per-player", 100000)
         
-        val inv = Bukkit.createInventory(player, 54, "${ChatColor.DARK_PURPLE}My Holdings")
+        val holdingsTitle = Lang.colorize(Lang.get("gui.holdings.title"))
+        val inv = Bukkit.createInventory(player, 54, holdingsTitle)
         
         if (holdings.isEmpty()) {
             val noItems = ItemStack(Material.BARRIER)
             val meta = noItems.itemMeta
-            meta.setDisplayName("${ChatColor.GRAY}No items in holdings")
+            meta.setDisplayName(Lang.colorize(Lang.get("gui.holdings.no_items")))
             meta.lore = listOf(
-                "${ChatColor.DARK_GRAY}Buy items to add them here",
-                "${ChatColor.DARK_GRAY}Use /market buy <item> <amount>"
+                Lang.colorize(Lang.get("gui.holdings.no_items_hint1")),
+                Lang.colorize(Lang.get("gui.holdings.no_items_hint2"))
             )
             noItems.itemMeta = meta
             inv.setItem(22, noItems)
@@ -806,7 +858,8 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 val (qty, avgCost) = pair
                 val display = ItemStack(mat)
                 val meta = display.itemMeta
-                meta.setDisplayName("${ChatColor.AQUA}${prettyName(mat)}")
+                // Use translatable name so item appears in player's Minecraft client language
+                meta.displayName(ItemNames.translatable(mat, NamedTextColor.AQUA))
                 
                 val marketItem = plugin.marketManager.get(mat)
                 val currentPrice = marketItem?.currentPrice ?: 0.0
@@ -822,14 +875,14 @@ class MarketGUI(private val plugin: Endex) : Listener {
                 
                 val capacity = calculateInventoryCapacity(player, mat)
                 meta.lore = listOf(
-                    "${ChatColor.GOLD}Quantity: ${ChatColor.YELLOW}$qty",
-                    "${ChatColor.GRAY}Avg Cost: ${ChatColor.WHITE}${format(avgCost)}",
-                    "${ChatColor.GRAY}Current Price: ${ChatColor.GREEN}${format(currentPrice)}",
-                    "${ChatColor.GRAY}Value: ${ChatColor.GREEN}${format(value)} ${pnlColor}(${pnlSign}${format(pnl)})",
+                    Lang.colorize(Lang.get("gui.holdings.item_qty", "qty" to qty.toString())),
+                    Lang.colorize(Lang.get("gui.holdings.item_avg_cost", "cost" to format(avgCost))),
+                    Lang.colorize(Lang.get("gui.holdings.item_current_price", "price" to format(currentPrice))),
+                    Lang.colorize(Lang.get("gui.holdings.item_value", "value" to format(value), "pnl_color" to pnlColor.toString(), "pnl" to "${pnlSign}${format(pnl)}")),
                     "",
-                    "${ChatColor.GRAY}Inventory space: ${ChatColor.GREEN}$capacity",
-                    "${ChatColor.GREEN}Left-click: ${ChatColor.GRAY}Withdraw all",
-                    "${ChatColor.YELLOW}Right-click: ${ChatColor.GRAY}Withdraw 1 stack (${mat.maxStackSize})"
+                    Lang.colorize(Lang.get("gui.holdings.inv_space", "space" to capacity.toString())),
+                    Lang.colorize(Lang.get("gui.holdings.left_click")),
+                    Lang.colorize(Lang.get("gui.holdings.right_click", "stack" to mat.maxStackSize.toString()))
                 )
                 display.itemMeta = meta
                 inv.setItem(idx, display)
@@ -854,13 +907,13 @@ class MarketGUI(private val plugin: Endex) : Listener {
         
         val statsItem = ItemStack(Material.PAPER)
         val statsMeta = statsItem.itemMeta
-        statsMeta.setDisplayName("${ChatColor.GOLD}Portfolio Stats")
+        statsMeta.setDisplayName(Lang.colorize(Lang.get("gui.holdings.stats_title")))
         statsMeta.lore = listOf(
-            "${ChatColor.GRAY}Total Items: ${ChatColor.YELLOW}$totalCount / $maxHoldings",
-            "${ChatColor.GRAY}Unique Materials: ${ChatColor.YELLOW}${holdings.size}",
-            "${ChatColor.GRAY}Total Value: ${ChatColor.GREEN}${format(totalValue)}",
-            "${ChatColor.GRAY}Total Cost: ${ChatColor.WHITE}${format(totalCost)}",
-            "${pnlColor}P/L: ${if (totalPnl >= 0) "+" else ""}${format(totalPnl)}"
+            Lang.colorize(Lang.get("gui.holdings.stats_total_items", "count" to totalCount.toString(), "max" to maxHoldings.toString())),
+            Lang.colorize(Lang.get("gui.holdings.stats_unique", "count" to holdings.size.toString())),
+            Lang.colorize(Lang.get("gui.holdings.stats_total_value", "value" to format(totalValue))),
+            Lang.colorize(Lang.get("gui.holdings.stats_total_cost", "cost" to format(totalCost))),
+            "${pnlColor}${Lang.get("gui.holdings.stats_pnl", "pnl" to "${if (totalPnl >= 0) "+" else ""}${format(totalPnl)}")}"
         )
         statsItem.itemMeta = statsMeta
         inv.setItem(45, statsItem)
@@ -868,17 +921,17 @@ class MarketGUI(private val plugin: Endex) : Listener {
         // Control buttons (last row)
         val withdrawAllBtn = ItemStack(Material.EMERALD_BLOCK)
         val withdrawAllMeta = withdrawAllBtn.itemMeta
-        withdrawAllMeta.setDisplayName("${ChatColor.GREEN}Withdraw All")
+        withdrawAllMeta.setDisplayName(Lang.colorize(Lang.get("gui.holdings.withdraw_all")))
         withdrawAllMeta.lore = listOf(
-            "${ChatColor.GRAY}Withdraw all items from holdings",
-            "${ChatColor.DARK_GRAY}(as much as fits in inventory)"
+            Lang.colorize(Lang.get("gui.holdings.withdraw_all_desc")),
+            Lang.colorize(Lang.get("gui.holdings.withdraw_all_hint"))
         )
         withdrawAllBtn.itemMeta = withdrawAllMeta
         inv.setItem(49, withdrawAllBtn)
         
         val backBtn = ItemStack(Material.ARROW)
         val backMeta = backBtn.itemMeta
-        backMeta.setDisplayName("${ChatColor.YELLOW}Back to Market")
+        backMeta.setDisplayName(Lang.colorize(Lang.get("gui.buttons.back_to_market")))
         backBtn.itemMeta = backMeta
         inv.setItem(53, backBtn)
         
@@ -943,19 +996,19 @@ class MarketGUI(private val plugin: Endex) : Listener {
                     // Withdraw all
                     val result = withdrawFromHoldings(player, db, mat, Int.MAX_VALUE)
                     if (result.first > 0) {
-                        player.sendMessage("${ChatColor.GREEN}[TheEndex] Withdrew ${ChatColor.GOLD}${result.first} ${prettyName(mat)}${ChatColor.GREEN}!")
+                        player.sendMessage(Lang.prefixed("gui.holdings.withdrew", "count" to result.first.toString(), "item" to prettyName(mat)))
                     }
                     if (result.second > 0) {
-                        player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.second} ${prettyName(mat)} still in holdings (inventory full).")
+                        player.sendMessage(Lang.prefixed("gui.holdings.still_in_holdings", "count" to result.second.toString(), "item" to prettyName(mat)))
                     }
                 } else if (e.isRightClick) {
                     // Withdraw 1 stack
                     val result = withdrawFromHoldings(player, db, mat, mat.maxStackSize)
                     if (result.first > 0) {
-                        player.sendMessage("${ChatColor.GREEN}[TheEndex] Withdrew ${ChatColor.GOLD}${result.first} ${prettyName(mat)}${ChatColor.GREEN}!")
+                        player.sendMessage(Lang.prefixed("gui.holdings.withdrew", "count" to result.first.toString(), "item" to prettyName(mat)))
                     }
                     if (result.second > 0) {
-                        player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.second} ${prettyName(mat)} still in holdings.")
+                        player.sendMessage(Lang.prefixed("gui.holdings.still_in_holdings_simple", "count" to result.second.toString(), "item" to prettyName(mat)))
                     }
                 }
                 Bukkit.getScheduler().runTask(plugin, Runnable { openHoldings(player) })
@@ -963,10 +1016,10 @@ class MarketGUI(private val plugin: Endex) : Listener {
             49 -> { // Withdraw All
                 val result = withdrawAllFromHoldings(player, db)
                 if (result.first > 0) {
-                    player.sendMessage("${ChatColor.GREEN}[TheEndex] Withdrew ${ChatColor.GOLD}${result.first} ${ChatColor.GREEN}items!")
+                    player.sendMessage(Lang.prefixed("gui.holdings.withdrew_total", "count" to result.first.toString()))
                 }
                 if (result.second > 0) {
-                    player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.second} items still in holdings (inventory full).")
+                    player.sendMessage(Lang.prefixed("gui.holdings.items_remaining", "count" to result.second.toString()))
                 }
                 Bukkit.getScheduler().runTask(plugin, Runnable { openHoldings(player) })
             }

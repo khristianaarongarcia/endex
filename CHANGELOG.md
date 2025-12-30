@@ -7,6 +7,51 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.7-dec1022] - 2025-12-30
+### Added
+- **Web Dashboard Translation:** Google Translate integration for 26+ languages in the web dashboard
+  - Language selector dropdown in header (between player name and theme toggle)
+  - Supports: English, Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian, Italian, Thai, Vietnamese, Indonesian, Turkish, Polish, Dutch, Swedish, Danish, Finnish, Czech, Romanian, Ukrainian, Hindi, Bengali, Tagalog, Arabic
+  - Styled to match dark theme with visible text
+- **Config Performance Indicators:** Added `[PERF: LOW/MEDIUM/HIGH]` tags to config.yml options to help server owners understand performance impact
+- **Translated Config Files:** Pre-translated config files in 9 languages available in `resources/translations/`
+  - Chinese (Simplified), Spanish, French, German, Japanese, Korean, Portuguese, Russian, Arabic
+
+### Fixed
+- **Market GUI ArrayIndexOutOfBoundsException:** Fixed "Index 33 out of bounds for length 27" error when middle-clicking items in the market details panel
+  - Root cause: `openDetails()` created a 27-slot inventory but placed buttons at slots 33 and 35
+  - Solution: Increased inventory size from 27 to 36 slots to accommodate all buttons
+
+### Changed
+- **Web Dashboard:** Replaced broken AutoTranslate.js library (ES6 module incompatibility) with reliable Google Translate widget
+
+### Technical
+- MarketGUI `openDetails()` now uses 36-slot inventory (was 27)
+- Holdings sell buttons remain at slots 33 (Sell 1) and 35 (Sell All)
+- Google Translate widget initialization via `googleTranslateElementInit()` callback
+- CSS styling for `.goog-te-combo` dropdown to match dark theme
+
+## [1.5.7] - 2025-12-29
+### Added
+- **Sell from Holdings:** Players can now sell items directly from their virtual holdings without withdrawing to inventory first.
+  - **Market GUI:** Item details panel now displays "Inventory: X | Holdings: Y" and includes new "Sell 1 Holdings" and "Sell All Holdings" buttons.
+  - **Custom Shop GUI:** Vanilla items can now be sold from holdings when inventory is empty or insufficient.
+  - **Web API:** New `POST /api/sell-holdings` endpoint for selling holdings via web dashboard.
+  - **Command:** New `/market sellholdings <material> <amount>` command for direct holdings sales.
+
+### Fixed
+- **Arclight/Hybrid Server Compatibility:** Multiple fixes for running on Arclight, Mohist, and other hybrid servers:
+  - Fixed plugin recognition issues with proper `plugin.yml` configuration
+  - Added SLF4J simple logger to eliminate Javalin logging warnings
+  - Merged service files in Spigot JAR for proper ServiceLoader compatibility
+  - Fixed clickable chat links using proper Spigot/Adventure API detection
+  - Resolved PlaceholderAPI expansion registration on hybrid servers
+
+### Technical
+- Holdings sell buttons use slots 33 (Sell 1) and 35 (Sell All) in details panel
+- `performSellFromHoldings()` in WebServer returns `Triple<Boolean, String, Int>` (success, error, amountSold)
+- Custom Shop `sellCustomItem()` now reports breakdown: "Nx from inventory, Mx from holdings"
+
 ## [1.5.6-DEC0759] - 2025-12-28
 ### Fixed
 - **Minecraft 1.20.1 Compatibility:** Lowered `api-version` from `'1.21'` to `'1.20'` to restore support for 1.20.1+ servers
