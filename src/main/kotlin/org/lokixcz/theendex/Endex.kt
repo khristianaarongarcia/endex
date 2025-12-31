@@ -15,6 +15,7 @@ import org.lokixcz.theendex.gui.PlayerPrefsStore
 import org.lokixcz.theendex.gui.GuiConfigManager
 import org.lokixcz.theendex.events.EventManager
 import org.lokixcz.theendex.web.WebServer
+import org.lokixcz.theendex.lang.Lang
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bstats.bukkit.Metrics
@@ -74,6 +75,10 @@ class Endex : JavaPlugin() {
         // Initialize logger utility with config
         logx = org.lokixcz.theendex.util.EndexLogger(this)
         logx.verbose = try { config.getBoolean("logging.verbose", false) } catch (_: Throwable) { false }
+        
+        // Extract translated config files to config_translations/ folder
+        extractConfigTranslations()
+        
         // Print banner
         runCatching {
             val stream = getResource("banner.txt")
@@ -94,6 +99,14 @@ class Endex : JavaPlugin() {
                 logx.warn("Config-version mismatch (expected $expectedConfigVersion, found $got). Consider backing up and regenerating config.yml.")
             }
         } catch (_: Throwable) {}
+
+        // Initialize language system
+        try {
+            Lang.init(this)
+            logx.info("Language system initialized (locale=${Lang.locale()})")
+        } catch (t: Throwable) {
+            logx.warn("Failed to initialize language system: ${t.message}")
+        }
 
         // Initialize items config manager (items.yml)
         itemsConfigManager = ItemsConfigManager(this)
@@ -512,6 +525,10 @@ class Endex : JavaPlugin() {
                 logx.warn("Config-version mismatch after reload (expected $expectedConfigVersion, found $got). Consider backing up and regenerating config.yml.")
             }
         } catch (_: Throwable) {}
+        
+        // Reload language system
+        try { Lang.reload(); logx.info("Language system reloaded (locale=${Lang.locale()})") } catch (t: Throwable) { logx.warn("Failed to reload language system: ${t.message}") }
+        
         try { eventManager.load() } catch (t: Throwable) { logx.warn("Failed to reload events: ${t.message}") }
 
         // Reload GUI configs
@@ -555,7 +572,7 @@ class Endex : JavaPlugin() {
             logx.warn("Failed to restart web server during reload: ${t.message}")
         }
         
-        sender?.sendMessage("§6[The Endex] §aReload complete.")
+        sender?.sendMessage(Lang.colorize(Lang.get("general.reload-complete")))
         logx.info("Reloaded The Endex configuration and tasks.")
     }
 
@@ -697,6 +714,47 @@ class Endex : JavaPlugin() {
             name == "HONEY_BOTTLE" -> 25.0
             name == "HONEYCOMB" -> 12.0
             else -> 100.0
+        }
+    }
+    
+    /**
+     * Extract translated config files to plugins/TheEndex/config_translations/ folder.
+     * Only extracts if the folder doesn't exist (first run or folder deleted).
+     */
+    private fun extractConfigTranslations() {
+        val translationsDir = File(dataFolder, "config_translations")
+        if (translationsDir.exists()) {
+            logx.debug("Config translations folder already exists, skipping extraction")
+            return
+        }
+        
+        // List of available translated config files
+        val translationFiles = listOf(
+            "config_translations/config_en.yml",
+            "config_translations/config_zh_CN.yml",
+            "config_translations/config_es.yml",
+            "config_translations/config_fr.yml",
+            "config_translations/config_de.yml",
+            "config_translations/config_ja.yml",
+            "config_translations/config_ko.yml",
+            "config_translations/config_pt.yml",
+            "config_translations/config_ru.yml",
+            "config_translations/config_pl.yml"
+        )
+        
+        var extracted = 0
+        for (resourcePath in translationFiles) {
+            try {
+                saveResource(resourcePath, false)
+                extracted++
+            } catch (t: Throwable) {
+                logx.debug("Could not extract $resourcePath: ${t.message}")
+            }
+        }
+        
+        if (extracted > 0) {
+            logx.info("Extracted $extracted translated config files to config_translations/ folder")
+            logx.info("To use a different language, copy the desired config file to config.yml")
         }
     }
 }

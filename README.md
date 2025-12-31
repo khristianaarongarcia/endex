@@ -10,7 +10,7 @@
 
 
 
-[![Version](https://img.shields.io/badge/version-1.5.4-blue.svg)](https://github.com/khristianaarongarcia/endex/releases)```kotlin
+[![Version](https://img.shields.io/badge/version-1.5.7-blue.svg)](https://github.com/khristianaarongarcia/endex/releases)```kotlin
 
 [![Minecraft](https://img.shields.io/badge/minecraft-1.20.1--1.21.x-brightgreen.svg)](https://www.minecraft.net/)val api = server.servicesManager.load(org.lokixcz.theendex.api.EndexAPI::class.java)
 

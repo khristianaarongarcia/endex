@@ -1,5 +1,6 @@
 package org.lokixcz.theendex.gui
 
+import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.Material
@@ -7,7 +8,9 @@ import org.bukkit.entity.Player
 import org.bukkit.event.inventory.ClickType
 import org.bukkit.inventory.ItemStack
 import org.lokixcz.theendex.Endex
+import org.lokixcz.theendex.lang.Lang
 import org.lokixcz.theendex.shop.MarketCategoryFilter
+import org.lokixcz.theendex.util.ItemNames
 
 /**
  * Shared market action handler used by both MarketGUI and CustomShopGUI.
@@ -104,7 +107,7 @@ object MarketActions {
         if (total > 0) {
             sell(plugin, player, material, total, onComplete)
         } else {
-            player.sendMessage("${ChatColor.RED}You don't have any ${prettyName(material)} to sell!")
+            player.sendMessage(Lang.colorize(Lang.get("market.sell.nothing-to-sell")))
             onComplete()
         }
     }
@@ -362,12 +365,14 @@ object MarketActions {
     
     /**
      * Create an item display for the market GUI.
+     * Uses translatable item names so they appear in the player's Minecraft client language.
      */
     fun createMarketItem(plugin: Endex, player: Player, material: Material, currentAmount: Int): ItemStack {
         val item = ItemStack(material)
         val meta = item.itemMeta ?: return item
         
-        meta.setDisplayName("${ChatColor.AQUA}${prettyName(material)}")
+        // Use translatable name so item appears in player's Minecraft client language
+        meta.displayName(ItemNames.translatable(material, NamedTextColor.AQUA))
         meta.lore = buildItemLore(plugin, player, material, currentAmount)
         
         item.itemMeta = meta

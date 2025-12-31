@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
 import org.lokixcz.theendex.Endex
+import org.lokixcz.theendex.lang.Lang
 import com.google.gson.JsonParser
 import net.md_5.bungee.api.chat.ClickEvent
 import net.md_5.bungee.api.chat.HoverEvent
@@ -190,9 +191,9 @@ class UpdateChecker(private val plugin: Endex) : Listener {
         Bukkit.getScheduler().runTask(plugin, Runnable {
             val console = Bukkit.getConsoleSender()
             console.sendMessage("")
-            console.sendMessage("§6§l[The Endex] §eUpdate available!")
-            console.sendMessage("§7Current: §c$currentVersion §7→ Latest: §a$latestVersion")
-            console.sendMessage("§7Download: §b$downloadUrl")
+            console.sendMessage(Lang.colorize(Lang.get("update-checker.header-console")))
+            console.sendMessage(Lang.colorize(Lang.get("update-checker.version-info", "current" to currentVersion, "latest" to (latestVersion ?: "unknown"))))
+            console.sendMessage(Lang.colorize(Lang.get("update-checker.download-url", "url" to (downloadUrl ?: ""))))
             console.sendMessage("")
         })
     }
@@ -218,8 +219,8 @@ class UpdateChecker(private val plugin: Endex) : Listener {
      */
     private fun notifyPlayer(player: Player) {
         player.sendMessage("")
-        player.sendMessage("§6§l[The Endex] §eA new update is available!")
-        player.sendMessage("§7Current: §c$currentVersion §7→ Latest: §a$latestVersion")
+        player.sendMessage(Lang.colorize(Lang.get("update-checker.header-player")))
+        player.sendMessage(Lang.colorize(Lang.get("update-checker.version-info", "current" to currentVersion, "latest" to (latestVersion ?: "unknown"))))
         
         // Send clickable links using Spigot's chat components
         try {
@@ -239,7 +240,7 @@ class UpdateChecker(private val plugin: Endex) : Listener {
             player.spigot().sendMessage(message)
         } catch (_: Exception) {
             // Fallback for servers without Spigot chat API
-            player.sendMessage("§7Download: §b$SPIGOT_URL")
+            player.sendMessage(Lang.colorize(Lang.get("update-checker.download-url", "url" to SPIGOT_URL)))
         }
         player.sendMessage("")
     }

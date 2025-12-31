@@ -3,6 +3,7 @@ package org.lokixcz.theendex.delivery
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
+import org.lokixcz.theendex.lang.Lang
 import org.lokixcz.theendex.util.EndexLogger
 import java.io.File
 import java.sql.Connection
@@ -366,12 +367,12 @@ class DeliveryManager(private val plugin: JavaPlugin) {
         val result = claimAll(player)
         if (result.delivered.isNotEmpty()) {
             val total = result.delivered.values.sum()
-            player.sendMessage("§a[TheEndex] §7Auto-claimed §e$total§7 pending items from deliveries!")
+            player.sendMessage(Lang.colorize(Lang.get("delivery-autoclaim.success", "total" to total.toString())))
             result.delivered.forEach { (mat, amt) ->
-                player.sendMessage("§7  +$amt ${mat.name}")
+                player.sendMessage(Lang.colorize(Lang.get("delivery-autoclaim.item-line", "amount" to amt.toString(), "item" to mat.name)))
             }
             if (result.totalRemaining > 0) {
-                player.sendMessage("§7Remaining: §e${result.totalRemaining}§7 items (inventory was full).")
+                player.sendMessage(Lang.colorize(Lang.get("delivery-autoclaim.remaining", "remaining" to result.totalRemaining.toString())))
             }
         }
     }

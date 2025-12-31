@@ -9,6 +9,7 @@ import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.invest.InvestmentsManager
+import org.lokixcz.theendex.lang.Lang
 import kotlin.math.max
 import org.lokixcz.theendex.gui.MarketGUI
 import org.lokixcz.theendex.api.events.PreBuyEvent
@@ -27,7 +28,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
                     plugin.marketGUI.open(sender)
                 }
             } else {
-                sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.YELLOW}Use: /market help for a list of commands")
+                sender.sendMessage(Lang.prefixed("help.commands.market"))
             }
             return true
         }
@@ -36,6 +37,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             "price" -> handlePrice(sender, args)
             "buy" -> handleBuy(sender, args)
             "sell" -> handleSell(sender, args)
+            "sellholdings" -> handleSellHoldings(sender, args)
             "top" -> handleTop(sender)
             "invest" -> handleInvest(sender, args)
             "event" -> handleEvent(sender, args)
@@ -56,7 +58,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             "disable" -> handleDisableItem(sender, args)
             "items" -> handleListItems(sender, args)
             else -> {
-                sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use ${ChatColor.YELLOW}/market help ${ChatColor.RED}for a list of commands.")
+                sender.sendMessage(Lang.get("general.invalid-args"))
                 true
             }
         }
@@ -67,13 +69,13 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
      */
     private fun handleShop(sender: CommandSender, args: Array<out String>): Boolean {
         if (sender !is Player) {
-            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            sender.sendMessage(Lang.get("general.player-only"))
             return true
         }
         
         val gui = plugin.customShopGUI
         if (gui == null) {
-            sender.sendMessage("${ChatColor.RED}Custom shop system is not available.")
+            sender.sendMessage(Lang.get("shops.not-available"))
             return true
         }
         
@@ -87,7 +89,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
      */
     private fun handleDefaultMarket(sender: CommandSender): Boolean {
         if (sender !is Player) {
-            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            sender.sendMessage(Lang.get("general.player-only"))
             return true
         }
         
@@ -100,18 +102,18 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
      */
     private fun handleEditor(sender: CommandSender): Boolean {
         if (sender !is Player) {
-            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            sender.sendMessage(Lang.get("general.player-only"))
             return true
         }
         
         if (!sender.hasPermission("endex.shop.editor")) {
-            sender.sendMessage("${ChatColor.RED}You don't have permission to use the shop editor.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         
         val editor = plugin.shopEditorGUI
         if (editor == null) {
-            sender.sendMessage("${ChatColor.RED}Shop editor is not available.")
+            sender.sendMessage(Lang.get("shops.editor-not-available"))
             return true
         }
         
@@ -120,70 +122,71 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
     }
 
     private fun handleHelp(sender: CommandSender): Boolean {
-        sender.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
-        sender.sendMessage("${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}The Endex ${ChatColor.GRAY}- Market Commands")
-        sender.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
-        sender.sendMessage("")
-        sender.sendMessage("${ChatColor.YELLOW}/market ${ChatColor.GRAY}- Open market/shop GUI")
-        sender.sendMessage("${ChatColor.YELLOW}/market shop [id] ${ChatColor.GRAY}- Open custom shop (if enabled)")
-        sender.sendMessage("${ChatColor.YELLOW}/market stock ${ChatColor.GRAY}- Open default stock market GUI")
-        sender.sendMessage("${ChatColor.YELLOW}/market price <item> ${ChatColor.GRAY}- Check item price")
-        sender.sendMessage("${ChatColor.YELLOW}/market buy <item> <amount> ${ChatColor.GRAY}- Buy items")
-        sender.sendMessage("${ChatColor.YELLOW}/market sell <item> <amount> ${ChatColor.GRAY}- Sell items")
-        sender.sendMessage("${ChatColor.YELLOW}/market top ${ChatColor.GRAY}- View top gainers/losers")
-        sender.sendMessage("")
-        sender.sendMessage("${ChatColor.AQUA}Holdings & Delivery:")
-        sender.sendMessage("${ChatColor.YELLOW}/market holdings ${ChatColor.GRAY}- View your virtual holdings")
-        sender.sendMessage("${ChatColor.YELLOW}/market withdraw <item> [amount] ${ChatColor.GRAY}- Withdraw from holdings")
-        sender.sendMessage("${ChatColor.YELLOW}/market withdraw all ${ChatColor.GRAY}- Withdraw all holdings")
-        sender.sendMessage("${ChatColor.YELLOW}/market delivery ${ChatColor.GRAY}- View pending deliveries")
-        sender.sendMessage("${ChatColor.YELLOW}/market delivery claim <item> ${ChatColor.GRAY}- Claim specific delivery")
-        sender.sendMessage("${ChatColor.YELLOW}/market delivery claim-all ${ChatColor.GRAY}- Claim all deliveries")
-        sender.sendMessage("")
-        sender.sendMessage("${ChatColor.AQUA}Investments:")
-        sender.sendMessage("${ChatColor.YELLOW}/market invest buy <item> <amount> ${ChatColor.GRAY}- Buy investment")
-        sender.sendMessage("${ChatColor.YELLOW}/market invest list ${ChatColor.GRAY}- View investments")
-        sender.sendMessage("${ChatColor.YELLOW}/market invest redeem-all ${ChatColor.GRAY}- Redeem all investments")
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.separator")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.title")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.separator")))
+        sender.sendMessage(Lang.get("market-help.empty-line"))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.basic.market")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.basic.shop")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.basic.stock")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.basic.price")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.basic.buy")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.basic.sell")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.basic.sellholdings")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.basic.top")))
+        sender.sendMessage(Lang.get("market-help.empty-line"))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.holdings-section")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.holdings.holdings")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.holdings.withdraw")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.holdings.withdraw-all")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.holdings.delivery")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.holdings.delivery-claim")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.holdings.delivery-claim-all")))
+        sender.sendMessage(Lang.get("market-help.empty-line"))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.invest-section")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.invest.buy")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.invest.list")))
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.invest.redeem")))
         
         if (sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("")
-            sender.sendMessage("${ChatColor.RED}Admin Events:")
-            sender.sendMessage("${ChatColor.YELLOW}/market event ${ChatColor.GRAY}- List/trigger events")
-            sender.sendMessage("${ChatColor.YELLOW}/market event <name> ${ChatColor.GRAY}- Trigger an event")
-            sender.sendMessage("${ChatColor.YELLOW}/market event end <name> ${ChatColor.GRAY}- End an event")
-            sender.sendMessage("${ChatColor.YELLOW}/market event clear ${ChatColor.GRAY}- Clear all events")
-            sender.sendMessage("")
-            sender.sendMessage("${ChatColor.RED}Admin Shop Editor:")
-            sender.sendMessage("${ChatColor.YELLOW}/market editor ${ChatColor.GRAY}- Open shop editor GUI")
-            sender.sendMessage("")
-            sender.sendMessage("${ChatColor.RED}Admin Item Management:")
-            sender.sendMessage("${ChatColor.YELLOW}/market add <item> <base> [min] [max] ${ChatColor.GRAY}- Add item")
-            sender.sendMessage("${ChatColor.YELLOW}/market remove <item> ${ChatColor.GRAY}- Remove item")
-            sender.sendMessage("${ChatColor.YELLOW}/market setbase <item> <price> ${ChatColor.GRAY}- Set base price")
-            sender.sendMessage("${ChatColor.YELLOW}/market setmin <item> <price> ${ChatColor.GRAY}- Set min price")
-            sender.sendMessage("${ChatColor.YELLOW}/market setmax <item> <price> ${ChatColor.GRAY}- Set max price")
-            sender.sendMessage("${ChatColor.YELLOW}/market setprice <item> <price> ${ChatColor.GRAY}- Set current price (temp)")
-            sender.sendMessage("${ChatColor.YELLOW}/market enable/disable <item> ${ChatColor.GRAY}- Enable/disable item")
-            sender.sendMessage("${ChatColor.YELLOW}/market items [page] ${ChatColor.GRAY}- List configured items")
+            sender.sendMessage(Lang.get("market-help.empty-line"))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-events-section")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-events.list")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-events.trigger")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-events.end")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-events.clear")))
+            sender.sendMessage(Lang.get("market-help.empty-line"))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-editor-section")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-editor.editor")))
+            sender.sendMessage(Lang.get("market-help.empty-line"))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items-section")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.add")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.remove")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.setbase")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.setmin")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.setmax")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.setprice")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.toggle")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.items")))
         }
         
-        sender.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
+        sender.sendMessage(Lang.colorize(Lang.get("market-help.separator")))
         return true
     }
 
     private fun handlePrice(sender: CommandSender, args: Array<out String>): Boolean {
         if (args.size < 2) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market price <material>")
+            sender.sendMessage(Lang.colorize(Lang.get("market-price.usage")))
             return true
         }
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Unknown material: ${args[1]}")
+            sender.sendMessage(Lang.colorize(Lang.get("market-price.unknown-material", "material" to args[1])))
             return true
         }
         val item = plugin.marketManager.get(mat)
         if (item == null) {
-            sender.sendMessage("${ChatColor.RED}${mat} is not tracked by the market.")
+            sender.sendMessage(Lang.colorize(Lang.get("market-price.not-tracked", "material" to mat.name)))
             return true
         }
     val current = item.currentPrice
@@ -195,9 +198,9 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             else -> "${ChatColor.YELLOW}→"
         }
     val mul = plugin.eventManager.multiplierFor(mat)
-    sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}${prettyName(mat)}${ChatColor.GRAY}: ${ChatColor.GREEN}${format(current)} ${ChatColor.GRAY}(${arrow}${ChatColor.GRAY} ${format(diff)})")
-    if (mul != 1.0) sender.sendMessage("${ChatColor.DARK_AQUA}Event multiplier: ${ChatColor.AQUA}x${format(mul)}  ${ChatColor.GRAY}Effective: ${ChatColor.GREEN}${format(current*mul)}")
-        sender.sendMessage("${ChatColor.DARK_GRAY}Base ${format(item.basePrice)}  Min ${format(item.minPrice)}  Max ${format(item.maxPrice)}")
+    sender.sendMessage(Lang.colorize(Lang.get("market-price.header", "item" to prettyName(mat), "price" to format(current), "arrow" to arrow, "diff" to format(diff))))
+    if (mul != 1.0) sender.sendMessage(Lang.colorize(Lang.get("market-price.event-multiplier", "multiplier" to format(mul), "effective" to format(current*mul))))
+        sender.sendMessage(Lang.colorize(Lang.get("market-price.stats", "base" to format(item.basePrice), "min" to format(item.minPrice), "max" to format(item.maxPrice))))
         // history line (last up to 5)
         if (item.history.isNotEmpty()) {
             val last = item.history.takeLast(12)
@@ -218,36 +221,36 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
                 }
             }.joinToString("")
             val last5 = item.history.takeLast(5).map { format(it.price) }
-            sender.sendMessage("${ChatColor.GRAY}History: ${last5.joinToString(separator = " ${ChatColor.DARK_GRAY}| ${ChatColor.GRAY}")}")
-            sender.sendMessage("${ChatColor.DARK_GRAY}Chart: ${ChatColor.GRAY}${bars}")
+            sender.sendMessage(Lang.colorize(Lang.get("market-price.history-label", "history" to last5.joinToString(separator = " ${ChatColor.DARK_GRAY}| ${ChatColor.GRAY}"))))
+            sender.sendMessage(Lang.colorize(Lang.get("market-price.chart-label", "chart" to bars)))
         }
         return true
     }
 
     private fun handleBuy(sender: CommandSender, args: Array<out String>): Boolean {
         if (sender !is Player) {
-            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            sender.sendMessage(Lang.get("general.player-only"))
             return true
         }
         if (!sender.hasPermission("theendex.buy")) {
-            sender.sendMessage("${ChatColor.RED}You don't have permission to buy.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (plugin.economy == null) {
-            sender.sendMessage("${ChatColor.RED}Economy unavailable. Install Vault and an economy plugin.")
+            sender.sendMessage(Lang.get("errors.economy-unavailable"))
             return true
         }
         if (args.size < 3) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market buy <material> <amount>")
+            sender.sendMessage(Lang.get("market.buy.usage"))
             return true
         }
         val mat = Material.matchMaterial(args[1].uppercase())
-        if (mat == null) { sender.sendMessage("${ChatColor.RED}Invalid material or amount."); return true }
+        if (mat == null) { sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1])); return true }
         var amount: Int = args[2].toIntOrNull()?.takeIf { it > 0 }
-            ?: run { sender.sendMessage("${ChatColor.RED}Invalid material or amount."); return true }
+            ?: run { sender.sendMessage(Lang.get("general.invalid-amount")); return true }
         val item = plugin.marketManager.get(mat)
         if (item == null) {
-            sender.sendMessage("${ChatColor.RED}${mat} is not tracked by the market.")
+            sender.sendMessage(Lang.get("market.buy.item-not-tracked", "item" to mat.name))
             return true
         }
 
@@ -266,7 +269,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         // Fire pre-buy event (modifiable)
         val pre = PreBuyEvent(mat, amount, unit)
         org.bukkit.Bukkit.getPluginManager().callEvent(pre)
-        if (pre.isCancelled) { sender.sendMessage("${ChatColor.RED}Purchase cancelled by server policy."); return true }
+        if (pre.isCancelled) { sender.sendMessage(Lang.get("market.buy.cancelled")); return true }
         amount = pre.amount
         unit = pre.unitPrice
         val subtotal = unit * amount
@@ -276,7 +279,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val eco = plugin.economy!!
         val bal = eco.getBalance(sender)
         if (bal + 1e-9 < total) {
-            sender.sendMessage("${ChatColor.RED}You need ${format(total)} but only have ${format(bal)}.")
+            sender.sendMessage(Lang.get("market.buy.not-enough-money", "price" to format(total), "balance" to format(bal)))
             return true
         }
         
@@ -286,8 +289,8 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             val success = db.addToHoldings(sender.uniqueId.toString(), mat, amount, unit)
             if (!success) {
                 val maxHoldings = plugin.config.getInt("holdings.max-total-per-player", 100000)
-                sender.sendMessage("${ChatColor.RED}Holdings limit reached ($maxHoldings items max). Withdraw some items first.")
-                sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market withdraw ${ChatColor.GRAY}to claim items from holdings.")
+                sender.sendMessage(Lang.get("market.holdings.limit-reached", "max" to maxHoldings))
+                sender.sendMessage(Lang.get("market.holdings.withdraw-hint"))
                 return true
             }
             
@@ -296,7 +299,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             if (!withdraw.transactionSuccess()) {
                 // Rollback holdings if payment fails
                 db.removeFromHoldings(sender.uniqueId.toString(), mat, amount)
-                sender.sendMessage("${ChatColor.RED}Payment failed: ${withdraw.errorMessage}")
+                sender.sendMessage(Lang.get("errors.payment-failed", "error" to (withdraw.errorMessage ?: "Unknown")))
                 return true
             }
             
@@ -305,11 +308,11 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             
             plugin.marketManager.addDemand(mat, amount.toDouble())
             
-            sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amount ${prettyName(mat)} for ${format(total)}!")
-            sender.sendMessage("${ChatColor.YELLOW}  → Items added to your ${ChatColor.LIGHT_PURPLE}Holdings${ChatColor.YELLOW}.")
-            sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market withdraw ${mat.name} ${ChatColor.GRAY}to claim items to inventory.")
+            sender.sendMessage(Lang.prefixed("market.buy.success", "amount" to amount, "item" to prettyName(mat), "price" to format(total)))
+            sender.sendMessage(Lang.get("market.holdings.added-to-holdings"))
+            sender.sendMessage(Lang.get("market.holdings.withdraw-command", "item" to mat.name))
             if (tax > 0) {
-                sender.sendMessage("${ChatColor.DARK_GRAY}(Tax: ${format(tax)} at ${taxPct}%)")
+                sender.sendMessage(Lang.get("market.buy.tax-info", "tax" to format(tax), "percent" to taxPct.toString()))
             }
             return true
         }
@@ -324,18 +327,18 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
                 // Old behavior: cap the purchase
                 amount = maxCapacity
                 if (amount <= 0) {
-                    sender.sendMessage("${ChatColor.RED}Your inventory is full. Please make space and try again.")
+                    sender.sendMessage(Lang.get("market.buy.inventory-full"))
                     return true
                 }
-                sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}Purchase capped to $amount ${mat.name} due to inventory space (requested: $originalAmount).")
-                sender.sendMessage("${ChatColor.GRAY}Tip: Empty your inventory or use Ender Chest for larger orders.")
+                sender.sendMessage(Lang.prefixed("market.buy.capped", "amount" to amount, "item" to mat.name, "requested" to originalAmount))
+                sender.sendMessage(Lang.get("market.buy.capacity-hint"))
             }
             // Else: delivery enabled, we'll charge for full amount and overflow goes to pending
         }
 
         val withdraw = eco.withdrawPlayer(sender, total)
         if (!withdraw.transactionSuccess()) {
-            sender.sendMessage("${ChatColor.RED}Payment failed: ${withdraw.errorMessage}")
+            sender.sendMessage(Lang.get("errors.payment-failed", "error" to (withdraw.errorMessage ?: "Unknown")))
             return true
         }
         // Give items
@@ -375,12 +378,12 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
                     if (success) {
                         pendingDelivery += remaining
                     } else {
-                        sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$remaining ${mat.name} dropped (delivery limit reached / zero-accept).")
+                        sender.sendMessage(Lang.colorize(Lang.get("market-transaction.item-dropped", "count" to remaining.toString(), "item" to mat.name)))
                         repeat(remaining) { sender.world.dropItemNaturally(sender.location, ItemStack(mat, 1)) }
                     }
                 } else {
                     repeat(remaining) { sender.world.dropItemNaturally(sender.location, ItemStack(mat, 1)) }
-                    sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$remaining ${mat.name} dropped (zero progress).")
+                    sender.sendMessage(Lang.colorize(Lang.get("market-transaction.item-dropped-zero", "count" to remaining.toString(), "item" to mat.name)))
                 }
                 remaining = 0
                 break
@@ -393,11 +396,11 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
                         pendingDelivery += remaining
                     } else {
                         leftovers.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
-                        sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$leftoverCount ${mat.name} dropped (delivery limit reached).")
+                        sender.sendMessage(Lang.colorize(Lang.get("market-transaction.item-dropped-limit", "count" to leftoverCount.toString(), "item" to mat.name)))
                     }
                 } else {
                     leftovers.values.forEach { sender.world.dropItemNaturally(sender.location, it) }
-                    sender.sendMessage("${ChatColor.YELLOW}[TheEndex] ${ChatColor.GOLD}$leftoverCount ${mat.name} dropped (inventory full).")
+                    sender.sendMessage(Lang.colorize(Lang.get("market-transaction.item-dropped-full", "count" to leftoverCount.toString(), "item" to mat.name)))
                 }
                 remaining = 0
                 break
@@ -408,14 +411,14 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         
         // Build success message
         if (pendingDelivery > 0) {
-            sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amount ${mat.name} for ${format(total)}.")
-            sender.sendMessage("${ChatColor.YELLOW}  Delivered: $delivered | Pending: $pendingDelivery ${ChatColor.GRAY}(click Ender Chest in market GUI)")
+            sender.sendMessage(Lang.colorize(Lang.get("market-transaction.buy-success", "amount" to amount.toString(), "item" to mat.name, "price" to format(total))))
+            sender.sendMessage(Lang.colorize(Lang.get("market-transaction.buy-delivered", "delivered" to delivered.toString(), "pending" to pendingDelivery.toString())))
         } else if (delivered == amount) {
-            sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amount ${mat.name} for ${format(total)} (tax ${format(tax)} at ${taxPct}%).")
+            sender.sendMessage(Lang.colorize(Lang.get("market-transaction.buy-with-tax", "amount" to amount.toString(), "item" to mat.name, "price" to format(total), "tax" to format(tax), "taxpct" to taxPct.toString())))
         } else {
             // Some items dropped (delivery disabled or limit reached)
-            sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Bought $amount ${mat.name} for ${format(total)}.")
-            sender.sendMessage("${ChatColor.YELLOW}  Delivered: $delivered | Dropped: ${amount - delivered}")
+            sender.sendMessage(Lang.colorize(Lang.get("market-transaction.buy-dropped", "amount" to amount.toString(), "item" to mat.name, "price" to format(total))))
+            sender.sendMessage(Lang.colorize(Lang.get("market-transaction.buy-dropped-note", "delivered" to delivered.toString(), "dropped" to (amount - delivered).toString())))
         }
         
         return true
@@ -423,28 +426,28 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
 
     private fun handleSell(sender: CommandSender, args: Array<out String>): Boolean {
         if (sender !is Player) {
-            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            sender.sendMessage(Lang.get("general.player-only"))
             return true
         }
         if (!sender.hasPermission("theendex.sell")) {
-            sender.sendMessage("${ChatColor.RED}You don't have permission to sell.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (plugin.economy == null) {
-            sender.sendMessage("${ChatColor.RED}Economy unavailable. Install Vault and an economy plugin.")
+            sender.sendMessage(Lang.get("errors.economy-unavailable"))
             return true
         }
         if (args.size < 3) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market sell <material> <amount>")
+            sender.sendMessage(Lang.get("market.sell.usage"))
             return true
         }
         val mat = Material.matchMaterial(args[1].uppercase())
-        if (mat == null) { sender.sendMessage("${ChatColor.RED}Invalid material or amount."); return true }
+        if (mat == null) { sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1])); return true }
         var amount: Int = args[2].toIntOrNull()?.takeIf { it > 0 }
-            ?: run { sender.sendMessage("${ChatColor.RED}Invalid material or amount."); return true }
+            ?: run { sender.sendMessage(Lang.get("general.invalid-amount")); return true }
         val item = plugin.marketManager.get(mat)
         if (item == null) {
-            sender.sendMessage("${ChatColor.RED}${mat} is not tracked by the market.")
+            sender.sendMessage(Lang.get("market.sell.item-not-tracked", "item" to mat.name))
             return true
         }
 
@@ -458,13 +461,13 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         // Fire pre-sell event (modifiable)
         val pre = PreSellEvent(mat, amount, unit)
         org.bukkit.Bukkit.getPluginManager().callEvent(pre)
-        if (pre.isCancelled) { sender.sendMessage("${ChatColor.RED}Sale cancelled by server policy."); return true }
+        if (pre.isCancelled) { sender.sendMessage(Lang.get("market.sell.cancelled")); return true }
         amount = pre.amount
         unit = pre.unitPrice
         // Now remove items based on possibly adjusted amount
         val removed = removeItems(sender, mat, amount)
         if (removed < amount) {
-            sender.sendMessage("${ChatColor.RED}You only have $removed of $amount required ${mat}.")
+            sender.sendMessage(Lang.get("market.sell.not-enough-items", "owned" to removed, "required" to amount, "item" to mat.name))
             return true
         }
         val subtotal = unit * amount
@@ -474,32 +477,113 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val eco = plugin.economy!!
         val deposit = eco.depositPlayer(sender, payout)
         if (!deposit.transactionSuccess()) {
-            sender.sendMessage("${ChatColor.RED}Payment failed: ${deposit.errorMessage}")
+            sender.sendMessage(Lang.get("errors.payment-failed", "error" to (deposit.errorMessage ?: "Unknown")))
             return true
         }
 
         plugin.marketManager.addSupply(mat, amount.toDouble())
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Sold $amount ${mat} for ${format(payout)} (tax ${format(tax)} at ${taxPct}%).")
+        sender.sendMessage(Lang.prefixed("market.sell.success", "amount" to amount, "item" to mat.name, "price" to format(payout), "tax" to format(tax), "percent" to taxPct.toString()))
+        return true
+    }
+
+    /**
+     * Sell items directly from virtual holdings (not from player inventory).
+     */
+    private fun handleSellHoldings(sender: CommandSender, args: Array<out String>): Boolean {
+        if (sender !is Player) {
+            sender.sendMessage(Lang.get("general.player-only"))
+            return true
+        }
+        if (!sender.hasPermission("theendex.sell")) {
+            sender.sendMessage(Lang.get("general.no-permission"))
+            return true
+        }
+        if (plugin.economy == null) {
+            sender.sendMessage(Lang.get("errors.economy-unavailable"))
+            return true
+        }
+        if (args.size < 3) {
+            sender.sendMessage(Lang.get("market.sellholdings.usage"))
+            return true
+        }
+        val mat = Material.matchMaterial(args[1].uppercase())
+        if (mat == null) { sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1])); return true }
+        var amount: Int = args[2].toIntOrNull()?.takeIf { it > 0 }
+            ?: run { sender.sendMessage(Lang.get("general.invalid-amount")); return true }
+        val item = plugin.marketManager.get(mat)
+        if (item == null) {
+            sender.sendMessage(Lang.get("market.sell.item-not-tracked", "item" to mat.name))
+            return true
+        }
+
+        // Get database reference
+        val db = plugin.marketManager.sqliteStore()
+        if (db == null) {
+            sender.sendMessage(Lang.get("errors.database-error"))
+            return true
+        }
+
+        // Check holdings first
+        val holdingsData = db.getHolding(sender.uniqueId.toString(), mat)
+        val holdingsQty = holdingsData?.first ?: 0
+        if (holdingsQty <= 0) {
+            sender.sendMessage(Lang.get("market.holdings.none-of-item", "item" to mat.name))
+            return true
+        }
+
+        val taxPct = plugin.config.getDouble("transaction-tax-percent", 0.0).coerceAtLeast(0.0)
+        
+        // Apply spread markdown for selling (anti-arbitrage protection)
+        val spreadEnabled = plugin.config.getBoolean("spread.enabled", true)
+        val sellMarkdownPct = if (spreadEnabled) plugin.config.getDouble("spread.sell-markdown-percent", 1.5).coerceAtLeast(0.0) else 0.0
+        
+        var unit = item.currentPrice * (plugin.eventManager.multiplierFor(mat)) * (1.0 - sellMarkdownPct / 100.0)
+        // Fire pre-sell event (modifiable)
+        val pre = PreSellEvent(mat, amount, unit)
+        org.bukkit.Bukkit.getPluginManager().callEvent(pre)
+        if (pre.isCancelled) { sender.sendMessage(Lang.get("market.sell.cancelled")); return true }
+        amount = pre.amount
+        unit = pre.unitPrice
+        
+        // Remove from holdings instead of inventory
+        val removed = db.removeFromHoldings(sender.uniqueId.toString(), mat, amount)
+        if (removed < amount) {
+            sender.sendMessage(Lang.get("market.holdings.not-enough", "owned" to removed, "required" to amount, "item" to mat.name))
+            return true
+        }
+        val subtotal = unit * removed
+        val tax = subtotal * (taxPct / 100.0)
+        val payout = subtotal - tax
+
+        val eco = plugin.economy!!
+        val deposit = eco.depositPlayer(sender, payout)
+        if (!deposit.transactionSuccess()) {
+            sender.sendMessage(Lang.get("errors.payment-failed", "error" to (deposit.errorMessage ?: "Unknown")))
+            return true
+        }
+
+        plugin.marketManager.addSupply(mat, removed.toDouble())
+        sender.sendMessage(Lang.prefixed("market.sellholdings.success", "amount" to removed, "item" to mat.name, "price" to format(payout), "tax" to format(tax), "percent" to taxPct.toString()))
         return true
     }
 
     private fun handleTop(sender: CommandSender): Boolean {
         val entries = plugin.marketManager.allItems()
         if (entries.isEmpty()) {
-            sender.sendMessage("${ChatColor.YELLOW}No market items available.")
+            sender.sendMessage(Lang.get("market.trend.no-data"))
             return true
         }
         val changes = entries.map { it.material to pctChange(it.history) }
         val topGainers = changes.sortedByDescending { it.second }.take(5)
         val topLosers = changes.sortedBy { it.second }.take(5)
 
-        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.GREEN}Top Gainers:")
+        sender.sendMessage(Lang.prefixed("market.trend.top-gainers"))
         topGainers.forEach {
-            sender.sendMessage("${ChatColor.GREEN}+${formatPct(it.second)} ${ChatColor.AQUA}${prettyName(it.first)}")
+            sender.sendMessage(Lang.colorize(Lang.get("market-transaction.top-gainer", "percent" to formatPct(it.second), "item" to prettyName(it.first))))
         }
-        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.RED}Top Losers:")
+        sender.sendMessage(Lang.prefixed("market.trend.top-losers"))
         topLosers.forEach {
-            sender.sendMessage("${ChatColor.RED}${formatPct(it.second)} ${ChatColor.AQUA}${prettyName(it.first)}")
+            sender.sendMessage(Lang.colorize(Lang.get("market-transaction.top-loser", "percent" to formatPct(it.second), "item" to prettyName(it.first))))
         }
         return true
     }
@@ -558,102 +642,102 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
 
     private fun handleInvest(sender: CommandSender, args: Array<out String>): Boolean {
         if (!plugin.config.getBoolean("investments.enabled", true)) {
-            sender.sendMessage("${ChatColor.RED}Investments are disabled in config."); return true
+            sender.sendMessage(Lang.get("market.invest.not-enabled")); return true
         }
-        if (sender !is Player) { sender.sendMessage("${ChatColor.RED}Players only."); return true }
-        if (!sender.hasPermission("theendex.invest")) { sender.sendMessage("${ChatColor.RED}No permission."); return true }
+        if (sender !is Player) { sender.sendMessage(Lang.get("general.player-only")); return true }
+        if (!sender.hasPermission("theendex.invest")) { sender.sendMessage(Lang.get("general.no-permission")); return true }
         if (args.size == 1) {
-            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}/market invest buy <material> <amount> ${ChatColor.GRAY}| ${ChatColor.AQUA}/market invest list ${ChatColor.GRAY}| ${ChatColor.AQUA}/market invest redeem-all")
+            sender.sendMessage(Lang.prefixed("market.invest.usage"))
             return true
         }
         when (args[1].lowercase()) {
             "buy" -> {
-                if (plugin.economy == null) { sender.sendMessage("${ChatColor.RED}Economy unavailable."); return true }
-                if (args.size < 4) { sender.sendMessage("${ChatColor.RED}Usage: /market invest buy <material> <amount>"); return true }
-                val mat = Material.matchMaterial(args[2].uppercase()) ?: run { sender.sendMessage("${ChatColor.RED}Unknown material"); return true }
-                val amt = args[3].toDoubleOrNull()?.takeIf { it > 0 } ?: run { sender.sendMessage("${ChatColor.RED}Invalid amount"); return true }
-                val item = plugin.marketManager.get(mat) ?: run { sender.sendMessage("${ChatColor.RED}${mat} is not tracked"); return true }
+                if (plugin.economy == null) { sender.sendMessage(Lang.get("errors.economy-unavailable")); return true }
+                if (args.size < 4) { sender.sendMessage(Lang.get("market.invest.buy-usage")); return true }
+                val mat = Material.matchMaterial(args[2].uppercase()) ?: run { sender.sendMessage(Lang.get("general.invalid-item", "item" to args[2])); return true }
+                val amt = args[3].toDoubleOrNull()?.takeIf { it > 0 } ?: run { sender.sendMessage(Lang.get("general.invalid-amount")); return true }
+                val item = plugin.marketManager.get(mat) ?: run { sender.sendMessage(Lang.get("market.buy.item-not-tracked", "item" to mat.name)); return true }
                 val unit = item.currentPrice * plugin.eventManager.multiplierFor(mat)
                 val totalCost = unit * amt
                 val eco = plugin.economy!!
-                if (eco.getBalance(sender) + 1e-9 < totalCost) { sender.sendMessage("${ChatColor.RED}You need ${format(totalCost)}."); return true }
+                if (eco.getBalance(sender) + 1e-9 < totalCost) { sender.sendMessage(Lang.get("market.invest.not-enough-money", "price" to format(totalCost))); return true }
                 val res = eco.withdrawPlayer(sender, totalCost)
-                if (!res.transactionSuccess()) { sender.sendMessage("${ChatColor.RED}Payment failed: ${res.errorMessage}"); return true }
+                if (!res.transactionSuccess()) { sender.sendMessage(Lang.get("errors.payment-failed", "error" to (res.errorMessage ?: "Unknown"))); return true }
                 // Buy an investment certificate tracking material and principal paid
                 val inv = investments.buy(sender.uniqueId, mat.name, totalCost)
-                sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.GREEN}Purchased investment in ${prettyName(mat)} for ${format(totalCost)} at APR ${investments.defaultApr()}%.")
+                sender.sendMessage(Lang.prefixed("market.invest.success", "item" to prettyName(mat), "price" to format(totalCost), "apr" to investments.defaultApr().toString()))
                 return true
             }
             "list" -> {
                 val list = investments.list(sender.uniqueId)
-                if (list.isEmpty()) { sender.sendMessage("${ChatColor.GRAY}No active investments."); return true }
-                sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Your investments:")
+                if (list.isEmpty()) { sender.sendMessage(Lang.get("market.invest.no-investments")); return true }
+                sender.sendMessage(Lang.prefixed("market.invest.list-header"))
                 list.forEach { s ->
                     sender.sendMessage("${ChatColor.GRAY}- ${ChatColor.AQUA}${s.material}${ChatColor.GRAY} ${s.id.take(8)}…  P: ${format(s.principal)}  Accrued: ${ChatColor.GREEN}${format(s.accrued)}")
                 }
                 return true
             }
             "redeem-all" -> {
-                if (plugin.economy == null) { sender.sendMessage("${ChatColor.RED}Economy unavailable."); return true }
+                if (plugin.economy == null) { sender.sendMessage(Lang.get("errors.economy-unavailable")); return true }
                 val (payout, count) = investments.redeemAll(sender.uniqueId)
-                if (count == 0) { sender.sendMessage("${ChatColor.GRAY}No active investments."); return true }
+                if (count == 0) { sender.sendMessage(Lang.get("market.invest.no-investments")); return true }
                 val eco = plugin.economy!!
                 val res = eco.depositPlayer(sender, payout)
-                if (!res.transactionSuccess()) { sender.sendMessage("${ChatColor.RED}Payout failed: ${res.errorMessage}"); return true }
-                sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.GREEN}Redeemed $count investment(s) for ${format(payout)}.")
+                if (!res.transactionSuccess()) { sender.sendMessage(Lang.get("errors.payment-failed", "error" to (res.errorMessage ?: "Unknown"))); return true }
+                sender.sendMessage(Lang.prefixed("market.invest.redeem-success", "count" to count, "payout" to format(payout)))
                 return true
             }
         }
-        sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use /market invest [buy|list|redeem-all]")
+        sender.sendMessage(Lang.get("market.invest.unknown-subcommand"))
         return true
     }
 
     private fun handleEvent(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (args.size == 1) {
-            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Events:")
+            sender.sendMessage(Lang.prefixed("market.event.header"))
             val defs = plugin.eventManager.listEvents()
-            if (defs.isEmpty()) sender.sendMessage("${ChatColor.GRAY}(none)") else defs.forEach {
+            if (defs.isEmpty()) sender.sendMessage(Lang.get("market.event.none")) else defs.forEach {
                 val target = it.affectedCategory ?: it.affected
-                val bc = if (it.broadcast) "${ChatColor.GREEN}broadcast" else "${ChatColor.DARK_GRAY}silent"
+                val bc = if (it.broadcast) Lang.get("market.event.broadcast") else Lang.get("market.event.silent")
                 sender.sendMessage("${ChatColor.AQUA}${it.name}${ChatColor.GRAY} -> ${target} x${it.multiplier} ${it.durationMinutes}m ${bc}")
             }
             val act = plugin.eventManager.listActive()
-            if (act.isNotEmpty()) sender.sendMessage("${ChatColor.GOLD}Active:")
+            if (act.isNotEmpty()) sender.sendMessage(Lang.prefixed("market.event.active"))
             act.forEach { sender.sendMessage("${ChatColor.AQUA}${it.event.name}${ChatColor.GRAY} ends ${ChatColor.YELLOW}${java.time.Duration.between(java.time.Instant.now(), it.endsAt).toMinutes()}m") }
-            sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.AQUA}/market event <name>${ChatColor.GRAY} to trigger, ${ChatColor.AQUA}/market event end <name>${ChatColor.GRAY} to end, ${ChatColor.AQUA}/market event clear${ChatColor.GRAY} to clear all.")
+            sender.sendMessage(Lang.get("market.event.usage-hint"))
             return true
         }
         if (args[1].equals("clear", ignoreCase = true)) {
             val n = plugin.eventManager.clearAll()
-            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.GRAY}Cleared ${ChatColor.AQUA}$n${ChatColor.GRAY} active event(s).")
+            sender.sendMessage(Lang.prefixed("market.event.cleared", "count" to n))
             return true
         }
         if (args[1].equals("end", ignoreCase = true)) {
-            if (args.size < 3) { sender.sendMessage("${ChatColor.RED}Usage: /market event end <name>"); return true }
+            if (args.size < 3) { sender.sendMessage(Lang.get("market.event.end-usage")); return true }
             val name = args.drop(2).joinToString(" ")
             val ok = plugin.eventManager.end(name)
-            if (!ok) sender.sendMessage("${ChatColor.RED}Event not found or not active: $name")
+            if (!ok) sender.sendMessage(Lang.get("market.event.not-found", "name" to name))
             return true
         }
         val name = args.drop(1).joinToString(" ")
         val ok = plugin.eventManager.trigger(name)
-        if (!ok) sender.sendMessage("${ChatColor.RED}Unknown event: $name")
+        if (!ok) sender.sendMessage(Lang.get("market.event.unknown", "name" to name))
         return true
     }
 
     private fun handleDelivery(sender: CommandSender, args: Array<out String>): Boolean {
         if (sender !is Player) {
-            sender.sendMessage("${ChatColor.RED}Only players can use delivery commands.")
+            sender.sendMessage(Lang.get("general.player-only"))
             return true
         }
         
         val deliveryMgr = plugin.getDeliveryManager()
         if (deliveryMgr == null || !plugin.config.getBoolean("delivery.enabled", true)) {
-            sender.sendMessage("${ChatColor.RED}Delivery system is not enabled.")
+            sender.sendMessage(Lang.get("market.delivery.not-enabled"))
             return true
         }
         
@@ -669,11 +753,11 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             "gui" -> {
                 // Open deliveries GUI panel directly
                 plugin.marketGUI.open(sender)
-                sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.YELLOW}Click the ${ChatColor.LIGHT_PURPLE}Ender Chest ${ChatColor.YELLOW}to view deliveries.")
+                sender.sendMessage(Lang.prefixed("market.delivery.gui-hint"))
                 true
             }
             else -> {
-                sender.sendMessage("${ChatColor.RED}Usage: /market delivery [list|claim|claim-all|gui]")
+                sender.sendMessage(Lang.get("market.delivery.usage"))
                 true
             }
         }
@@ -683,46 +767,43 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val pending = deliveryMgr.listPending(player.uniqueId)
         
         if (pending.isEmpty()) {
-            player.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GRAY}You have no pending deliveries.")
-            player.sendMessage("${ChatColor.DARK_GRAY}Items purchased with full inventory will appear here.")
+            player.sendMessage(Lang.prefixed("market.delivery.no-pending"))
+            player.sendMessage(Lang.get("market.delivery.no-pending-hint"))
             return true
         }
         
         val totalCount = pending.values.sum()
-        player.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
-        player.sendMessage("${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}Pending Deliveries ${ChatColor.GRAY}($totalCount items)")
-        player.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
+        player.sendMessage(Lang.get("market.gui.divider"))
+        player.sendMessage(Lang.prefixed("market.delivery.header", "count" to totalCount))
+        player.sendMessage(Lang.get("market.gui.divider"))
         
         pending.entries.sortedByDescending { it.value }.forEach { (material, amount) ->
-            val prettyName = material.name.lowercase().split('_').joinToString(" ") { 
-                it.replaceFirstChar { c -> c.titlecase() } 
-            }
-            player.sendMessage("${ChatColor.AQUA}$prettyName: ${ChatColor.YELLOW}$amount")
+            player.sendMessage(Lang.colorize(Lang.get("market-holdings-display.item-line", "item" to prettyName(material), "amount" to amount.toString())))
         }
         
-        player.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
-        player.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market delivery claim <material> ${ChatColor.GRAY}to claim specific items")
-        player.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market delivery claim-all ${ChatColor.GRAY}to claim everything")
-        player.sendMessage("${ChatColor.GRAY}Or click the ${ChatColor.LIGHT_PURPLE}Ender Chest ${ChatColor.GRAY}in ${ChatColor.YELLOW}/market ${ChatColor.GRAY}GUI")
+        player.sendMessage(Lang.get("market.gui.divider"))
+        player.sendMessage(Lang.get("market.delivery.claim-hint"))
+        player.sendMessage(Lang.get("market.delivery.claim-all-hint"))
+        player.sendMessage(Lang.get("market.delivery.gui-click-hint"))
         return true
     }
     
     private fun handleDeliveryClaim(player: Player, deliveryMgr: org.lokixcz.theendex.delivery.DeliveryManager, args: Array<out String>): Boolean {
         if (args.size < 3) {
-            player.sendMessage("${ChatColor.RED}Usage: /market delivery claim <material> [amount]")
-            player.sendMessage("${ChatColor.GRAY}Example: /market delivery claim diamond 64")
+            player.sendMessage(Lang.get("market.delivery.claim-usage"))
+            player.sendMessage(Lang.get("market.delivery.claim-example"))
             return true
         }
         
         val mat = Material.matchMaterial(args[2].uppercase())
         if (mat == null) {
-            player.sendMessage("${ChatColor.RED}Unknown material: ${args[2]}")
+            player.sendMessage(Lang.get("general.invalid-item", "item" to args[2]))
             return true
         }
         
         val requestedAmount = if (args.size >= 4) {
             args[3].toIntOrNull()?.takeIf { it > 0 } ?: run {
-                player.sendMessage("${ChatColor.RED}Invalid amount: ${args[3]}")
+                player.sendMessage(Lang.get("general.invalid-amount"))
                 return true
             }
         } else {
@@ -732,20 +813,17 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val result = deliveryMgr.claimMaterial(player, mat, requestedAmount)
         
         if (result.error != null) {
-            player.sendMessage("${ChatColor.RED}[TheEndex] ${result.error}")
+            player.sendMessage(Lang.get("errors.generic", "error" to result.error))
             return true
         }
         
         if (result.delivered > 0) {
-            val prettyName = mat.name.lowercase().split('_').joinToString(" ") { 
-                it.replaceFirstChar { c -> c.titlecase() } 
-            }
-            player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}${result.delivered} $prettyName${ChatColor.GREEN}!")
+            player.sendMessage(Lang.prefixed("market.delivery.claimed", "amount" to result.delivered, "item" to prettyName(mat)))
         }
         
         if (result.remainingPending > 0) {
-            player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.remainingPending} items still pending (inventory full).")
-            player.sendMessage("${ChatColor.GRAY}Make space and claim again to get the rest.")
+            player.sendMessage(Lang.get("market.delivery.still-pending", "count" to result.remainingPending))
+            player.sendMessage(Lang.get("market.delivery.make-space"))
         }
         
         return true
@@ -755,32 +833,29 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val result = deliveryMgr.claimAll(player)
         
         if (result.error != null) {
-            player.sendMessage("${ChatColor.RED}[TheEndex] ${result.error}")
+            player.sendMessage(Lang.get("errors.generic", "error" to result.error))
             return true
         }
         
         if (result.delivered.isEmpty()) {
-            player.sendMessage("${ChatColor.GRAY}[TheEndex] No items were claimed (inventory may be full).")
+            player.sendMessage(Lang.get("market.delivery.nothing-claimed"))
             return true
         }
         
         val totalClaimed = result.delivered.values.sum()
-        player.sendMessage("${ChatColor.GREEN}[TheEndex] Claimed ${ChatColor.GOLD}$totalClaimed ${ChatColor.GREEN}items!")
+        player.sendMessage(Lang.prefixed("market.delivery.claimed-total", "count" to totalClaimed))
         
         result.delivered.entries.sortedByDescending { it.value }.take(5).forEach { (material, count) ->
-            val prettyName = material.name.lowercase().split('_').joinToString(" ") { 
-                it.replaceFirstChar { c -> c.titlecase() } 
-            }
-            player.sendMessage("${ChatColor.GRAY}  • ${ChatColor.AQUA}$prettyName: ${ChatColor.GOLD}$count")
+            player.sendMessage(Lang.colorize(Lang.get("market-holdings-display.delivery-item", "item" to prettyName(material), "count" to count.toString())))
         }
         
         if (result.delivered.size > 5) {
-            player.sendMessage("${ChatColor.DARK_GRAY}  ... and ${result.delivered.size - 5} more materials")
+            player.sendMessage(Lang.get("market.delivery.and-more", "count" to (result.delivered.size - 5)))
         }
         
         if (result.totalRemaining > 0) {
-            player.sendMessage("${ChatColor.YELLOW}[TheEndex] ${result.totalRemaining} items still pending (inventory full).")
-            player.sendMessage("${ChatColor.GRAY}Make space and use ${ChatColor.YELLOW}/market delivery claim-all ${ChatColor.GRAY}again.")
+            player.sendMessage(Lang.get("market.delivery.still-pending", "count" to result.totalRemaining))
+            player.sendMessage(Lang.get("market.delivery.make-space-claimall"))
         }
         
         return true
@@ -792,30 +867,30 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
     
     private fun handleHoldings(sender: CommandSender, args: Array<out String>): Boolean {
         if (sender !is Player) {
-            sender.sendMessage("${ChatColor.RED}Only players can view holdings.")
+            sender.sendMessage(Lang.get("general.player-only"))
             return true
         }
         
         val db = plugin.marketManager.sqliteStore()
         if (db == null || !plugin.config.getBoolean("holdings.enabled", true)) {
-            sender.sendMessage("${ChatColor.RED}Holdings system is not enabled.")
+            sender.sendMessage(Lang.get("market.holdings.not-enabled"))
             return true
         }
         
         val holdings = db.listHoldings(sender.uniqueId.toString())
         
         if (holdings.isEmpty()) {
-            sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GRAY}You have no items in holdings.")
-            sender.sendMessage("${ChatColor.DARK_GRAY}Buy items with /market buy to add them to holdings.")
+            sender.sendMessage(Lang.prefixed("market.holdings.empty"))
+            sender.sendMessage(Lang.get("market.holdings.empty-hint"))
             return true
         }
         
         val totalItems = holdings.values.sumOf { it.first }
         val maxHoldings = plugin.config.getInt("holdings.max-total-per-player", 100000)
         
-        sender.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
-        sender.sendMessage("${ChatColor.LIGHT_PURPLE}${ChatColor.BOLD}Your Holdings ${ChatColor.GRAY}($totalItems / $maxHoldings items)")
-        sender.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
+        sender.sendMessage(Lang.get("market.gui.divider"))
+        sender.sendMessage(Lang.prefixed("market.holdings.header", "count" to totalItems, "max" to maxHoldings))
+        sender.sendMessage(Lang.get("market.gui.divider"))
         
         var totalValue = 0.0
         var totalCost = 0.0
@@ -837,11 +912,11 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             }
             val pnlSign = if (pnl >= 0) "+" else ""
             
-            sender.sendMessage("${ChatColor.AQUA}${prettyName(material)}: ${ChatColor.YELLOW}$qty ${ChatColor.GRAY}@ ${ChatColor.GREEN}${format(currentPrice)} ${pnlColor}(${pnlSign}${format(pnl)})")
+            sender.sendMessage(Lang.colorize(Lang.get("market-holdings-display.item-detail", "item" to prettyName(material), "qty" to qty.toString(), "price" to format(currentPrice), "pnl_color" to pnlColor.toString(), "pnl_sign" to pnlSign, "pnl" to format(pnl))))
         }
         
         if (holdings.size > 15) {
-            sender.sendMessage("${ChatColor.DARK_GRAY}  ... and ${holdings.size - 15} more materials")
+            sender.sendMessage(Lang.get("market.holdings.and-more", "count" to (holdings.size - 15)))
         }
         
         val totalPnl = totalValue - totalCost
@@ -852,33 +927,33 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         }
         val pnlSign = if (totalPnl >= 0) "+" else ""
         
-        sender.sendMessage("${ChatColor.GOLD}═══════════════════════════════════════")
-        sender.sendMessage("${ChatColor.GRAY}Total Value: ${ChatColor.GREEN}${format(totalValue)} ${pnlColor}(${pnlSign}${format(totalPnl)} P/L)")
-        sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market withdraw <material> [amount] ${ChatColor.GRAY}to claim items")
-        sender.sendMessage("${ChatColor.GRAY}Or open ${ChatColor.YELLOW}/market ${ChatColor.GRAY}GUI and click ${ChatColor.LIGHT_PURPLE}Holdings")
+        sender.sendMessage(Lang.get("market.gui.divider"))
+        sender.sendMessage(Lang.colorize(Lang.get("market-holdings-display.total-value", "label" to Lang.get("market.holdings.total-value"), "value" to format(totalValue), "pnl_color" to pnlColor.toString(), "pnl_sign" to pnlSign, "pnl" to format(totalPnl))))
+        sender.sendMessage(Lang.get("market.holdings.withdraw-hint"))
+        sender.sendMessage(Lang.get("market.holdings.gui-hint"))
         
         return true
     }
     
     private fun handleWithdraw(sender: CommandSender, args: Array<out String>): Boolean {
         if (sender !is Player) {
-            sender.sendMessage("${ChatColor.RED}Only players can withdraw from holdings.")
+            sender.sendMessage(Lang.get("general.player-only"))
             return true
         }
         
         val db = plugin.marketManager.sqliteStore()
         if (db == null || !plugin.config.getBoolean("holdings.enabled", true)) {
-            sender.sendMessage("${ChatColor.RED}Holdings system is not enabled.")
+            sender.sendMessage(Lang.get("market.holdings.not-enabled"))
             return true
         }
         
         // /market withdraw (no args) - show help or withdraw all
         if (args.size == 1) {
-            sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.AQUA}Withdraw Commands:")
-            sender.sendMessage("${ChatColor.YELLOW}/market withdraw <material> ${ChatColor.GRAY}- Withdraw all of a material")
-            sender.sendMessage("${ChatColor.YELLOW}/market withdraw <material> <amount> ${ChatColor.GRAY}- Withdraw specific amount")
-            sender.sendMessage("${ChatColor.YELLOW}/market withdraw all ${ChatColor.GRAY}- Withdraw everything possible")
-            sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market holdings ${ChatColor.GRAY}to see what you have.")
+            sender.sendMessage(Lang.prefixed("market.withdraw.header"))
+            sender.sendMessage(Lang.get("market.withdraw.usage-material"))
+            sender.sendMessage(Lang.get("market.withdraw.usage-amount"))
+            sender.sendMessage(Lang.get("market.withdraw.usage-all"))
+            sender.sendMessage(Lang.get("market.withdraw.see-holdings"))
             return true
         }
         
@@ -890,20 +965,20 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         // /market withdraw <material> [amount]
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Unknown material: ${args[1]}")
+            sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1]))
             return true
         }
         
         val holding = db.getHolding(sender.uniqueId.toString(), mat)
         if (holding == null || holding.first <= 0) {
-            sender.sendMessage("${ChatColor.RED}You don't have any ${prettyName(mat)} in holdings.")
+            sender.sendMessage(Lang.get("market.holdings.none-of-item", "item" to prettyName(mat)))
             return true
         }
         
         val (available, _) = holding
         val requestedAmount = if (args.size >= 3) {
             args[2].toIntOrNull()?.takeIf { it > 0 } ?: run {
-                sender.sendMessage("${ChatColor.RED}Invalid amount: ${args[2]}")
+                sender.sendMessage(Lang.get("general.invalid-amount"))
                 return true
             }
         } else {
@@ -914,7 +989,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val capacity = calculateInventoryCapacity(sender, mat)
         
         if (capacity <= 0) {
-            sender.sendMessage("${ChatColor.RED}Your inventory is full. Please make space and try again.")
+            sender.sendMessage(Lang.get("market.withdraw.inventory-full"))
             return true
         }
         
@@ -923,7 +998,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         // Remove from holdings
         val removed = db.removeFromHoldings(sender.uniqueId.toString(), mat, actualWithdraw)
         if (removed <= 0) {
-            sender.sendMessage("${ChatColor.RED}Failed to withdraw items. Please try again.")
+            sender.sendMessage(Lang.get("market.withdraw.failed"))
             return true
         }
         
@@ -940,12 +1015,12 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             remaining -= toGive
         }
         
-        sender.sendMessage("${ChatColor.GREEN}[TheEndex] Withdrew ${ChatColor.GOLD}$removed ${prettyName(mat)}${ChatColor.GREEN} to inventory!")
+        sender.sendMessage(Lang.prefixed("market.withdraw.success", "amount" to removed, "item" to prettyName(mat)))
         
         val newHolding = db.getHolding(sender.uniqueId.toString(), mat)
         val stillHave = newHolding?.first ?: 0
         if (stillHave > 0) {
-            sender.sendMessage("${ChatColor.YELLOW}[TheEndex] $stillHave ${prettyName(mat)} still in holdings (inventory was full).")
+            sender.sendMessage(Lang.get("market.withdraw.still-holding", "count" to stillHave, "item" to prettyName(mat)))
         }
         
         return true
@@ -955,7 +1030,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val holdings = db.listHoldings(player.uniqueId.toString())
         
         if (holdings.isEmpty()) {
-            player.sendMessage("${ChatColor.GRAY}[TheEndex] No items in holdings to withdraw.")
+            player.sendMessage(Lang.get("market.withdraw.nothing"))
             return true
         }
         
@@ -1001,23 +1076,23 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         }
         
         if (totalWithdrawn == 0) {
-            player.sendMessage("${ChatColor.GRAY}[TheEndex] No items were withdrawn (inventory may be full).")
+            player.sendMessage(Lang.get("market.withdraw.none-withdrawn"))
             return true
         }
         
-        player.sendMessage("${ChatColor.GREEN}[TheEndex] Withdrew ${ChatColor.GOLD}$totalWithdrawn ${ChatColor.GREEN}items!")
+        player.sendMessage(Lang.prefixed("market.withdraw.total-success", "count" to totalWithdrawn))
         
         withdrawn.entries.sortedByDescending { it.value }.take(5).forEach { (mat, count) ->
-            player.sendMessage("${ChatColor.GRAY}  • ${ChatColor.AQUA}${prettyName(mat)}: ${ChatColor.GOLD}$count")
+            player.sendMessage(Lang.colorize(Lang.get("market-holdings-display.delivery-item", "item" to prettyName(mat), "count" to count.toString())))
         }
         
         if (withdrawn.size > 5) {
-            player.sendMessage("${ChatColor.DARK_GRAY}  ... and ${withdrawn.size - 5} more materials")
+            player.sendMessage(Lang.get("market.withdraw.and-more", "count" to (withdrawn.size - 5)))
         }
         
         if (totalRemaining > 0) {
-            player.sendMessage("${ChatColor.YELLOW}[TheEndex] $totalRemaining items still in holdings (inventory full).")
-            player.sendMessage("${ChatColor.GRAY}Make space and use ${ChatColor.YELLOW}/market withdraw all ${ChatColor.GRAY}again.")
+            player.sendMessage(Lang.get("market.withdraw.still-remaining", "count" to totalRemaining))
+            player.sendMessage(Lang.get("market.withdraw.make-space"))
         }
         
         return true
@@ -1027,23 +1102,23 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
 
     private fun handleAddItem(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (args.size < 3) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market add <material> <basePrice> [minPrice] [maxPrice]")
+            sender.sendMessage(Lang.get("admin.add.usage"))
             return true
         }
 
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1]))
             return true
         }
 
         val basePrice = args[2].toDoubleOrNull()?.takeIf { it > 0 }
         if (basePrice == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid base price: ${args[2]}")
+            sender.sendMessage(Lang.get("admin.invalid-price", "price" to args[2]))
             return true
         }
 
@@ -1053,7 +1128,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         // Check if already exists
         val existing = plugin.itemsConfigManager.get(mat)
         if (existing != null) {
-            sender.sendMessage("${ChatColor.YELLOW}${mat.name} already exists. Use /market setbase to modify prices.")
+            sender.sendMessage(Lang.get("admin.add.already-exists", "item" to mat.name))
             return true
         }
 
@@ -1065,30 +1140,30 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val db = plugin.marketManager.sqliteStore()
         plugin.itemsConfigManager.syncToMarketManager(plugin.marketManager, db)
 
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Added ${prettyName(mat)} to market!")
-        sender.sendMessage("${ChatColor.GRAY}  Base: ${ChatColor.AQUA}${format(basePrice)} ${ChatColor.GRAY}| Min: ${ChatColor.AQUA}${format(minPrice)} ${ChatColor.GRAY}| Max: ${ChatColor.AQUA}${format(maxPrice)}")
+        sender.sendMessage(Lang.prefixed("admin.add.success", "item" to prettyName(mat)))
+        sender.sendMessage(Lang.get("admin.add.details", "base" to format(basePrice), "min" to format(minPrice), "max" to format(maxPrice)))
         return true
     }
 
     private fun handleRemoveItem(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (args.size < 2) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market remove <material>")
+            sender.sendMessage(Lang.get("admin.remove.usage"))
             return true
         }
 
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1]))
             return true
         }
 
         val existing = plugin.itemsConfigManager.get(mat)
         if (existing == null) {
-            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config.")
+            sender.sendMessage(Lang.get("admin.remove.not-found", "item" to mat.name))
             return true
         }
 
@@ -1097,36 +1172,36 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         plugin.itemsConfigManager.save()
 
         // Note: Item will remain in market.db until server restart or manual removal
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Removed ${prettyName(mat)} from items.yml.")
-        sender.sendMessage("${ChatColor.GRAY}Note: Use ${ChatColor.YELLOW}/endex reload ${ChatColor.GRAY}to fully remove from market.")
+        sender.sendMessage(Lang.prefixed("admin.remove.success", "item" to prettyName(mat)))
+        sender.sendMessage(Lang.get("admin.remove.reload-hint"))
         return true
     }
 
     private fun handleSetBase(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (args.size < 3) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market setbase <material> <price>")
+            sender.sendMessage(Lang.get("admin.setbase.usage"))
             return true
         }
 
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1]))
             return true
         }
 
         val price = args[2].toDoubleOrNull()?.takeIf { it > 0 }
         if (price == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid price: ${args[2]}")
+            sender.sendMessage(Lang.get("admin.invalid-price", "price" to args[2]))
             return true
         }
 
         val existing = plugin.itemsConfigManager.get(mat)
         if (existing == null) {
-            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config. Use /market add first.")
+            sender.sendMessage(Lang.get("admin.not-in-config", "item" to mat.name))
             return true
         }
 
@@ -1141,35 +1216,35 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             marketItem.currentPrice = price.coerceIn(existing.minPrice, existing.maxPrice)
         }
 
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Set base price for ${prettyName(mat)} to ${ChatColor.AQUA}${format(price)}")
+        sender.sendMessage(Lang.prefixed("admin.setbase.success", "item" to prettyName(mat), "price" to format(price)))
         return true
     }
 
     private fun handleSetMin(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (args.size < 3) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market setmin <material> <price>")
+            sender.sendMessage(Lang.get("admin.setmin.usage"))
             return true
         }
 
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1]))
             return true
         }
 
         val price = args[2].toDoubleOrNull()?.takeIf { it >= 0 }
         if (price == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid price: ${args[2]}")
+            sender.sendMessage(Lang.get("admin.invalid-price", "price" to args[2]))
             return true
         }
 
         val existing = plugin.itemsConfigManager.get(mat)
         if (existing == null) {
-            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config. Use /market add first.")
+            sender.sendMessage(Lang.get("admin.not-in-config", "item" to mat.name))
             return true
         }
 
@@ -1185,40 +1260,40 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             marketItem.currentPrice = marketItem.currentPrice.coerceIn(price, existing.maxPrice)
         }
 
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Set min price for ${prettyName(mat)} to ${ChatColor.AQUA}${format(price)}")
+        sender.sendMessage(Lang.prefixed("admin.setmin.success", "item" to prettyName(mat), "price" to format(price)))
         return true
     }
 
     private fun handleSetMax(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (args.size < 3) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market setmax <material> <price>")
+            sender.sendMessage(Lang.get("admin.setmax.usage"))
             return true
         }
 
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1]))
             return true
         }
 
         val price = args[2].toDoubleOrNull()?.takeIf { it > 0 }
         if (price == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid price: ${args[2]}")
+            sender.sendMessage(Lang.get("admin.invalid-price", "price" to args[2]))
             return true
         }
 
         val existing = plugin.itemsConfigManager.get(mat)
         if (existing == null) {
-            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config. Use /market add first.")
+            sender.sendMessage(Lang.get("admin.not-in-config", "item" to mat.name))
             return true
         }
 
         if (price <= existing.minPrice) {
-            sender.sendMessage("${ChatColor.RED}Max price must be greater than min price (${format(existing.minPrice)})")
+            sender.sendMessage(Lang.get("admin.setmax.must-be-greater", "min" to format(existing.minPrice)))
             return true
         }
 
@@ -1234,36 +1309,36 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             marketItem.currentPrice = marketItem.currentPrice.coerceIn(existing.minPrice, price)
         }
 
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Set max price for ${prettyName(mat)} to ${ChatColor.AQUA}${format(price)}")
+        sender.sendMessage(Lang.prefixed("admin.setmax.success", "item" to prettyName(mat), "price" to format(price)))
         return true
     }
 
     private fun handleSetPrice(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (args.size < 3) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market setprice <material> <price>")
-            sender.sendMessage("${ChatColor.GRAY}Note: This only sets the current price temporarily. Use /market setbase for permanent changes.")
+            sender.sendMessage(Lang.get("admin.setprice.usage"))
+            sender.sendMessage(Lang.get("admin.setprice.note"))
             return true
         }
 
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1]))
             return true
         }
 
         val price = args[2].toDoubleOrNull()?.takeIf { it > 0 }
         if (price == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid price: ${args[2]}")
+            sender.sendMessage(Lang.get("admin.invalid-price", "price" to args[2]))
             return true
         }
 
         val marketItem = plugin.marketManager.get(mat)
         if (marketItem == null) {
-            sender.sendMessage("${ChatColor.RED}${mat.name} is not tracked by the market.")
+            sender.sendMessage(Lang.get("market.buy.item-not-tracked", "item" to mat.name))
             return true
         }
 
@@ -1271,33 +1346,33 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val clamped = price.coerceIn(marketItem.minPrice, marketItem.maxPrice)
         marketItem.currentPrice = clamped
 
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Set current price for ${prettyName(mat)} to ${ChatColor.AQUA}${format(clamped)}")
+        sender.sendMessage(Lang.prefixed("admin.setprice.success", "item" to prettyName(mat), "price" to format(clamped)))
         if (clamped != price) {
-            sender.sendMessage("${ChatColor.YELLOW}(Clamped to min/max range: ${format(marketItem.minPrice)} - ${format(marketItem.maxPrice)})")
+            sender.sendMessage(Lang.get("admin.setprice.clamped", "min" to format(marketItem.minPrice), "max" to format(marketItem.maxPrice)))
         }
-        sender.sendMessage("${ChatColor.GRAY}Note: This is temporary. Price will drift based on supply/demand.")
+        sender.sendMessage(Lang.get("admin.setprice.temporary"))
         return true
     }
 
     private fun handleEnableItem(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (args.size < 2) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market enable <material>")
+            sender.sendMessage(Lang.get("admin.enable.usage"))
             return true
         }
 
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1]))
             return true
         }
 
         val existing = plugin.itemsConfigManager.get(mat)
         if (existing == null) {
-            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config. Use /market add first.")
+            sender.sendMessage(Lang.get("admin.not-in-config", "item" to mat.name))
             return true
         }
 
@@ -1306,49 +1381,49 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val db = plugin.marketManager.sqliteStore()
         plugin.itemsConfigManager.syncToMarketManager(plugin.marketManager, db)
 
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.GREEN}Enabled ${prettyName(mat)} in the market.")
+        sender.sendMessage(Lang.prefixed("admin.enable.success", "item" to prettyName(mat)))
         return true
     }
 
     private fun handleDisableItem(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
         if (args.size < 2) {
-            sender.sendMessage("${ChatColor.RED}Usage: /market disable <material>")
+            sender.sendMessage(Lang.get("admin.disable.usage"))
             return true
         }
 
         val mat = Material.matchMaterial(args[1].uppercase())
         if (mat == null) {
-            sender.sendMessage("${ChatColor.RED}Invalid material: ${args[1]}")
+            sender.sendMessage(Lang.get("general.invalid-item", "item" to args[1]))
             return true
         }
 
         val existing = plugin.itemsConfigManager.get(mat)
         if (existing == null) {
-            sender.sendMessage("${ChatColor.RED}${mat.name} is not in the items config.")
+            sender.sendMessage(Lang.get("admin.not-in-config", "item" to mat.name))
             return true
         }
 
         plugin.itemsConfigManager.disable(mat)
         plugin.itemsConfigManager.save()
 
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.YELLOW}Disabled ${prettyName(mat)} in items.yml.")
-        sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/endex reload ${ChatColor.GRAY}to remove from active market.")
+        sender.sendMessage(Lang.prefixed("admin.disable.success", "item" to prettyName(mat)))
+        sender.sendMessage(Lang.get("admin.disable.reload-hint"))
         return true
     }
 
     private fun handleListItems(sender: CommandSender, args: Array<out String>): Boolean {
         if (!sender.hasPermission("theendex.admin")) {
-            sender.sendMessage("${ChatColor.RED}No permission.")
+            sender.sendMessage(Lang.get("general.no-permission"))
             return true
         }
 
         val items = plugin.itemsConfigManager.all()
         if (items.isEmpty()) {
-            sender.sendMessage("${ChatColor.GRAY}No items configured in items.yml")
+            sender.sendMessage(Lang.get("admin.items.empty"))
             return true
         }
 
@@ -1361,14 +1436,14 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val sortedItems = items.sortedBy { it.material.name }
         val pageItems = sortedItems.subList(startIndex.coerceIn(0, sortedItems.size), endIndex.coerceIn(0, sortedItems.size))
 
-        sender.sendMessage("${ChatColor.GOLD}[TheEndex] ${ChatColor.AQUA}Configured Items (Page $page/$totalPages):")
+        sender.sendMessage(Lang.prefixed("admin.items.header", "page" to page, "total" to totalPages))
         pageItems.forEach { entry ->
             val status = if (entry.enabled) "${ChatColor.GREEN}✓" else "${ChatColor.RED}✗"
             sender.sendMessage("$status ${ChatColor.AQUA}${prettyName(entry.material)} ${ChatColor.GRAY}B:${format(entry.basePrice)} Min:${format(entry.minPrice)} Max:${format(entry.maxPrice)}")
         }
         
         if (totalPages > 1) {
-            sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.YELLOW}/market items <page> ${ChatColor.GRAY}for more.")
+            sender.sendMessage(Lang.get("admin.items.page-hint"))
         }
         return true
     }

@@ -1,4 +1,4 @@
-[CENTER][B][SIZE=6]The Endex 1.5.7-dec1022 | Dynamic Market & Addons [1.20.1 - 1.21.x][/SIZE][/B][/CENTER]
+[CENTER][B][SIZE=6]The Endex 1.5.7 | Dynamic Market & Addons [1.20.1 - 1.21.x][/SIZE][/B][/CENTER]
 
 [CENTER][IMG]https://i.imgur.com/onDbDSW.png[/IMG][/CENTER]
 
@@ -8,40 +8,40 @@
 [URL='https://discord.gg/ujFRXksUBE'][IMG]https://imgur.com/csuMkZs.png[/IMG][/URL] [URL='https://lokixcz-plugins.kagsystems.tech/introduction'][IMG]https://imgur.com/MTeHKfU.png[/IMG][/URL]
 [/CENTER]
 
-[SIZE=1] [/SIZE]
+
 
 [CENTER][IMG]https://i.imgur.com/QK38If6.png[/IMG][/CENTER]
 
 The Endex is a dynamic economy plugin that brings realistic market mechanics to your Minecraft server. Prices fluctuate based on player trading activity, server-wide item storage, and random market events.
 
-[B]🆕 Version 1.5.7-dec1022 Highlights:[/B]
-• [B]Web Dashboard Translation[/B] — Google Translate integration for 26+ languages!
-• [B]GUI Bug Fix[/B] — Fixed ArrayIndexOutOfBoundsException when middle-clicking items
-• [B]Performance Indicators[/B] — Config options now show [PERF: LOW/MEDIUM/HIGH] impact tags
-• [B]Translated Configs[/B] — Pre-translated config files in 9 languages (Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian, Arabic)
+[B] Version 1.5.7-dec1038 Highlights:[/B]
+• [B]Polish Language Support[/B] — Complete Polish (Polski) translation for plugin and documentation!
+• [B]Config Translations Auto-Extract[/B] — 10 language configs now auto-extract to config_translations/ folder!
+• [B]Optimized Default Config[/B] — Now ships with minimal resource usage settings by default
+• [B]World Storage Scanning[/B] — DISABLED by default for better performance (easily enabled)
+• [B]Reduced Disk I/O[/B] — Save-on-each-update disabled, longer update intervals
+• [B]10 Language Support[/B] — English, Polish, Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian
 
 [B]Previous 1.5.7 Features:[/B]
+• [B]Web Dashboard Translation[/B] — Google Translate integration for 26+ languages!
 • [B]Sell from Holdings[/B] — Sell items directly from virtual holdings without withdrawing first!
 • [B]Arclight/Hybrid Server Support[/B] — Fixed compatibility issues with Arclight, Mohist, and other hybrid servers
-• [B]New Market GUI Buttons[/B] — "Sell 1 Holdings" and "Sell All Holdings" in item details
-• [B]Web API Endpoint[/B] — New `/api/sell-holdings` for web dashboard selling
-• [B]Custom Shop Enhancement[/B] — Vanilla items can be sold from holdings in custom shops
-• [B]New Command[/B] — `/market sellholdings <material> <amount>`
+• [B]Performance Indicators[/B] — Config options now show [PERF: LOW/MEDIUM/HIGH] impact tags
 
-[SIZE=1] [/SIZE]
+
 
 [CENTER][IMG]https://i.imgur.com/5OYklKS.png[/IMG][/CENTER]
 
-[B]💰 Dynamic Pricing[/B]
+[B] Dynamic Pricing[/B]
 Prices react to demand/supply with configurable sensitivity, EMA smoothing, and per-item min/max caps.
 
-[B]🌍 World Storage Scanner[/B]
+[B] World Storage Scanner[/B]
 Prices adapt to global item quantities across ALL server storage. Abundant items drop in price; scarce items rise.
 
-[B]📦 Virtual Holdings[/B]
+[B] Virtual Holdings[/B]
 Buy items into virtual storage with average cost tracking and profit/loss display. Withdraw when ready.
 
-[B]🖥️ Market GUI[/B]
+[B]️ Market GUI[/B]
 Beautiful interface with categories, search, sorting, quick buy/sell buttons, and real-time price charts.
 
 [IMG]https://i.imgur.com/2NVDOxj.gif[/IMG]
@@ -56,26 +56,26 @@ Time-boxed price multipliers (Ore Rush, Market Crash, etc.) with server broadcas
 
 [IMG]https://i.imgur.com/Qa5Hrhw.gif[/IMG]
 
-[B]🌐 Web Dashboard[/B]
+[B] Web Dashboard[/B]
 Optional REST API with live updates, charts, item icons, and trading from your browser.
 
 [IMG]https://i.imgur.com/2hXIQfx.gif[/IMG]
 
-[B]🔌 Addon Framework[/B]
+[B] Addon Framework[/B]
 Extensible API for custom addons with command routing and web integration.
 
-[B]📬 Delivery System[/B]
+[B] Delivery System[/B]
 Overflow protection when inventory or holdings are full. Claim items anytime.
 
-[B]🔗 PlaceholderAPI Support[/B]
+[B] PlaceholderAPI Support[/B]
 30+ placeholders for scoreboards, holograms, tab lists, and more. Display prices, trends, holdings, leaderboards, and market stats anywhere.
 
-[B]📊 bStats Metrics[/B]
+[B] bStats Metrics[/B]
 Anonymous usage statistics to help improve the plugin.
 
 [CENTER][IMG]https://bstats.org/signatures/bukkit/The%20Endex.svg[/IMG][/CENTER]
 
-[SIZE=1] [/SIZE]
+
 
 [CENTER][IMG]https://i.imgur.com/Up3T3eB.png[/IMG][/CENTER]
 
@@ -114,7 +114,7 @@ Anonymous usage statistics to help improve the plugin.
 /endex:shop, /endex:market, /endex:m
 [/CODE]
 
-[SIZE=1] [/SIZE]
+
 
 [CENTER][IMG]https://imgur.com/jNDfH1h.png[/IMG][/CENTER]
 
@@ -130,19 +130,19 @@ endex.web.trade      - Web dashboard trading
 endex.web.admin      - View other players' holdings
 [/CODE]
 
-[SIZE=1] [/SIZE]
 
-[B]📋 Requirements[/B]
+
+[B] Requirements[/B]
 • Server: Paper/Spigot 1.20.1 - 1.21.x
 • Java: 17 or higher
 • Economy: Vault + Economy plugin (EssentialsX, CMI, etc.)
 
-[B]💾 Storage Options[/B]
+[B] Storage Options[/B]
 • YAML (default) or SQLite database
 • Automatic backups and safe reloads
 • CSV price history export
 
-[SIZE=1] [/SIZE]
+
 
 [B]Configuration Highlights[/B]
 
@@ -195,7 +195,7 @@ web:
       cache-seconds: 15
 [/CODE]
 
-[SIZE=1] [/SIZE]
+
 
 [B]Compatibility[/B]
 • Server: Paper/Spigot 1.20.1 to 1.21.x
@@ -213,11 +213,21 @@ web:
 • Addon loader with command routing and aliasing
 • Customizable Web UI override (web.custom.*) – export default index.html and modify
 
-[SIZE=1] [/SIZE]
+
 
 [B]Changelog[/B]
 
 [SPOILER="Full Changelog"]
+[B]New in 1.5.7-dec1038:[/B]
+• Polish Language Support: Complete Polish (Polski) translation for plugin and documentation
+• Config Translations Auto-Extract: 10 language configs now auto-extract to plugins/TheEndex/config_translations/ on first run
+• Optimized Default Configuration: Ships with minimal resource usage settings by default
+• World storage scanning DISABLED by default (easily re-enabled for full features)
+• Inventory-based pricing DISABLED by default
+• Save-on-each-update DISABLED by default (reduced disk I/O)
+• Update interval increased to 120 seconds (was 60)
+• Prominent optimization guide added to top of config.yml
+
 [B]New in 1.5.7-dec1022:[/B]
 • Web Dashboard Translation: Google Translate integration for 26+ languages
 • GUI Bug Fix: Fixed ArrayIndexOutOfBoundsException when middle-clicking items in market details
@@ -264,7 +274,7 @@ web:
 • Update Checker: Automatic notifications on startup and OP join when updates available
 • GUI Customization: Per-GUI config files for layout, colors, slot positions, and categories
 • Command Aliases: Create custom shortcuts (e.g., /shop → /market) via commands.yml
-• Full documentation available at https://lokixcz-plugins.kagsystems.tech/
+• Full documentation available at [URL]https://lokixcz-plugins.kagsystems.tech/[/URL]
 
 [B]New in 1.5.2:[/B]
 • Optimized World Storage Scanner: Complete rewrite with intelligent chunk caching and dirty tracking
@@ -306,7 +316,7 @@ web:
 See CHANGELOG.md for full release notes.
 [/SPOILER]
 
-[SIZE=1] [/SIZE]
+
 
 [B]⚠️ Disclaimer[/B]
 This plugin was created with the help of AI. While thoroughly tested, please expect potential bugs or issues. Report problems on Discord or GitHub.

@@ -1,0 +1,31 @@
+{
+  "totals": {
+    "NAME_TAG": 7,
+    "SADDLE": 3,
+    "PUMPKIN_SEEDS": 18,
+    "ENCHANTED_BOOK": 2,
+    "BEETROOT_SEEDS": 20,
+    "COAL": 10,
+    "POTATO": 4,
+    "IRON_INGOT": 7,
+    "SUSPICIOUS_STEW": 1,
+    "STRING": 72,
+    "WHEAT": 13,
+    "GOLD_INGOT": 8,
+    "BONE": 44,
+    "MOSS_BLOCK": 4,
+    "GOLDEN_HORSE_ARMOR": 2,
+    "BREAD": 6,
+    "MUSIC_DISC_CAT": 2,
+    "GUNPOWDER": 42,
+    "MUSIC_DISC_13": 5,
+    "CARROT": 5,
+    "PAPER": 3,
+    "REDSTONE": 21,
+    "GOLDEN_APPLE": 1,
+    "ROTTEN_FLESH": 81,
+    "IRON_HORSE_ARMOR": 6
+  },
+  "scanEpoch": 1766980315,
+  "version": 1
+}

@@ -1,6 +1,6 @@
 <div align="center">
 
-# The Endex 1.5.7-dec1022 | Dynamic Market & Addons [1.20.1 - 1.21.x]
+# The Endex 1.5.7-dec1038 | Dynamic Market & Addons [1.20.1 - 1.21.x]
 
 <img src="https://i.imgur.com/onDbDSW.png" alt="The Endex Banner" />
 
@@ -18,15 +18,19 @@
 
 The Endex is a dynamic economy plugin that brings realistic market mechanics to your Minecraft server. Prices fluctuate based on player trading activity, server-wide item storage, and random market events.
 
-### 🆕 Version 1.5.7-dec1022 Highlights:
-- **Web Dashboard Translation** — Google Translate integration for 26+ languages!
-- **GUI Bug Fix** — Fixed ArrayIndexOutOfBoundsException when middle-clicking items
-- **Performance Indicators** — Config options now show `[PERF: LOW/MEDIUM/HIGH]` impact tags
-- **Translated Configs** — Pre-translated config files in 9 languages (Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian, Arabic)
+### 🆕 Version 1.5.7-dec1038 Highlights:
+- **Polish Language Support** — Complete Polish (Polski) translation for plugin and documentation!
+- **Config Translations Auto-Extract** — 10 language configs now auto-extract to config_translations/ folder!
+- **Optimized Default Config** — Now ships with minimal resource usage settings by default
+- **World Storage Scanning** — DISABLED by default for better performance (easily enabled)
+- **Reduced Disk I/O** — Save-on-each-update disabled, longer update intervals
+- **10 Language Support** — English, Polish, Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian
 
 **Previous 1.5.7 Features:**
+- **Web Dashboard Translation** — Google Translate integration for 26+ languages!
 - **Sell from Holdings** — Sell items directly from virtual holdings without withdrawing first!
 - **Arclight/Hybrid Server Support** — Fixed compatibility issues with Arclight, Mohist, and other hybrid servers
+- **Performance Indicators** — Config options now show `[PERF: LOW/MEDIUM/HIGH]` impact tags
 
 ---
 
@@ -238,6 +242,16 @@ web:
 
 <details>
 <summary>📜 Full Changelog</summary>
+
+### New in 1.5.7-dec1038:
+- Polish Language Support: Complete Polish (Polski) translation for plugin and documentation
+- Config Translations Auto-Extract: 10 language configs now auto-extract to `plugins/TheEndex/config_translations/` on first run
+- Optimized Default Configuration: Ships with minimal resource usage settings by default
+- World storage scanning DISABLED by default (easily re-enabled for full features)
+- Inventory-based pricing DISABLED by default
+- Save-on-each-update DISABLED by default (reduced disk I/O)
+- Update interval increased to 120 seconds (was 60)
+- Prominent optimization guide added to top of config.yml
 
 ### New in 1.5.7-dec1022:
 - Web Dashboard Translation: Google Translate integration for 26+ languages

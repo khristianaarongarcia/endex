@@ -1,0 +1,359 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# The Endex - Market Items Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This file defines which items are tradeable in the market and their pricing rules.
+#
+# VANILLA ITEMS (items section):
+#   For each item:
+#     base-price: The 'natural' price that the market gravitates toward
+#     min-price: Floor price - items cannot go below this
+#     max-price: Ceiling price - items cannot exceed this
+#     enabled: Whether the item appears in the market (true/false)
+#
+# CUSTOM ITEMS (custom-items section):
+#   For custom items with NBT data (ItemsAdder, Oraxen, etc.):
+#     material: The base material type
+#     display-name: The item's display name
+#     serialized-data: Base64 encoded ItemStack (do not edit manually)
+#     base-price, min-price, max-price, sell-price: Pricing
+#     shop: Which shop this item belongs to (optional)
+#     category: Which category within the shop (optional)
+#     category-filter: Auto-assign to categories with this filter (e.g., ALL, BLOCKS)
+#
+# Dynamic data (current price, supply/demand) is stored in market.db
+#
+# Admin commands:
+#   /market add <item> <base> [min] [max] - Add item to market
+#   /market remove <item> - Remove item from market
+#   /market setbase <item> <price> - Set base price
+#   /market editor - Open the GUI editor to add custom items
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+items:
+  ACACIA_LOG:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  BAMBOO:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  BEETROOT:
+    base-price: 12.0
+    min-price: 3.5999999999999996
+    max-price: 72.0
+    enabled: true
+  BIRCH_LOG:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  BLAZE_ROD:
+    base-price: 90.0
+    min-price: 27.0
+    max-price: 540.0
+    enabled: true
+  BONE:
+    base-price: 6.0
+    min-price: 1.7999999999999998
+    max-price: 36.0
+    enabled: true
+  BOOK:
+    base-price: 20.0
+    min-price: 6.0
+    max-price: 120.0
+    enabled: true
+  BREAD:
+    base-price: 100.0
+    min-price: 30.0
+    max-price: 600.0
+    enabled: true
+  BRICK:
+    base-price: 8.0
+    min-price: 2.4
+    max-price: 48.0
+    enabled: true
+  CACTUS:
+    base-price: 14.0
+    min-price: 4.2
+    max-price: 84.0
+    enabled: true
+  CARROT:
+    base-price: 12.0
+    min-price: 3.5999999999999996
+    max-price: 72.0
+    enabled: true
+  CHERRY_LOG:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  CLAY_BALL:
+    base-price: 8.0
+    min-price: 2.4
+    max-price: 48.0
+    enabled: true
+  COAL:
+    base-price: 100.0
+    min-price: 30.0
+    max-price: 600.0
+    enabled: true
+  COBBLESTONE:
+    base-price: 4.0
+    min-price: 1.2
+    max-price: 24.0
+    enabled: true
+  COCOA_BEANS:
+    base-price: 14.0
+    min-price: 4.2
+    max-price: 84.0
+    enabled: true
+  COOKED_BEEF:
+    base-price: 20.0
+    min-price: 6.0
+    max-price: 120.0
+    enabled: true
+  COOKED_CHICKEN:
+    base-price: 20.0
+    min-price: 6.0
+    max-price: 120.0
+    enabled: true
+  COOKED_COD:
+    base-price: 20.0
+    min-price: 6.0
+    max-price: 120.0
+    enabled: true
+  COOKED_MUTTON:
+    base-price: 20.0
+    min-price: 6.0
+    max-price: 120.0
+    enabled: true
+  COOKED_PORKCHOP:
+    base-price: 20.0
+    min-price: 6.0
+    max-price: 120.0
+    enabled: true
+  COOKED_RABBIT:
+    base-price: 20.0
+    min-price: 6.0
+    max-price: 120.0
+    enabled: true
+  COOKED_SALMON:
+    base-price: 20.0
+    min-price: 6.0
+    max-price: 120.0
+    enabled: true
+  COPPER_INGOT:
+    base-price: 60.0
+    min-price: 18.0
+    max-price: 360.0
+    enabled: true
+  CRIMSON_STEM:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  DARK_OAK_LOG:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  DEEPSLATE:
+    base-price: 6.0
+    min-price: 1.7999999999999998
+    max-price: 36.0
+    enabled: true
+  DIAMOND:
+    base-price: 800.0
+    min-price: 240.0
+    max-price: 4800.0
+    enabled: true
+  EMERALD:
+    base-price: 400.0
+    min-price: 120.0
+    max-price: 2400.0
+    enabled: true
+  ENDER_PEARL:
+    base-price: 80.0
+    min-price: 24.0
+    max-price: 480.0
+    enabled: true
+  FEATHER:
+    base-price: 6.0
+    min-price: 1.7999999999999998
+    max-price: 36.0
+    enabled: true
+  GHAST_TEAR:
+    base-price: 400.0
+    min-price: 120.0
+    max-price: 2400.0
+    enabled: true
+  GLASS:
+    base-price: 12.0
+    min-price: 3.5999999999999996
+    max-price: 72.0
+    enabled: true
+  GOLD_INGOT:
+    base-price: 200.0
+    min-price: 60.0
+    max-price: 1200.0
+    enabled: true
+  GRAVEL:
+    base-price: 8.0
+    min-price: 2.4
+    max-price: 48.0
+    enabled: true
+  GUNPOWDER:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  HONEYCOMB:
+    base-price: 12.0
+    min-price: 3.5999999999999996
+    max-price: 72.0
+    enabled: true
+  HONEY_BOTTLE:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  INK_SAC:
+    base-price: 8.0
+    min-price: 2.4
+    max-price: 48.0
+    enabled: true
+  IRON_INGOT:
+    base-price: 120.0
+    min-price: 36.0
+    max-price: 720.0
+    enabled: true
+  JUNGLE_LOG:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  LAPIS_LAZULI:
+    base-price: 80.0
+    min-price: 24.0
+    max-price: 480.0
+    enabled: true
+  LEATHER:
+    base-price: 100.0
+    min-price: 30.0
+    max-price: 600.0
+    enabled: true
+  MANGROVE_LOG:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  MELON_SLICE:
+    base-price: 14.0
+    min-price: 4.2
+    max-price: 84.0
+    enabled: true
+  NETHERITE_INGOT:
+    base-price: 2000.0
+    min-price: 600.0
+    max-price: 12000.0
+    enabled: true
+  NETHER_WART:
+    base-price: 14.0
+    min-price: 4.2
+    max-price: 84.0
+    enabled: true
+  OAK_LOG:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  PAPER:
+    base-price: 6.0
+    min-price: 1.7999999999999998
+    max-price: 36.0
+    enabled: true
+  POTATO:
+    base-price: 12.0
+    min-price: 3.5999999999999996
+    max-price: 72.0
+    enabled: true
+  PUMPKIN:
+    base-price: 14.0
+    min-price: 4.2
+    max-price: 84.0
+    enabled: true
+  QUARTZ:
+    base-price: 60.0
+    min-price: 18.0
+    max-price: 360.0
+    enabled: true
+  REDSTONE:
+    base-price: 30.0
+    min-price: 9.0
+    max-price: 180.0
+    enabled: true
+  ROTTEN_FLESH:
+    base-price: 2.0
+    min-price: 1.0
+    max-price: 12.0
+    enabled: true
+  SAND:
+    base-price: 8.0
+    min-price: 2.4
+    max-price: 48.0
+    enabled: true
+  SHULKER_SHELL:
+    base-price: 300.0
+    min-price: 90.0
+    max-price: 1800.0
+    enabled: true
+  SLIME_BALL:
+    base-price: 20.0
+    min-price: 6.0
+    max-price: 120.0
+    enabled: true
+  SPIDER_EYE:
+    base-price: 6.0
+    min-price: 1.7999999999999998
+    max-price: 36.0
+    enabled: true
+  SPRUCE_LOG:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  STONE:
+    base-price: 6.0
+    min-price: 1.7999999999999998
+    max-price: 36.0
+    enabled: true
+  STRING:
+    base-price: 8.0
+    min-price: 2.4
+    max-price: 48.0
+    enabled: true
+  SUGAR:
+    base-price: 6.0
+    min-price: 1.7999999999999998
+    max-price: 36.0
+    enabled: true
+  SUGAR_CANE:
+    base-price: 12.0
+    min-price: 3.5999999999999996
+    max-price: 72.0
+    enabled: true
+  WARPED_STEM:
+    base-price: 25.0
+    min-price: 7.5
+    max-price: 150.0
+    enabled: true
+  WHEAT:
+    base-price: 12.0
+    min-price: 3.5999999999999996
+    max-price: 72.0
+    enabled: true

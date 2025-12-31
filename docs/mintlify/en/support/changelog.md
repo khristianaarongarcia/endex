@@ -16,6 +16,41 @@ Before upgrading, back up `plugins/TheEndex/` and skim the release notes for bre
 
 ---
 
+## Version 1.5.7-dec1038 — December 31, 2025
+
+### Polish Language Support
+
+Complete Polish (Polski) translation:
+
+- **Plugin Language File** — New `lang/pl.yml` with full Polish translations
+- **Config Translation** — New `config_translations/config_pl.yml` with Polish comments
+- **Documentation** — 18 fully translated pages in `docs/mintlify/pl/`
+- **Navigation** — Polish language option in documentation site
+
+### Config Translations Auto-Extraction
+
+Translated config files now auto-extract on first plugin run:
+
+- **10 Languages Available** — English, Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian, Polish
+- **Location** — Extracted to `plugins/TheEndex/config_translations/`
+- **Usage** — Copy your preferred language config to `config.yml`
+
+### Optimized Default Configuration
+
+Config now ships with **minimal resource usage** settings by default:
+
+- **World Storage Scanning** — DISABLED (biggest CPU saver)
+- **Inventory-Based Pricing** — DISABLED  
+- **Save-on-Each-Update** — DISABLED (reduced disk I/O)
+- **Update Interval** — Increased to 120 seconds (was 60)
+- **Optimization Guide** — Prominent header in config.yml explaining all settings
+
+<Info>
+To enable full features (dynamic scarcity pricing, inventory influence), see the config.yml header for guidance on which settings to change.
+</Info>
+
+---
+
 ## Version 1.5.7-dec1022 — December 30, 2025
 
 ### Web Dashboard Translation

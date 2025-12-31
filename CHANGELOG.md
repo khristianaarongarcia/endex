@@ -7,6 +7,37 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.7-dec1038] - 2025-12-31
+### Added
+- **Polish Language Support:** Complete Polish (Polski) translation for both plugin and documentation.
+  - New `lang/pl.yml` language file with full Polish translations
+  - New `config_translations/config_pl.yml` with Polish config comments
+  - Complete Polish documentation in `docs/mintlify/pl/` (18 translated pages)
+  - Documentation navigation updated with Polish language option
+- **Config Translations Auto-Extraction:** Translated config files are now automatically extracted to `plugins/TheEndex/config_translations/` on first run
+  - 10 language configs available: English, Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian, Polish
+  - Users can copy their preferred language config to `config.yml`
+
+### Changed
+- **Optimized Default Configuration:** Config now ships with minimal resource usage settings by default.
+  - World storage scanning **DISABLED** by default (biggest CPU saver)
+  - Inventory-based pricing **DISABLED** by default
+  - Save-on-each-update **DISABLED** by default (reduced disk I/O)
+  - Update interval increased to **120 seconds** (was 60)
+  - Added prominent optimization guide at top of config.yml
+  - All performance-intensive features clearly marked and documented
+
+### Configuration
+New default values (optimized for minimal resource usage):
+```yaml
+update-interval-seconds: 120        # Was 60
+save-on-each-update: false          # Was true
+price-inventory.enabled: false      # Was true
+price-world-storage.enabled: false  # Was true
+```
+
+To enable full features, set these back to their previous values. See config.yml header for guidance.
+
 ## [1.5.7-dec1022] - 2025-12-30
 ### Added
 - **Web Dashboard Translation:** Google Translate integration for 26+ languages in the web dashboard

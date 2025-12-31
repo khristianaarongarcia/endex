@@ -63,6 +63,61 @@
         ]
       },
       {
+        "language": "pl",
+        "groups": [
+          {
+            "group": "Wprowadzenie",
+            "pages": [
+              "pl/introduction",
+              "pl/getting-started/installation",
+              "pl/getting-started/quick-start"
+            ]
+          },
+          {
+            "group": "Funkcje",
+            "pages": [
+              "pl/features/pricing",
+              "pl/features/custom-shop",
+              "pl/features/holdings",
+              "pl/features/delivery",
+              "pl/features/events",
+              "pl/features/investments",
+              "pl/features/placeholderapi"
+            ]
+          },
+          {
+            "group": "Odniesienie",
+            "pages": [
+              "pl/reference/commands",
+              "pl/reference/configuration",
+              "pl/reference/permissions"
+            ]
+          },
+          {
+            "group": "Web API",
+            "pages": [
+              "pl/web-api/dashboard",
+              "pl/web-api/rest-api"
+            ]
+          },
+          {
+            "group": "Deweloperzy",
+            "pages": [
+              "pl/developers/api",
+              "pl/developers/addons"
+            ]
+          },
+          {
+            "group": "Wsparcie",
+            "pages": [
+              "pl/support/faq",
+              "pl/support/changelog",
+              "pl/support/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
         "language": "cn",
         "groups": [
           {

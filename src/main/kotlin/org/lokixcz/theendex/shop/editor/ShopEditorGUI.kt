@@ -13,6 +13,7 @@ import org.bukkit.event.player.AsyncPlayerChatEvent
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.ItemStack
 import org.lokixcz.theendex.Endex
+import org.lokixcz.theendex.lang.Lang
 import org.lokixcz.theendex.market.MarketItem
 import org.lokixcz.theendex.shop.ShopCategory
 import org.lokixcz.theendex.shop.ShopConfig
@@ -109,12 +110,12 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
      */
     fun openShopManager(player: Player) {
         if (!player.hasPermission(EDITOR_PERMISSION)) {
-            player.sendMessage("${ChatColor.RED}You don't have permission to use the shop editor!")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.no-permission")))
             return
         }
         
         val manager = plugin.customShopManager ?: run {
-            player.sendMessage("${ChatColor.RED}Custom shop system is not loaded.")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.not-loaded")))
             return
         }
         
@@ -237,7 +238,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
     fun openCategoryManager(player: Player, shopId: String) {
         val manager = plugin.customShopManager ?: return
         val shop = manager.get(shopId) ?: run {
-            player.sendMessage("${ChatColor.RED}Shop not found: $shopId")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.shop-not-found", "shop" to shopId)))
             return
         }
         
@@ -1203,7 +1204,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
             if (openInv.size == 0 || !newTitle.startsWith(TITLE_PREFIX)) {
                 // Player closed editor without switching to another editor view
                 if (session.unsavedChanges) {
-                    player.sendMessage("${ChatColor.YELLOW}⚠ You have unsaved changes! Open the editor again to save.")
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.unsaved-warning")))
                 }
                 sessions.remove(player.uniqueId)
             }
@@ -1229,7 +1230,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         // Handle cancel
         if (input.equals("cancel", ignoreCase = true)) {
             Bukkit.getScheduler().runTask(plugin, Runnable {
-                player.sendMessage("${ChatColor.YELLOW}Input cancelled.")
+                player.sendMessage(Lang.colorize(Lang.get("shop-editor.input-cancelled")))
                 session.pendingInputType = null
                 session.selectedLayoutSlot = -1
                 reopenLayoutEditor(player, session)
@@ -1290,7 +1291,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                 val newMode = if (manager.isCustomMode) "DEFAULT" else "CUSTOM"
                 plugin.config.set("shop.mode", newMode)
                 plugin.saveConfig()
-                player.sendMessage("${ChatColor.GREEN}Shop mode changed to $newMode. Run ${ChatColor.YELLOW}/endex reload${ChatColor.GREEN} to apply.")
+                player.sendMessage(Lang.colorize(Lang.get("shop-editor.mode-changed", "mode" to newMode)))
                 playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING)
                 openShopManager(player)  // Refresh
             }
@@ -1315,7 +1316,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                         if (shopId != manager.mainShopId) {
                             deleteShop(player, shopId)
                         } else {
-                            player.sendMessage("${ChatColor.RED}Cannot delete the main shop!")
+                            player.sendMessage(Lang.colorize(Lang.get("shop-editor.cannot-delete-main")))
                             playSound(player, Sound.ENTITY_VILLAGER_NO)
                         }
                     }
@@ -1323,7 +1324,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                         // Set as main shop
                         plugin.config.set("shop.main-shop", shopId)
                         plugin.saveConfig()
-                        player.sendMessage("${ChatColor.GREEN}Set '$shopId' as the main shop.")
+                        player.sendMessage(Lang.colorize(Lang.get("shop-editor.set-main-shop", "shop" to shopId)))
                         playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING)
                         openShopManager(player)
                     }
@@ -1391,7 +1392,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                     }
                     event.isShiftClick -> {
                         // Edit category settings
-                        player.sendMessage("${ChatColor.YELLOW}Category settings editor coming soon!")
+                        player.sendMessage(Lang.colorize(Lang.get("shop-editor.category-settings-soon")))
                     }
                     else -> {
                         // Edit category items
@@ -1519,41 +1520,41 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                     }
                     val inv = event.inventory
                     renderLayoutEditor(inv, shop, session)
-                    player.sendMessage("${ChatColor.YELLOW}Mode changed to: ${ChatColor.WHITE}${session.layoutEditMode.name.replace("_", " ")}")
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.mode-changed-layout", "mode" to session.layoutEditMode.name.replace("_", " "))))
                     playSound(player, Sound.UI_BUTTON_CLICK)
                 }
                 1 -> {  // Category selector
                     if (session.selectedLayoutSlot >= 0) {
                         openLayoutCategorySelector(player, shopId)
                     } else {
-                        player.sendMessage("${ChatColor.YELLOW}Click an empty slot first to select where to place the category")
+                        player.sendMessage(Lang.colorize(Lang.get("shop-editor.click-empty-slot")))
                         playSound(player, Sound.ENTITY_VILLAGER_NO)
                     }
                 }
                 2 -> {  // Fill pattern
                     if (event.isRightClick) {
                         // Toggle fill empty
-                        player.sendMessage("${ChatColor.YELLOW}Fill pattern toggle - use config.yml for now")
+                        player.sendMessage(Lang.colorize(Lang.get("shop-editor.fill-toggle-hint")))
                     } else {
-                        player.sendMessage("${ChatColor.YELLOW}Drag an item from your inventory to set filler material")
+                        player.sendMessage(Lang.colorize(Lang.get("shop-editor.drag-filler-hint")))
                     }
                 }
                 3 -> {  // Border setup
-                    player.sendMessage("${ChatColor.YELLOW}Border mode: Click slots to toggle as border")
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.border-mode-hint")))
                     // Future: Toggle a special border editing mode
                 }
                 4 -> {  // Back button
                     if (session.unsavedChanges) {
-                        player.sendMessage("${ChatColor.YELLOW}Warning: You have unsaved changes!")
+                        player.sendMessage(Lang.colorize(Lang.get("shop-editor.unsaved-changes-warning")))
                     }
                     openCategoryManager(player, shopId)
                 }
                 5 -> {  // Preview
-                    player.sendMessage("${ChatColor.LIGHT_PURPLE}Opening shop preview...")
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.opening-preview")))
                     plugin.customShopGUI?.openMainMenu(player, shopId)
                 }
                 6 -> {  // Undo
-                    player.sendMessage("${ChatColor.GOLD}Undo not yet implemented")
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.undo-not-implemented")))
                 }
                 7 -> {  // Save
                     saveLayoutToFile(player, session, shopId)
@@ -1593,8 +1594,8 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                 LayoutEditMode.EDIT_SLOT -> {
                     // Edit mode: left-click edits
                     session.selectedLayoutSlot = slot
-                    player.sendMessage("${ChatColor.YELLOW}Editing slot $slot (${existingSlotData!!.type})")
-                    player.sendMessage("${ChatColor.GRAY}Type the new name first, then you'll be asked for lore.")
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.editing-slot", "slot" to slot.toString(), "type" to existingSlotData!!.type)))
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.editing-slot-prompt")))
                     promptForInput(player, session, InputType.LAYOUT_SLOT_NAME,
                         "${ChatColor.GREEN}Enter new display name for slot $slot:",
                         "${ChatColor.GRAY}Current: ${existingSlotData.name ?: "none"}",
@@ -1607,7 +1608,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                     session.unsavedChanges = true
                     val inv = event.inventory
                     renderLayoutEditor(inv, shop, session)
-                    player.sendMessage("${ChatColor.RED}Removed content from slot $slot")
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.removed-slot", "slot" to slot.toString())))
                     playSound(player, Sound.ENTITY_ITEM_BREAK)
                     return
                 }
@@ -1620,14 +1621,14 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                             session.unsavedChanges = true
                             val inv = event.inventory
                             renderLayoutEditor(inv, shop, session)
-                            player.sendMessage("${ChatColor.RED}Removed content from slot $slot")
+                            player.sendMessage(Lang.colorize(Lang.get("shop-editor.removed-slot", "slot" to slot.toString())))
                             playSound(player, Sound.ENTITY_ITEM_BREAK)
                         }
                         isRightClick -> {
                             // Right-click: Edit - set slot BEFORE prompting (promptForInput closes inventory)
                             session.selectedLayoutSlot = slot
-                            player.sendMessage("${ChatColor.YELLOW}Editing slot $slot (${existingSlotData!!.type})")
-                            player.sendMessage("${ChatColor.GRAY}Type the new name first, then you'll be asked for lore.")
+                            player.sendMessage(Lang.colorize(Lang.get("shop-editor.editing-slot", "slot" to slot.toString(), "type" to existingSlotData!!.type)))
+                            player.sendMessage(Lang.colorize(Lang.get("shop-editor.editing-slot-prompt")))
                             promptForInput(player, session, InputType.LAYOUT_SLOT_NAME,
                                 "${ChatColor.GREEN}Enter new display name for slot $slot:",
                                 "${ChatColor.GRAY}Current: ${existingSlotData.name ?: "none"}",
@@ -1636,7 +1637,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                         else -> {
                             // Left-click: Move - select this slot for moving
                             session.selectedLayoutSlot = slot
-                            player.sendMessage("${ChatColor.YELLOW}Click another slot to move this ${existingSlotData!!.type} there, or click here again to cancel")
+                            player.sendMessage(Lang.colorize(Lang.get("shop-editor.click-move-target", "type" to existingSlotData!!.type)))
                             playSound(player, Sound.UI_BUTTON_CLICK)
                         }
                     }
@@ -1656,7 +1657,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                 session.selectedLayoutSlot = -1
                 val inv = event.inventory
                 renderLayoutEditor(inv, shop, session)
-                player.sendMessage("${ChatColor.GREEN}Moved content to slot $slot")
+                player.sendMessage(Lang.colorize(Lang.get("shop-editor.moved-content", "slot" to slot.toString())))
                 playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING)
                 return
             }
@@ -1665,7 +1666,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         // Reset selected slot if clicking same slot
         if (session.selectedLayoutSlot == slot) {
             session.selectedLayoutSlot = -1
-            player.sendMessage("${ChatColor.GRAY}Move cancelled")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.move-cancelled")))
             return
         }
         
@@ -1692,10 +1693,10 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                     // Refresh
                     val inv = event.inventory
                     renderLayoutEditor(inv, shop, session)
-                    player.sendMessage("${ChatColor.GREEN}Placed decoration at slot $slot")
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.placed-decoration", "slot" to slot.toString())))
                     playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING)
                 } else {
-                    player.sendMessage("${ChatColor.YELLOW}Put an item on your cursor to place as decoration")
+                    player.sendMessage(Lang.colorize(Lang.get("shop-editor.cursor-item-hint")))
                 }
             }
             
@@ -1706,11 +1707,11 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
             }
             
             LayoutEditMode.EDIT_SLOT -> {
-                player.sendMessage("${ChatColor.RED}This slot is empty - nothing to edit")
+                player.sendMessage(Lang.colorize(Lang.get("shop-editor.slot-empty")))
             }
             
             LayoutEditMode.DELETE_SLOT -> {
-                player.sendMessage("${ChatColor.GRAY}Slot is already empty")
+                player.sendMessage(Lang.colorize(Lang.get("shop-editor.slot-already-empty")))
             }
         }
     }
@@ -1721,7 +1722,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
     private fun saveLayoutToFile(player: Player, session: EditorSession, shopId: String) {
         val shopFile = java.io.File(plugin.dataFolder, "shops/$shopId.yml")
         if (!shopFile.exists()) {
-            player.sendMessage("${ChatColor.RED}Shop file not found!")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.shop-file-not-found")))
             return
         }
         
@@ -1761,7 +1762,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         plugin.customShopManager?.reload()
         
         session.unsavedChanges = false
-        player.sendMessage("${ChatColor.GREEN}Layout saved to shops/$shopId.yml")
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.layout-saved", "shop" to shopId)))
         playSound(player, Sound.ENTITY_PLAYER_LEVELUP)
     }
     
@@ -1811,7 +1812,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
             )
             session.unsavedChanges = true
             
-            player.sendMessage("${ChatColor.GREEN}Placed category '${category.name}' at slot $targetSlot")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.placed-category", "category" to category.name, "slot" to targetSlot.toString())))
             playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING)
         }
         
@@ -1882,7 +1883,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
             )
             session.unsavedChanges = true
             
-            player.sendMessage("${ChatColor.GREEN}Placed $buttonType button at slot $targetSlot")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.placed-button", "button" to buttonType, "slot" to targetSlot.toString())))
             playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING)
         }
         
@@ -1930,7 +1931,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
             }
             22 -> {  // Confirm
                 session.unsavedChanges = true
-                player.sendMessage("${ChatColor.GREEN}Item settings saved!")
+                player.sendMessage(Lang.colorize(Lang.get("shop-editor.item-settings-saved")))
                 playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP)
                 reopenPreviousView(player, session)
             }
@@ -1946,14 +1947,14 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         
         // Check if shop already exists
         if (plugin.customShopManager?.get(shopId) != null) {
-            player.sendMessage("${ChatColor.RED}A shop with ID '$shopId' already exists!")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.shop-exists", "shop" to shopId)))
             openShopManager(player)
             return
         }
         
         // Create new shop
         createNewShop(player, shopId, input)
-        player.sendMessage("${ChatColor.GREEN}Created new shop: $input (ID: $shopId)")
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.shop-created", "name" to input, "id" to shopId)))
         playSound(player, Sound.ENTITY_PLAYER_LEVELUP)
         openCategoryManager(player, shopId)
     }
@@ -1969,14 +1970,14 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
     
     private fun handleCategoryIdInput(player: Player, session: EditorSession, input: String) {
         // TODO: Create the category
-        player.sendMessage("${ChatColor.GREEN}Category creation coming soon!")
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.category-creation-soon")))
         reopenPreviousView(player, session)
     }
     
     private fun handlePriceInput(player: Player, session: EditorSession, input: String, isBuyPrice: Boolean) {
         val price = input.toDoubleOrNull()
         if (price == null || price < 0) {
-            player.sendMessage("${ChatColor.RED}Invalid price! Please enter a positive number.")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.invalid-price")))
             openItemPriceEditor(player, session.currentItem ?: return)
             return
         }
@@ -1984,10 +1985,10 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         val item = session.currentItem ?: return
         if (isBuyPrice) {
             item.buyPrice = price
-            player.sendMessage("${ChatColor.GREEN}Buy price set to $${String.format("%.2f", price)}")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.buy-price-set", "price" to String.format("%.2f", price))))
         } else {
             item.sellPrice = price
-            player.sendMessage("${ChatColor.GREEN}Sell price set to $${String.format("%.2f", price)}")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.sell-price-set", "price" to String.format("%.2f", price))))
         }
         
         session.unsavedChanges = true
@@ -1997,7 +1998,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
     private fun handlePermissionInput(player: Player, session: EditorSession, input: String) {
         val item = session.currentItem ?: return
         item.permission = if (input.equals("none", ignoreCase = true)) "" else input
-        player.sendMessage("${ChatColor.GREEN}Permission set to: ${item.permission.ifEmpty { "none" }}")
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.permission-set", "permission" to item.permission.ifEmpty { "none" })))
         session.unsavedChanges = true
         openItemPriceEditor(player, item)
     }
@@ -2005,14 +2006,14 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
     private fun handleStockLimitInput(player: Player, session: EditorSession, input: String) {
         val limit = input.toIntOrNull()
         if (limit == null) {
-            player.sendMessage("${ChatColor.RED}Invalid number! Please enter a whole number.")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.invalid-number")))
             openItemPriceEditor(player, session.currentItem ?: return)
             return
         }
         
         val item = session.currentItem ?: return
         item.stockLimit = limit
-        player.sendMessage("${ChatColor.GREEN}Stock limit set to: ${if (limit < 0) "unlimited" else limit}")
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.stock-limit-set", "limit" to if (limit < 0) "unlimited" else limit.toString())))
         session.unsavedChanges = true
         openItemPriceEditor(player, item)
     }
@@ -2036,9 +2037,9 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         if (!input.equals("skip", ignoreCase = true)) {
             slotData.name = input.colorize()
             session.unsavedChanges = true
-            player.sendMessage("${ChatColor.GREEN}Slot name updated to: $input")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.slot-name-updated", "name" to input)))
         } else {
-            player.sendMessage("${ChatColor.GRAY}Keeping current name.")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.keeping-current-name")))
         }
         
         // Now prompt for lore
@@ -2070,9 +2071,9 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
             // Parse lore - split by | for multiple lines
             slotData.lore = input.split("|").map { it.trim().colorize() }
             session.unsavedChanges = true
-            player.sendMessage("${ChatColor.GREEN}Slot lore updated!")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.slot-lore-updated")))
         } else {
-            player.sendMessage("${ChatColor.GRAY}Keeping current lore.")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.keeping-current-lore")))
         }
         
         session.selectedLayoutSlot = -1
@@ -2148,7 +2149,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         session.tempItems.add(customItem)
         session.unsavedChanges = true
         
-        player.sendMessage("${ChatColor.GREEN}Added ${customItem.displayName} to slot $slot. Click to set price!")
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.item-added", "item" to customItem.displayName, "slot" to slot.toString())))
         playSound(player, Sound.ENTITY_ITEM_PICKUP)
         
         // Refresh GUI
@@ -2161,7 +2162,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         session.unsavedChanges = true
         
         if (removed != null) {
-            player.sendMessage("${ChatColor.YELLOW}Removed ${removed.displayName} from slot $slot")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.item-removed", "item" to removed.displayName, "slot" to slot.toString())))
             playSound(player, Sound.ENTITY_ITEM_PICKUP)
         }
         
@@ -2174,8 +2175,8 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         val categoryId = session.currentCategoryId ?: return
         
         // TODO: Actually save to YAML and sync with items.yml / market.db
-        player.sendMessage("${ChatColor.GREEN}Saved ${session.tempItems.size} items to category '$categoryId'!")
-        player.sendMessage("${ChatColor.GRAY}Items have been added to items.yml and market.db")
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.items-saved", "count" to session.tempItems.size.toString(), "category" to categoryId)))
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.items-saved-note")))
         
         // Sync items to items.yml and market
         syncItemsToMarket(shopId, categoryId, session.tempItems)
@@ -2332,22 +2333,22 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         if (shopFile.exists()) {
             shopFile.delete()
             plugin.customShopManager?.reload()
-            player.sendMessage("${ChatColor.GREEN}Deleted shop: $shopId")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.shop-deleted", "shop" to shopId)))
             playSound(player, Sound.ENTITY_GENERIC_EXPLODE)
         } else {
-            player.sendMessage("${ChatColor.RED}Shop file not found!")
+            player.sendMessage(Lang.colorize(Lang.get("shop-editor.shop-file-not-found-delete")))
         }
         openShopManager(player)
     }
     
     private fun deleteCategory(player: Player, shopId: String, categoryId: String) {
         // TODO: Implement category deletion
-        player.sendMessage("${ChatColor.YELLOW}Category deletion coming soon!")
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.category-deletion-soon")))
     }
     
     private fun saveShopChanges(player: Player, shopId: String) {
         // TODO: Implement saving
-        player.sendMessage("${ChatColor.GREEN}Shop changes saved!")
+        player.sendMessage(Lang.colorize(Lang.get("shop-editor.shop-changes-saved")))
         playSound(player, Sound.ENTITY_PLAYER_LEVELUP)
     }
     

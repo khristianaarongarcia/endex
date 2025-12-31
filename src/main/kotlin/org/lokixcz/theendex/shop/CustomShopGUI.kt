@@ -1,5 +1,6 @@
 package org.lokixcz.theendex.shop
 
+import net.kyori.adventure.text.format.NamedTextColor
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.Material
@@ -17,8 +18,9 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
 import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.gui.MarketActions
+import org.lokixcz.theendex.lang.Lang
 import org.lokixcz.theendex.market.CustomItemConfig
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+import org.lokixcz.theendex.util.ItemNames
 import java.util.*
 
 /**
@@ -83,13 +85,28 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
      */
     private fun shopManager(): CustomShopManager? = plugin.customShopManager
     
+    // Helper to serialize Adventure Component to plain text using reflection (Arclight/Spigot compatible)
+    private fun serializeComponentToPlainText(component: Any): String {
+        return try {
+            val serializerClass = Class.forName("net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer")
+            val plainTextMethod = serializerClass.getMethod("plainText")
+            val serializer = plainTextMethod.invoke(null)
+            val componentClass = Class.forName("net.kyori.adventure.text.Component")
+            val serializeMethod = serializerClass.getMethod("serialize", componentClass)
+            serializeMethod.invoke(serializer, component) as? String ?: ""
+        } catch (_: Exception) {
+            // Adventure API not available - try toString fallback
+            component.toString()
+        }
+    }
+    
     // Helper to get inventory view title as String (MC 1.20.1 - 1.21+ compatibility)
     private fun getViewTitleFromView(view: Any): String {
         try {
             val titleMethod = view.javaClass.getMethod("title")
             val component = titleMethod.invoke(view)
             if (component != null) {
-                val result = PlainTextComponentSerializer.plainText().serialize(component as net.kyori.adventure.text.Component)
+                val result = serializeComponentToPlainText(component)
                 if (result.isNotEmpty()) return result
             }
         } catch (_: Exception) {}
@@ -129,13 +146,13 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
      */
     fun openMainMenu(player: Player, shopId: String? = null) {
         val manager = shopManager() ?: run {
-            player.sendMessage("${ChatColor.RED}Custom shop system is not loaded.")
+            player.sendMessage(Lang.colorize(Lang.get("shops.gui.not-loaded")))
             return
         }
         
         val shop = if (shopId != null) manager.get(shopId) else manager.getMainShop()
         if (shop == null) {
-            player.sendMessage("${ChatColor.RED}Shop not found: ${shopId ?: manager.mainShopId}")
+            player.sendMessage(Lang.colorize(Lang.get("shops.not-found", "name" to (shopId ?: manager.mainShopId))))
             return
         }
         
@@ -376,8 +393,8 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         if (showBack) {
             inv.setItem(backSlot, createNavButton(
                 Material.BARRIER,
-                "${ChatColor.RED}« Back to Menu",
-                listOf("${ChatColor.GRAY}Return to shop categories")
+                Lang.colorize(Lang.get("shops.gui.back-to-menu")),
+                listOf(Lang.colorize(Lang.get("shops.gui.back-to-menu-lore")))
             ))
         }
         
@@ -385,23 +402,28 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         if (showSearch) {
             val searchLore = if (actualSearch.isBlank()) {
                 listOf(
-                    "${ChatColor.GRAY}Click to search for items",
+                    Lang.colorize(Lang.get("shops.gui.search-lore-empty")),
                     "",
-                    "${ChatColor.YELLOW}Left-click: ${ChatColor.WHITE}Enter search",
-                    "${ChatColor.DARK_GRAY}Type in chat to filter items"
+                    Lang.colorize(Lang.get("shops.gui.search-lore-left")),
+                    Lang.colorize(Lang.get("shops.gui.search-lore-hint"))
                 )
             } else {
                 listOf(
-                    "${ChatColor.GRAY}Current: ${ChatColor.AQUA}$actualSearch",
-                    "${ChatColor.GRAY}Found: ${ChatColor.WHITE}${displayItems.size} items",
+                    Lang.colorize(Lang.get("shops.gui.search-lore-current", "query" to actualSearch)),
+                    Lang.colorize(Lang.get("shops.gui.search-lore-found", "count" to displayItems.size.toString())),
                     "",
-                    "${ChatColor.YELLOW}Left-click: ${ChatColor.WHITE}New search",
-                    "${ChatColor.RED}Right-click: ${ChatColor.WHITE}Clear search"
+                    Lang.colorize(Lang.get("shops.gui.search-lore-new")),
+                    Lang.colorize(Lang.get("shops.gui.search-lore-right"))
                 )
+            }
+            val searchTitle = if (actualSearch.isNotBlank()) {
+                Lang.colorize(Lang.get("shops.gui.search-title-with", "query" to actualSearch))
+            } else {
+                Lang.colorize(Lang.get("shops.gui.search-title"))
             }
             inv.setItem(searchSlot, createNavButton(
                 Material.COMPASS,
-                "${ChatColor.AQUA}🔍 Search${if (actualSearch.isNotBlank()) ": $actualSearch" else ""}",
+                searchTitle,
                 searchLore
             ))
         }
@@ -409,12 +431,12 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         // Sort button
         inv.setItem(sortSlot, createNavButton(
             Material.COMPARATOR,
-            "${ChatColor.LIGHT_PURPLE}Sort: ${actualSort.name} ${ChatColor.GRAY}(click)",
+            Lang.colorize(Lang.get("shops.gui.sort-title", "sort" to actualSort.name)),
             listOf(
-                "${ChatColor.GRAY}Current: ${ChatColor.WHITE}${actualSort.name}",
+                Lang.colorize(Lang.get("shops.gui.sort-lore-current", "sort" to actualSort.name)),
                 "",
-                "${ChatColor.YELLOW}Click to cycle:",
-                "${ChatColor.WHITE}NAME → PRICE → CHANGE"
+                Lang.colorize(Lang.get("shops.gui.sort-lore-cycle")),
+                Lang.colorize(Lang.get("shops.gui.sort-lore-options"))
             )
         ))
         
@@ -429,17 +451,17 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
             
             val holdingsLore = mutableListOf<String>()
             if (totalCount > 0) {
-                holdingsLore += "${ChatColor.GOLD}$totalCount ${ChatColor.YELLOW}/ $maxHoldings items"
-                holdingsLore += "${ChatColor.GRAY}${holdings.size} different materials"
-                holdingsLore += "${ChatColor.DARK_GRAY}Click to view and withdraw"
+                holdingsLore += Lang.colorize(Lang.get("shops.gui.holdings-count", "count" to totalCount.toString(), "max" to maxHoldings.toString()))
+                holdingsLore += Lang.colorize(Lang.get("shops.gui.holdings-materials", "count" to holdings.size.toString()))
+                holdingsLore += Lang.colorize(Lang.get("shops.gui.holdings-click-hint"))
             } else {
-                holdingsLore += "${ChatColor.GRAY}No items in holdings"
-                holdingsLore += "${ChatColor.DARK_GRAY}Buy items to add them here"
+                holdingsLore += Lang.colorize(Lang.get("shops.gui.holdings-empty"))
+                holdingsLore += Lang.colorize(Lang.get("shops.gui.holdings-empty-hint"))
             }
             
             inv.setItem(holdingsSlot, createNavButton(
                 Material.CHEST,
-                "${ChatColor.LIGHT_PURPLE}My Holdings ${ChatColor.GRAY}(click)",
+                Lang.colorize(Lang.get("shops.gui.holdings-title")),
                 holdingsLore
             ))
         }
@@ -449,15 +471,15 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
             if (safePage > 0) {
                 inv.setItem(prevSlot, createNavButton(
                     Material.ARROW,
-                    "${ChatColor.YELLOW}« Previous Page",
-                    listOf("${ChatColor.GRAY}Go to page ${safePage}")
+                    Lang.colorize(Lang.get("shops.gui.prev-page")),
+                    listOf(Lang.colorize(Lang.get("shops.gui.prev-page-lore", "page" to safePage.toString())))
                 ))
             }
             if (safePage < totalPages - 1) {
                 inv.setItem(nextSlot, createNavButton(
                     Material.ARROW,
-                    "${ChatColor.YELLOW}Next Page »",
-                    listOf("${ChatColor.GRAY}Go to page ${safePage + 2}")
+                    Lang.colorize(Lang.get("shops.gui.next-page")),
+                    listOf(Lang.colorize(Lang.get("shops.gui.next-page-lore", "page" to (safePage + 2).toString())))
                 ))
             }
         }
@@ -495,8 +517,8 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
             lore.addAll(category.iconLore)
         }
         lore.add("")
-        lore.add("${ChatColor.GRAY}$itemCount items")
-        lore.add("${ChatColor.YELLOW}Click to browse")
+        lore.add(Lang.colorize(Lang.get("shops.gui.category-items", "count" to itemCount.toString())))
+        lore.add(Lang.colorize(Lang.get("shops.gui.category-click")))
         meta.lore = lore
         
         item.itemMeta = meta
@@ -580,10 +602,10 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         }
         
         // Add market info
-        lore.add("${ChatColor.DARK_GRAY}────────────────")
+        lore.add(Lang.colorize(Lang.get("shops.gui.item-separator")))
         lore.add("")
-        lore.add("${ChatColor.GREEN}Buy Price: ${ChatColor.WHITE}${formatPrice(currentPrice * amount)}")
-        lore.add("${ChatColor.RED}Sell Price: ${ChatColor.WHITE}${formatPrice(sellPrice * amount)}")
+        lore.add(Lang.colorize(Lang.get("shops.gui.item-buy-price", "price" to formatPrice(currentPrice * amount))))
+        lore.add(Lang.colorize(Lang.get("shops.gui.item-sell-price", "price" to formatPrice(sellPrice * amount))))
         lore.add("")
         
         // Show dynamic price info if using market prices
@@ -594,24 +616,24 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
                 if (prev != 0.0) (curr - prev) / prev * 100.0 else 0.0
             } else 0.0
             
-            val changeColor = if (change >= 0) ChatColor.GREEN else ChatColor.RED
+            val changeColor = if (change >= 0) "&a" else "&c"
             val changeSymbol = if (change >= 0) "▲" else "▼"
-            lore.add("${ChatColor.GRAY}Change: $changeColor$changeSymbol ${String.format("%.1f", kotlin.math.abs(change))}%")
+            lore.add(Lang.colorize(Lang.get("shops.gui.item-change", "color" to changeColor, "symbol" to changeSymbol, "change" to String.format("%.1f", kotlin.math.abs(change)))))
             lore.add("")
         }
         
         // Permission warning
         if (item.permission.isNotEmpty() && !player.hasPermission(item.permission)) {
-            lore.add("${ChatColor.RED}⚠ Requires: ${item.permission}")
+            lore.add(Lang.colorize(Lang.get("shops.gui.item-permission", "permission" to item.permission)))
             lore.add("")
         }
         
         // Click instructions
-        lore.add("${ChatColor.YELLOW}Left-click: ${ChatColor.WHITE}Buy x$amount")
-        lore.add("${ChatColor.YELLOW}Right-click: ${ChatColor.WHITE}Sell x$amount")
-        lore.add("${ChatColor.YELLOW}Shift-click: ${ChatColor.WHITE}Quick sell all")
+        lore.add(Lang.colorize(Lang.get("shops.gui.item-left-click", "amount" to amount.toString())))
+        lore.add(Lang.colorize(Lang.get("shops.gui.item-right-click", "amount" to amount.toString())))
+        lore.add(Lang.colorize(Lang.get("shops.gui.item-shift-click")))
         lore.add("")
-        lore.add("${ChatColor.DARK_GRAY}────────────────")
+        lore.add(Lang.colorize(Lang.get("shops.gui.item-separator")))
         
         meta.lore = lore
         itemStack.itemMeta = meta
@@ -700,21 +722,21 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
             }
         } else {
             // Static pricing for items not in market
-            lore.add("${ChatColor.DARK_GRAY}Static pricing (not tracked)")
+            lore.add(Lang.colorize(Lang.get("shops.gui.item-static")))
             if (mul != 1.0) {
-                lore.add("${ChatColor.DARK_AQUA}Event: x${format(mul)} ${ChatColor.GRAY}Eff: ${ChatColor.GREEN}${format(effectivePrice)}")
+                lore.add(Lang.colorize(Lang.get("gui.item.event_multiplier", "mul" to format(mul), "effective" to format(effectivePrice))))
             }
         }
         
         // Click instructions & player info
-        lore.add("${ChatColor.DARK_GRAY}Left: Buy  Right: Sell  Amount: $amount")
-        lore.add("${ChatColor.DARK_GRAY}Shift/Middle-click: Details")
-        lore.add("${ChatColor.GRAY}You have: ${ChatColor.AQUA}$invCount ${config.material.name}")
-        lore.add("${ChatColor.GRAY}Balance: ${ChatColor.GOLD}${format(bal)}")
+        lore.add(Lang.colorize(Lang.get("gui.item.click_hint", "amount" to amount.toString())))
+        lore.add(Lang.colorize(Lang.get("gui.item.details_hint")))
+        lore.add(Lang.colorize(Lang.get("gui.item.you_have", "count" to invCount.toString(), "material" to config.material.name)))
+        lore.add(Lang.colorize(Lang.get("gui.item.balance", "balance" to format(bal))))
         
         // Custom item indicator
         lore.add("")
-        lore.add("${ChatColor.LIGHT_PURPLE}✦ Custom Item")
+        lore.add(Lang.colorize(Lang.get("shops.gui.item-custom")))
         
         meta.lore = lore
         itemStack.itemMeta = meta
@@ -751,8 +773,8 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
     private fun createCloseButton(): ItemStack {
         return createNavButton(
             Material.BARRIER,
-            "${ChatColor.RED}Close",
-            listOf("${ChatColor.GRAY}Close this menu")
+            Lang.colorize(Lang.get("shops.gui.close")),
+            listOf(Lang.colorize(Lang.get("shops.gui.close-lore")))
         )
     }
     
@@ -761,7 +783,7 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
      */
     private fun createInfoItem(player: Player, name: String?, lore: List<String>?): ItemStack {
         val bal = plugin.economy?.getBalance(player) ?: 0.0
-        val actualName = name?.replace("%balance%", formatPrice(bal)) ?: "${ChatColor.GOLD}Balance: ${formatPrice(bal)}"
+        val actualName = name?.replace("%balance%", formatPrice(bal)) ?: Lang.colorize(Lang.get("shops.gui.balance-display", "balance" to formatPrice(bal)))
         val actualLore = lore?.map { it.replace("%balance%", formatPrice(bal)) } ?: emptyList()
         
         return createDecorItem(Material.GOLD_INGOT, actualName, actualLore)
@@ -902,14 +924,14 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
                     // Right-click: Clear search (if there is an active search)
                     if (state.search.isNotEmpty()) {
                         openCategory(player, state.shopId, state.categoryId!!, 0, state.amountIdx, "", state.sort)
-                        player.sendMessage("${ChatColor.YELLOW}Search cleared.")
+                        player.sendMessage(Lang.colorize(Lang.get("shops.gui.search-cleared")))
                         playSound(player, Sound.UI_BUTTON_CLICK.name)
                     }
                 } else {
                     // Left-click: Open search input
                     awaitingSearchInput.add(player.uniqueId)
                     player.closeInventory()
-                    player.sendMessage("${ChatColor.GREEN}✎ ${ChatColor.YELLOW}Type your search query in chat, or type ${ChatColor.RED}cancel ${ChatColor.YELLOW}to cancel.")
+                    player.sendMessage(Lang.colorize(Lang.get("shops.gui.search-prompt")))
                     playSound(player, Sound.UI_BUTTON_CLICK.name)
                 }
                 return
@@ -947,8 +969,8 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
                 click == ClickType.SHIFT_LEFT || click == ClickType.MIDDLE -> {
                     // For custom items, we can't use the details view since it requires market data
                     // Show a message with item info instead
-                    player.sendMessage("${ChatColor.LIGHT_PURPLE}✦ ${ChatColor.WHITE}${customItem.displayName}")
-                    player.sendMessage("${ChatColor.GREEN}Buy: ${ChatColor.WHITE}${formatPrice(customItem.basePrice * amount)} ${ChatColor.GRAY}| ${ChatColor.RED}Sell: ${ChatColor.WHITE}${formatPrice(customItem.sellPrice * amount)}")
+                    player.sendMessage(Lang.colorize(Lang.get("shops.gui.custom-item-info-name", "name" to customItem.displayName)))
+                    player.sendMessage(Lang.colorize(Lang.get("shops.gui.custom-item-info-prices", "buy" to formatPrice(customItem.basePrice * amount), "sell" to formatPrice(customItem.sellPrice * amount))))
                     playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING.name)
                 }
                 click == ClickType.LEFT || click.isLeftClick -> {
@@ -1040,7 +1062,8 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         // Item display - SAME slot and lore as MarketGUI (slot 13)
         val displayItem = ItemStack(material).apply {
             itemMeta = itemMeta?.apply {
-                setDisplayName("${ChatColor.AQUA}${prettyName(material)}")
+                // Use translatable name so item appears in player's Minecraft client language
+                displayName(ItemNames.translatable(material, NamedTextColor.AQUA))
                 val loreList = mutableListOf<String>()
                 loreList += "${ChatColor.GRAY}Price: ${ChatColor.GREEN}${format(current)} ${ChatColor.GRAY}(${arrow} ${format(diff)}, ${formatPct(pct)})"
                 if (spreadEnabled && (buyMarkupPct > 0 || sellMarkdownPct > 0)) {
@@ -1317,7 +1340,7 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
     private fun buyCustomItem(player: Player, config: CustomItemConfig, amount: Int, onComplete: () -> Unit) {
         val economy = plugin.economy
         if (economy == null) {
-            player.sendMessage("${ChatColor.RED}Economy system not available!")
+            player.sendMessage(Lang.colorize(Lang.get("shops.gui.custom-economy-unavailable")))
             onComplete()
             return
         }
@@ -1326,7 +1349,7 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         val balance = economy.getBalance(player)
         
         if (balance < totalPrice) {
-            player.sendMessage("${ChatColor.RED}Not enough money! Need ${formatPrice(totalPrice)}, have ${formatPrice(balance)}")
+            player.sendMessage(Lang.colorize(Lang.get("shops.gui.custom-not-enough-money", "need" to formatPrice(totalPrice), "have" to formatPrice(balance))))
             playSound(player, Sound.ENTITY_VILLAGER_NO.name)
             onComplete()
             return
@@ -1334,7 +1357,7 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         
         // Check inventory space
         if (player.inventory.firstEmpty() == -1) {
-            player.sendMessage("${ChatColor.RED}Your inventory is full!")
+            player.sendMessage(Lang.colorize(Lang.get("shops.gui.custom-inventory-full")))
             playSound(player, Sound.ENTITY_VILLAGER_NO.name)
             onComplete()
             return
@@ -1343,7 +1366,7 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         // Withdraw money
         val result = economy.withdrawPlayer(player, totalPrice)
         if (!result.transactionSuccess()) {
-            player.sendMessage("${ChatColor.RED}Transaction failed: ${result.errorMessage}")
+            player.sendMessage(Lang.colorize(Lang.get("shops.gui.custom-transaction-failed", "error" to result.errorMessage)))
             onComplete()
             return
         }
@@ -1370,11 +1393,12 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
      * Sell a custom item.
      * Custom items are sold at their configured sell price.
      * Requires the player to have a matching item in their inventory (with NBT data if applicable).
+     * For vanilla items (no custom serialized data), also checks virtual holdings.
      */
     private fun sellCustomItem(player: Player, config: CustomItemConfig, amount: Int, onComplete: () -> Unit) {
         val economy = plugin.economy
         if (economy == null) {
-            player.sendMessage("${ChatColor.RED}Economy system not available!")
+            player.sendMessage(Lang.colorize(Lang.get("shops.gui.custom-economy-unavailable")))
             onComplete()
             return
         }
@@ -1384,6 +1408,9 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
         val templateItem = config.toItemStack()
         var remaining = amount
         val toRemove = mutableListOf<Pair<Int, Int>>()  // slot to amount
+        
+        // Determine if this is a vanilla item (no custom NBT data)
+        val isVanillaItem = config.serializedData.isEmpty()
         
         for ((idx, invItem) in player.inventory.contents.withIndex()) {
             if (invItem == null || invItem.type == Material.AIR) continue
@@ -1405,15 +1432,9 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
             }
         }
         
-        val actualSold = amount - remaining
-        if (actualSold == 0) {
-            player.sendMessage("${ChatColor.RED}You don't have any ${config.displayName} to sell!")
-            playSound(player, Sound.ENTITY_VILLAGER_NO.name)
-            onComplete()
-            return
-        }
+        val inventorySold = amount - remaining
         
-        // Remove items from inventory
+        // Remove items from inventory first
         for ((slotIdx, takeAmount) in toRemove) {
             val invItem = player.inventory.getItem(slotIdx) ?: continue
             if (takeAmount >= invItem.amount) {
@@ -1423,11 +1444,34 @@ class CustomShopGUI(private val plugin: Endex) : Listener {
             }
         }
         
+        // For vanilla items, also check holdings if we still need more
+        var holdingsSold = 0
+        if (isVanillaItem && remaining > 0) {
+            val db = plugin.marketManager.sqliteStore()
+            if (db != null) {
+                holdingsSold = db.removeFromHoldings(player.uniqueId.toString(), config.material, remaining)
+                remaining -= holdingsSold
+            }
+        }
+        
+        val totalSold = inventorySold + holdingsSold
+        if (totalSold == 0) {
+            player.sendMessage(Lang.colorize(Lang.get("shops.gui.custom-no-item", "item" to config.displayName)))
+            playSound(player, Sound.ENTITY_VILLAGER_NO.name)
+            onComplete()
+            return
+        }
+        
         // Give money
-        val totalPrice = config.sellPrice * actualSold
+        val totalPrice = config.sellPrice * totalSold
         economy.depositPlayer(player, totalPrice)
         
-        player.sendMessage("${ChatColor.GREEN}Sold ${ChatColor.WHITE}${actualSold}x ${config.displayName} ${ChatColor.GREEN}for ${ChatColor.WHITE}${formatPrice(totalPrice)}")
+        // Build detailed message
+        val details = mutableListOf<String>()
+        if (inventorySold > 0) details.add("${inventorySold}x from inventory")
+        if (holdingsSold > 0) details.add("${holdingsSold}x from holdings")
+        
+        player.sendMessage("${ChatColor.GREEN}Sold ${ChatColor.WHITE}${totalSold}x ${config.displayName} ${ChatColor.GREEN}for ${ChatColor.WHITE}${formatPrice(totalPrice)} ${ChatColor.GRAY}(${details.joinToString(", ")})")
         playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP.name)
         
         onComplete()

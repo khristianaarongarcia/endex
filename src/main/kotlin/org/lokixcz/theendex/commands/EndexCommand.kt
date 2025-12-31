@@ -1,5 +1,9 @@
 package org.lokixcz.theendex.commands
 
+import net.md_5.bungee.api.chat.ClickEvent
+import net.md_5.bungee.api.chat.HoverEvent
+import net.md_5.bungee.api.chat.TextComponent
+import net.md_5.bungee.api.chat.hover.content.Text
 import org.bukkit.ChatColor
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -7,37 +11,57 @@ import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.lokixcz.theendex.Endex
 import org.lokixcz.theendex.gui.MarketGUI
+import org.lokixcz.theendex.lang.Lang
 
 class EndexCommand(private val plugin: Endex) : CommandExecutor {
+    
+    /**
+     * Send a clickable URL link to a player using Spigot's BungeeCord Chat API.
+     * This works on Spigot, Paper, and hybrid servers like Arclight.
+     * Returns true if successful, false on error.
+     */
+    private fun sendClickableLink(player: Player, url: String): Boolean {
+        return try {
+            val linkText = TextComponent("${ChatColor.AQUA}${ChatColor.UNDERLINE}Click here to open The Endex Trading Interface")
+            linkText.clickEvent = ClickEvent(ClickEvent.Action.OPEN_URL, url)
+            linkText.hoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, Text("${ChatColor.GRAY}Open trading interface in your browser"))
+            
+            player.spigot().sendMessage(linkText)
+            true
+        } catch (_: Exception) {
+            false // BungeeCord chat API not available
+        }
+    }
+    
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (args.isEmpty()) {
-            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Dynamic item market")
-            sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.AQUA}/endex help${ChatColor.GRAY} or ${ChatColor.AQUA}/endex market${ChatColor.GRAY} to open the GUI.")
+            sender.sendMessage(Lang.colorize(Lang.get("endex.plugin-info")))
+            sender.sendMessage(Lang.colorize(Lang.get("endex.usage-hint")))
             return true
         }
         
         when (args[0].lowercase()) {
             "help" -> {
-                sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Commands:")
+                sender.sendMessage(Lang.colorize(Lang.get("endex.help.header")))
                 val base = listOf(
-                    "${ChatColor.AQUA}/endex${ChatColor.GRAY} — Show plugin info",
-                    "${ChatColor.AQUA}/endex market${ChatColor.GRAY} — Open the market GUI",
-                    "${ChatColor.AQUA}/market price <material>${ChatColor.GRAY} — Price info",
-                    "${ChatColor.AQUA}/market top${ChatColor.GRAY} — Top movers",
-                    "${ChatColor.AQUA}/market buy <mat> <amt>${ChatColor.GRAY} — Buy",
-                    "${ChatColor.AQUA}/market sell <mat> <amt>${ChatColor.GRAY} — Sell",
-                    "${ChatColor.AQUA}/market invest [buy|list|redeem-all]${ChatColor.GRAY} — Passive investments"
+                    Lang.get("endex.help.base-info"),
+                    Lang.get("endex.help.market"),
+                    Lang.get("endex.help.price"),
+                    Lang.get("endex.help.top"),
+                    Lang.get("endex.help.buy"),
+                    Lang.get("endex.help.sell"),
+                    Lang.get("endex.help.invest")
                 )
-                base.forEach { sender.sendMessage(it) }
+                base.forEach { sender.sendMessage(Lang.colorize(it)) }
                 if (sender.hasPermission("theendex.admin")) {
-                    sender.sendMessage("${ChatColor.AQUA}/endex reload${ChatColor.GRAY} — Reload configs and market data")
-                    sender.sendMessage("${ChatColor.AQUA}/endex shopedit${ChatColor.GRAY} — Open the shop editor GUI")
-                    sender.sendMessage("${ChatColor.AQUA}/endex webui export${ChatColor.GRAY} — Export (overwrite) embedded web UI to custom folder")
-                    sender.sendMessage("${ChatColor.AQUA}/endex webui reload${ChatColor.GRAY} — Force next load to re-read custom index.html")
-                    sender.sendMessage("${ChatColor.AQUA}/market event [list|<name>|end <name>|clear]${ChatColor.GRAY} — Manage events")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.help.reload")))
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.help.shopedit")))
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.help.webui-export")))
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.help.webui-reload")))
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.help.event")))
                 }
                 if (sender.hasPermission("theendex.web")) {
-                    sender.sendMessage("${ChatColor.AQUA}/endex web${ChatColor.GRAY} — Open web trading interface")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.help.web")))
                 }
                 return true
             }
@@ -52,7 +76,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                         plugin.marketGUI.open(sender)
                     }
                 } else {
-                    sender.sendMessage("${ChatColor.RED}Only players can open the market GUI.")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.market.player-only")))
                 }
                 return true
             }
@@ -61,14 +85,14 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 val ver = plugin.description.version ?: "unknown"
                 val useSqlite = plugin.config.getBoolean("storage.sqlite", false)
                 val storage = if (useSqlite) "SQLite" else "YAML"
-                sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}v$ver ${ChatColor.GRAY}(storage: $storage)")
-                sender.sendMessage("${ChatColor.GRAY}Use ${ChatColor.AQUA}/endex help${ChatColor.GRAY} for commands.")
+                sender.sendMessage(Lang.colorize(Lang.get("endex.version.info", "version" to ver, "storage" to storage)))
+                sender.sendMessage(Lang.colorize(Lang.get("endex.version.help-hint")))
                 return true
             }
             
             "reload" -> {
                 if (!sender.hasPermission("theendex.admin")) {
-                    sender.sendMessage("${ChatColor.RED}No permission.")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.reload.no-permission")))
                     return true
                 }
                 plugin.reloadEndex(sender)
@@ -77,29 +101,29 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
 
             "webui" -> {
                 if (!sender.hasPermission("theendex.admin")) {
-                    sender.sendMessage("${ChatColor.RED}No permission.")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.webui.no-permission")))
                     return true
                 }
                 val sub = args.getOrNull(1)?.lowercase()
                 val webServer = plugin.getWebServer()
                 if (webServer == null) {
-                    sender.sendMessage("${ChatColor.RED}Web server not available.")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.webui.not-available")))
                     return true
                 }
                 when (sub) {
                     "export" -> {
                         webServer.forceExportDefaultUiOverwrite()
-                        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.GREEN}Exported embedded UI to custom folder (force overwrite).")
+                        sender.sendMessage(Lang.colorize(Lang.get("endex.webui.export-success")))
                         return true
                     }
                     "reload" -> {
                         webServer.forceReloadCustomIndex()
-                        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Custom web UI cache cleared; next request will re-read index.html.")
+                        sender.sendMessage(Lang.colorize(Lang.get("endex.webui.reload-success")))
                         return true
                     }
                     else -> {
-                        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}/endex webui export ${ChatColor.GRAY}- Export (overwrite) embedded UI to custom root")
-                        sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}/endex webui reload ${ChatColor.GRAY}- Force next request to reload custom index.html")
+                        sender.sendMessage(Lang.colorize(Lang.get("endex.webui.help-export")))
+                        sender.sendMessage(Lang.colorize(Lang.get("endex.webui.help-reload")))
                         return true
                     }
                 }
@@ -107,7 +131,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
             
             "track" -> {
                 if (!sender.hasPermission("theendex.admin")) {
-                    sender.sendMessage("${ChatColor.RED}No permission.")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.track.no-permission")))
                     return true
                 }
                 val sub = args.getOrNull(1)?.lowercase()
@@ -115,55 +139,57 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                     try {
                         val rt = plugin.getResourceTracker()
                         if (rt == null) {
-                            sender.sendMessage("${ChatColor.RED}Resource tracking is disabled.")
+                            sender.sendMessage(Lang.colorize(Lang.get("endex.track.disabled")))
                         } else {
                             val top = rt.top(15)
-                            sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Top gathered materials (since startup):")
-                            if (top.isEmpty()) sender.sendMessage("${ChatColor.GRAY}(no data yet)")
+                            sender.sendMessage(Lang.colorize(Lang.get("endex.track.header")))
+                            if (top.isEmpty()) sender.sendMessage(Lang.colorize(Lang.get("endex.track.no-data")))
                             for ((mat, amt) in top) {
-                                sender.sendMessage("${ChatColor.AQUA}${mat.name}${ChatColor.GRAY}: ${amt}")
+                                sender.sendMessage(Lang.colorize(Lang.get("endex.track.entry", "material" to mat.name, "amount" to amt.toString())))
                             }
-                            sender.sendMessage("${ChatColor.GRAY}Totals persisted in tracking.yml (updated periodically)")
+                            sender.sendMessage(Lang.colorize(Lang.get("endex.track.footer")))
                         }
                     } catch (_: Throwable) {
-                        sender.sendMessage("${ChatColor.RED}Unable to read tracker.")
+                        sender.sendMessage(Lang.colorize(Lang.get("endex.track.unable-to-read")))
                     }
                     return true
                 } else {
-                    sender.sendMessage("${ChatColor.RED}Usage: /endex track dump")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.track.usage")))
                     return true
                 }
             }
             
             "web" -> {
                 if (sender !is Player) {
-                    sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.web.player-only")))
                     return true
                 }
                 
                 if (!sender.hasPermission("theendex.web")) {
-                    sender.sendMessage("${ChatColor.RED}You don't have permission to use the web interface.")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.web.no-permission")))
                     return true
                 }
                 
                 val webServer = plugin.getWebServer()
                 if (webServer == null) {
-                    sender.sendMessage("${ChatColor.RED}Web server is not available.")
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.web.not-available")))
                     return true
                 }
                 
                 val url = webServer.createSession(sender)
-                val clickableLink = net.kyori.adventure.text.Component.text("Click here to open The Endex Trading Interface")
-                    .color(net.kyori.adventure.text.format.NamedTextColor.AQUA)
-                    .decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED)
-                    .clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl(url))
-                    .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
-                        net.kyori.adventure.text.Component.text("Open trading interface in your browser")
-                    ))
                 
-                sender.sendMessage("${ChatColor.GOLD}[The Endex] ${ChatColor.AQUA}Your personal trading session:")
-                sender.sendMessage(clickableLink)
-                sender.sendMessage("${ChatColor.GRAY}Session expires in 2 hours. URL: ${ChatColor.WHITE}$url")
+                // Send clickable link - try Paper/Adventure API first, fallback to Spigot-compatible method
+                sender.sendMessage(Lang.colorize(Lang.get("endex.web.session-header")))
+                
+                if (sendClickableLink(sender, url)) {
+                    // Successfully sent via Adventure API (Paper)
+                } else {
+                    // Fallback for Spigot/Arclight: send plain URL (player can copy-paste)
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.web.link-plain", "url" to url)))
+                    sender.sendMessage(Lang.colorize(Lang.get("endex.web.link-hint")))
+                }
+                
+                sender.sendMessage(Lang.colorize(Lang.get("endex.web.session-expires")))
                 
                 return true
             }
@@ -176,7 +202,7 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
                 // Try addon router
                 val routed = plugin.getAddonCommandRouter()?.dispatch(sender, label, args)
                 if (routed == true) return true
-                sender.sendMessage("${ChatColor.RED}Unknown subcommand. Use /endex help")
+                sender.sendMessage(Lang.colorize(Lang.get("endex.unknown-subcommand")))
                 return true
             }
         }
@@ -188,18 +214,18 @@ class EndexCommand(private val plugin: Endex) : CommandExecutor {
      */
     private fun handleShopEdit(sender: CommandSender): Boolean {
         if (sender !is Player) {
-            sender.sendMessage("${ChatColor.RED}This command can only be used by players.")
+            sender.sendMessage(Lang.colorize(Lang.get("endex.shopedit.player-only")))
             return true
         }
         
         if (!sender.hasPermission("endex.shop.editor")) {
-            sender.sendMessage("${ChatColor.RED}You don't have permission to use the shop editor.")
+            sender.sendMessage(Lang.colorize(Lang.get("endex.shopedit.no-permission")))
             return true
         }
         
         val editor = plugin.shopEditorGUI
         if (editor == null) {
-            sender.sendMessage("${ChatColor.RED}Shop editor is not available.")
+            sender.sendMessage(Lang.colorize(Lang.get("endex.shopedit.not-available")))
             return true
         }
         

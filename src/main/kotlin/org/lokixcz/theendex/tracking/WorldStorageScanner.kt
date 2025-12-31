@@ -378,13 +378,21 @@ class WorldStorageScanner(private val plugin: Endex) : Listener {
     
     /**
      * Get current server TPS (approximate).
+     * Uses reflection to check for Paper's getTPS() method first,
+     * then falls back to assuming 20.0 TPS on Spigot/Arclight servers.
      */
     private fun getCurrentTps(): Double {
         return try {
-            // Paper/Spigot TPS method
-            Bukkit.getTPS()[0].coerceIn(0.0, 20.0)
+            // Try Paper's Bukkit.getTPS() via reflection to avoid NoSuchMethodError on Spigot/Arclight
+            val method = Bukkit::class.java.getMethod("getTPS")
+            val tpsArray = method.invoke(null) as DoubleArray
+            tpsArray[0].coerceIn(0.0, 20.0)
+        } catch (_: NoSuchMethodException) {
+            // Paper TPS API not available (Spigot/Arclight) - assume good TPS
+            20.0
         } catch (_: Exception) {
-            20.0 // Assume good TPS if we can't check
+            // Any other error - assume good TPS
+            20.0
         }
     }
 
