@@ -215,6 +215,70 @@ price-smoothing:
   max-change-percent: 15.0
 
 # ───────────────────────────────────────────────────────────────────────────────
+# INFLATION / DEFLATION SYSTEM [PERF: MINIMAL]
+# ───────────────────────────────────────────────────────────────────────────────
+# Automatically adjusts all market prices over time. This simulates economic
+# inflation or deflation, creating long-term price trends independent of
+# player trading activity.
+#
+# Use cases:
+#   - Positive rate: Encourages players to spend money, rewards early sellers
+#   - Negative rate: Rewards saving, makes items cheaper over time
+#   - Variable rate: Use with events for economic storytelling
+#
+# Performance: Pure math calculation, negligible impact on performance.
+inflation:
+  # Enable the inflation/deflation system
+  enabled: false
+  
+  # Rate of price change per cycle (percentage).
+  # This is applied to ALL item prices each update cycle.
+  # 
+  # Positive values = Inflation (prices increase over time)
+  # Negative values = Deflation (prices decrease over time)
+  # 
+  # Examples:
+  #   0.1  = 0.1% increase per cycle (gentle inflation)
+  #   0.5  = 0.5% increase per cycle (moderate inflation)
+  #   1.0  = 1% increase per cycle (aggressive inflation)
+  #  -0.1  = 0.1% decrease per cycle (gentle deflation)
+  #  -0.5  = 0.5% decrease per cycle (moderate deflation)
+  # 
+  # With default 120s update cycle:
+  #   0.1% per cycle ≈ 0.05% per minute ≈ 3% per hour ≈ 72% per day
+  #   0.01% per cycle ≈ 0.72% per hour ≈ 7.2% per day
+  # 
+  # Recommended: 0.01 to 0.05 for subtle long-term effects
+  rate-per-cycle: 0.01
+  
+  # Optional: Different rates for different item categories
+  # If not specified, all items use the default rate above
+  # Set to 0 to exclude a category from inflation
+  category-rates:
+    # Ores and precious materials - often inflate faster
+    ores: 0.02
+    # Food items - typically stable or slight deflation
+    food: 0.0
+    # Building materials - slight inflation
+    building: 0.01
+    # Mob drops - variable, default rate
+    mob-drops: 0.01
+  
+  # Apply inflation only when there's player activity (at least 1 player online)
+  # Set to false to apply inflation even when server is empty
+  require-players: true
+  
+  # Maximum total inflation/deflation from base price (as percentage).
+  # Prevents runaway inflation from making items impossibly expensive.
+  # The min/max prices in items.yml still apply as hard limits.
+  # 
+  # Example: 200.0 means prices can at most double (or halve with deflation)
+  # from their base price due to inflation alone.
+  # 
+  # Set to 0 to disable this cap (use items.yml min/max only)
+  max-deviation-percent: 200.0
+
+# ───────────────────────────────────────────────────────────────────────────────
 # INVENTORY-DRIVEN PRICE INFLUENCE [PERF: LOW]
 # ───────────────────────────────────────────────────────────────────────────────
 # Adjusts prices based on how much of each item online players are holding.

@@ -44,9 +44,11 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         SHOP_LAYOUT,             // Editing shop layout
         CATEGORY_MANAGER,        // Managing categories in a shop
         CATEGORY_ITEMS,          // Editing items in a category (drag & drop)
-        ITEM_PRICE,              // Setting price for an item
+        ITEM_PRICE,              // Setting price for an item (custom shop items)
+        MARKET_ITEM_PRICE,       // Setting price for a vanilla market item
         LAYOUT_CATEGORY_SELECT,  // Selecting a category for layout placement
         LAYOUT_BUTTON_SELECT,    // Selecting a button type for layout
+        MARKET_ITEMS,            // Viewing/editing all items.yml market items
         TEXT_INPUT,              // Waiting for chat input
         NONE
     }
@@ -64,7 +66,11 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         // Layout editor state
         var tempLayout: MutableMap<Int, LayoutSlotData> = mutableMapOf(),
         var selectedLayoutSlot: Int = -1,
-        var layoutEditMode: LayoutEditMode = LayoutEditMode.PLACE_CATEGORY
+        var layoutEditMode: LayoutEditMode = LayoutEditMode.PLACE_CATEGORY,
+        // Market items pagination
+        var marketItemsPage: Int = 0,
+        // Market item price editor
+        var currentMarketMaterial: Material? = null
     )
     
     private enum class InputType {
@@ -77,7 +83,10 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         ITEM_PERMISSION,
         ITEM_STOCK_LIMIT,
         LAYOUT_SLOT_NAME,
-        LAYOUT_SLOT_LORE
+        LAYOUT_SLOT_LORE,
+        MARKET_BASE_PRICE,
+        MARKET_MIN_PRICE,
+        MARKET_MAX_PRICE
     }
     
     /**
@@ -196,6 +205,26 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                 "",
                 "${ChatColor.DARK_GRAY}Click to toggle mode",
                 "${ChatColor.DARK_GRAY}(requires /endex reload)"
+            )
+        ))
+        
+        // Market Items Manager button
+        val itemCount = plugin.itemsConfigManager.count()
+        val customCount = plugin.itemsConfigManager.allCustomItems().size
+        inv.setItem(46, createItem(
+            Material.DIAMOND,
+            "${ChatColor.AQUA}${ChatColor.BOLD}Market Items",
+            listOf(
+                "${ChatColor.GRAY}View & manage all market items",
+                "",
+                "${ChatColor.YELLOW}Vanilla Items: ${ChatColor.WHITE}$itemCount",
+                "${ChatColor.YELLOW}Custom Items: ${ChatColor.WHITE}$customCount",
+                "",
+                "${ChatColor.WHITE}• Edit prices",
+                "${ChatColor.WHITE}• Enable/disable items",
+                "${ChatColor.WHITE}• Remove items",
+                "",
+                "${ChatColor.GREEN}Click to open"
             )
         ))
         
@@ -1153,8 +1182,10 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
             EditorState.SHOP_LAYOUT -> handleLayoutEditorClick(event, player, session)
             EditorState.CATEGORY_ITEMS -> handleCategoryItemsClick(event, player, session)
             EditorState.ITEM_PRICE -> handleItemPriceClick(event, player, session)
+            EditorState.MARKET_ITEM_PRICE -> handleMarketItemPriceClick(event, player, session)
             EditorState.LAYOUT_CATEGORY_SELECT -> handleLayoutCategorySelectClick(event, player, session)
             EditorState.LAYOUT_BUTTON_SELECT -> handleLayoutButtonSelectClick(event, player, session)
+            EditorState.MARKET_ITEMS -> handleMarketItemsClick(event, player, session)
             else -> event.isCancelled = true
         }
     }
@@ -1253,6 +1284,9 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                 InputType.ITEM_STOCK_LIMIT -> handleStockLimitInput(player, session, input)
                 InputType.LAYOUT_SLOT_NAME -> handleLayoutSlotNameInput(player, session, input)
                 InputType.LAYOUT_SLOT_LORE -> handleLayoutSlotLoreInput(player, session, input)
+                InputType.MARKET_BASE_PRICE -> handleMarketBasePriceInput(player, session, input)
+                InputType.MARKET_MIN_PRICE -> handleMarketMinPriceInput(player, session, input)
+                InputType.MARKET_MAX_PRICE -> handleMarketMaxPriceInput(player, session, input)
                 else -> { }
             }
             // NOTE: Don't clear pendingInputType here - handlers may have set a new one for chained prompts
@@ -1294,6 +1328,12 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
                 player.sendMessage(Lang.colorize(Lang.get("shop-editor.mode-changed", "mode" to newMode)))
                 playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING)
                 openShopManager(player)  // Refresh
+            }
+            
+            // Market Items Manager
+            slot == 46 && clickedItem.type == Material.DIAMOND -> {
+                session.marketItemsPage = 0
+                openMarketItemsManager(player, session)
             }
             
             // Create new shop
@@ -2080,6 +2120,138 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         reopenLayoutEditor(player, session)
     }
     
+    /**
+     * Handle base price input for vanilla market items.
+     */
+    private fun handleMarketBasePriceInput(player: Player, session: EditorSession, input: String) {
+        val material = session.currentMarketMaterial
+        if (material == null) {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cNo item selected."))
+            openMarketItemsManager(player, session, session.marketItemsPage)
+            return
+        }
+        
+        val price = input.toDoubleOrNull()
+        if (price == null || price <= 0) {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cInvalid price. Must be a positive number."))
+            val config = plugin.itemsConfigManager.get(material)
+            if (config != null) {
+                openMarketItemPriceEditor(player, session, material, config)
+            } else {
+                openMarketItemsManager(player, session, session.marketItemsPage)
+            }
+            return
+        }
+        
+        // Update base price in items.yml
+        plugin.itemsConfigManager.setBasePrice(material, price)
+        plugin.itemsConfigManager.save()
+        
+        // Sync to market manager
+        val db = plugin.marketManager.sqliteStore()
+        plugin.itemsConfigManager.syncToMarketManager(plugin.marketManager, db)
+        plugin.marketManager.save()
+        
+        player.sendMessage(Lang.colorize("${Lang.prefix()} &aBase price for ${material.name} set to &e$${String.format("%.2f", price)}&a."))
+        playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP)
+        
+        // Reopen the price editor
+        val config = plugin.itemsConfigManager.get(material)
+        if (config != null) {
+            openMarketItemPriceEditor(player, session, material, config)
+        } else {
+            openMarketItemsManager(player, session, session.marketItemsPage)
+        }
+    }
+    
+    /**
+     * Handle min price input for vanilla market items.
+     */
+    private fun handleMarketMinPriceInput(player: Player, session: EditorSession, input: String) {
+        val material = session.currentMarketMaterial
+        if (material == null) {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cNo item selected."))
+            openMarketItemsManager(player, session, session.marketItemsPage)
+            return
+        }
+        
+        val price = input.toDoubleOrNull()
+        if (price == null || price < 0) {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cInvalid price. Must be zero or positive."))
+            val config = plugin.itemsConfigManager.get(material)
+            if (config != null) {
+                openMarketItemPriceEditor(player, session, material, config)
+            } else {
+                openMarketItemsManager(player, session, session.marketItemsPage)
+            }
+            return
+        }
+        
+        // Update min price in items.yml
+        plugin.itemsConfigManager.setMinPrice(material, price)
+        plugin.itemsConfigManager.save()
+        
+        // Sync to market manager
+        val db = plugin.marketManager.sqliteStore()
+        plugin.itemsConfigManager.syncToMarketManager(plugin.marketManager, db)
+        plugin.marketManager.save()
+        
+        player.sendMessage(Lang.colorize("${Lang.prefix()} &aMin price for ${material.name} set to &e$${String.format("%.2f", price)}&a."))
+        playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP)
+        
+        // Reopen the price editor
+        val config = plugin.itemsConfigManager.get(material)
+        if (config != null) {
+            openMarketItemPriceEditor(player, session, material, config)
+        } else {
+            openMarketItemsManager(player, session, session.marketItemsPage)
+        }
+    }
+    
+    /**
+     * Handle max price input for vanilla market items.
+     */
+    private fun handleMarketMaxPriceInput(player: Player, session: EditorSession, input: String) {
+        val material = session.currentMarketMaterial
+        if (material == null) {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cNo item selected."))
+            openMarketItemsManager(player, session, session.marketItemsPage)
+            return
+        }
+        
+        val price = input.toDoubleOrNull()
+        if (price == null || price <= 0) {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cInvalid price. Must be a positive number."))
+            val config = plugin.itemsConfigManager.get(material)
+            if (config != null) {
+                openMarketItemPriceEditor(player, session, material, config)
+            } else {
+                openMarketItemsManager(player, session, session.marketItemsPage)
+            }
+            return
+        }
+        
+        // Update max price in items.yml
+        plugin.itemsConfigManager.setMaxPrice(material, price)
+        plugin.itemsConfigManager.save()
+        
+        // Sync to market manager
+        val db = plugin.marketManager.sqliteStore()
+        plugin.itemsConfigManager.syncToMarketManager(plugin.marketManager, db)
+        plugin.marketManager.save()
+        
+        player.sendMessage(Lang.colorize("${Lang.prefix()} &aMax price for ${material.name} set to &e$${String.format("%.2f", price)}&a."))
+        playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP)
+        
+        // Reopen the price editor
+        val config = plugin.itemsConfigManager.get(material)
+        if (config != null) {
+            openMarketItemPriceEditor(player, session, material, config)
+        } else {
+            openMarketItemsManager(player, session, session.marketItemsPage)
+        }
+    }
+
     private fun reopenLayoutEditor(player: Player, session: EditorSession) {
         val shopId = session.currentShopId
         
@@ -2352,6 +2524,395 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         playSound(player, Sound.ENTITY_PLAYER_LEVELUP)
     }
     
+    // ─────────────────────────────────────────────────────────────────────────
+    // Market Items Manager
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    /**
+     * Open the Market Items Manager GUI.
+     * Shows all items from items.yml (both vanilla and custom) with pagination.
+     */
+    private fun openMarketItemsManager(player: Player, session: EditorSession, page: Int = 0) {
+        session.state = EditorState.MARKET_ITEMS
+        session.marketItemsPage = page
+        
+        val inv = Bukkit.createInventory(null, 54, "${TITLE_PREFIX}Market Items (Page ${page + 1})")
+        
+        // Fill background
+        val filler = createItem(Material.GRAY_STAINED_GLASS_PANE, " ")
+        for (i in 0 until 54) {
+            inv.setItem(i, filler)
+        }
+        
+        // Get all items from items.yml
+        val vanillaItems = plugin.itemsConfigManager.all().sortedBy { it.material.name }
+        val customItems = plugin.itemsConfigManager.allCustomItems().sortedBy { it.displayName }
+        
+        // Combine into a single list for display
+        data class DisplayItem(
+            val isVanilla: Boolean,
+            val material: Material,
+            val displayName: String,
+            val basePrice: Double,
+            val minPrice: Double,
+            val maxPrice: Double,
+            val enabled: Boolean,
+            val id: String? = null  // For custom items
+        )
+        
+        val allItems = mutableListOf<DisplayItem>()
+        vanillaItems.forEach { 
+            allItems.add(DisplayItem(true, it.material, it.material.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, 
+                it.basePrice, it.minPrice, it.maxPrice, it.enabled))
+        }
+        customItems.forEach { 
+            allItems.add(DisplayItem(false, it.material, it.displayName, 
+                it.basePrice, it.minPrice, it.maxPrice, it.enabled, it.id))
+        }
+        
+        // Pagination: 45 items per page (rows 0-4)
+        val itemsPerPage = 45
+        val startIdx = page * itemsPerPage
+        val pageItems = allItems.drop(startIdx).take(itemsPerPage)
+        val totalPages = (allItems.size + itemsPerPage - 1) / itemsPerPage
+        
+        // Display items
+        pageItems.forEachIndexed { idx, item ->
+            val statusColor = if (item.enabled) ChatColor.GREEN else ChatColor.RED
+            val statusText = if (item.enabled) "✓ Enabled" else "✗ Disabled"
+            val typeLabel = if (item.isVanilla) "${ChatColor.BLUE}[Vanilla]" else "${ChatColor.LIGHT_PURPLE}[Custom]"
+            
+            val displayStack = ItemStack(item.material)
+            val meta = displayStack.itemMeta
+            if (meta != null) {
+                meta.setDisplayName("${ChatColor.AQUA}${item.displayName}")
+                meta.lore = listOf(
+                    typeLabel,
+                    "",
+                    "${ChatColor.YELLOW}Base Price: ${ChatColor.WHITE}$${String.format("%.2f", item.basePrice)}",
+                    "${ChatColor.YELLOW}Min Price: ${ChatColor.WHITE}$${String.format("%.2f", item.minPrice)}",
+                    "${ChatColor.YELLOW}Max Price: ${ChatColor.WHITE}$${String.format("%.2f", item.maxPrice)}",
+                    "",
+                    "${statusColor}$statusText",
+                    "",
+                    "${ChatColor.GREEN}Left-click: ${ChatColor.WHITE}Edit prices",
+                    "${ChatColor.YELLOW}Middle-click: ${ChatColor.WHITE}Toggle enabled",
+                    "${ChatColor.RED}Shift+Right-click: ${ChatColor.WHITE}Remove"
+                )
+                displayStack.itemMeta = meta
+            }
+            inv.setItem(idx, displayStack)
+        }
+        
+        // Control bar (row 5, slots 45-53)
+        val controlFiller = createItem(Material.BLACK_STAINED_GLASS_PANE, " ")
+        for (i in 45..53) {
+            inv.setItem(i, controlFiller)
+        }
+        
+        // Back button
+        inv.setItem(45, createItem(
+            Material.ARROW,
+            "${ChatColor.YELLOW}← Back",
+            listOf("${ChatColor.GRAY}Return to Shop Manager")
+        ))
+        
+        // Previous page
+        if (page > 0) {
+            inv.setItem(48, createItem(
+                Material.ARROW,
+                "${ChatColor.YELLOW}Previous Page",
+                listOf("${ChatColor.GRAY}Go to page $page")
+            ))
+        }
+        
+        // Info
+        inv.setItem(49, createItem(
+            Material.BOOK,
+            "${ChatColor.GOLD}${ChatColor.BOLD}Market Items",
+            listOf(
+                "${ChatColor.GRAY}All items from items.yml",
+                "",
+                "${ChatColor.YELLOW}Total Items: ${ChatColor.WHITE}${allItems.size}",
+                "${ChatColor.YELLOW}Vanilla: ${ChatColor.WHITE}${vanillaItems.size}",
+                "${ChatColor.YELLOW}Custom: ${ChatColor.WHITE}${customItems.size}",
+                "",
+                "${ChatColor.GRAY}Page ${page + 1} of $totalPages"
+            )
+        ))
+        
+        // Next page
+        if ((page + 1) * itemsPerPage < allItems.size) {
+            inv.setItem(50, createItem(
+                Material.ARROW,
+                "${ChatColor.YELLOW}Next Page",
+                listOf("${ChatColor.GRAY}Go to page ${page + 2}")
+            ))
+        }
+        
+        // Close button
+        inv.setItem(53, createItem(
+            Material.BARRIER,
+            "${ChatColor.RED}Close",
+            listOf("${ChatColor.GRAY}Close the editor")
+        ))
+        
+        player.openInventory(inv)
+        playSound(player, Sound.BLOCK_CHEST_OPEN)
+    }
+    
+    /**
+     * Handle clicks in the Market Items Manager GUI.
+     */
+    private fun handleMarketItemsClick(event: InventoryClickEvent, player: Player, session: EditorSession) {
+        val slot = event.rawSlot
+        val topSize = event.view.topInventory.size
+        
+        if (slot >= topSize) {
+            return  // Allow player inventory interaction
+        }
+        
+        event.isCancelled = true
+        
+        val clickedItem = event.currentItem ?: return
+        if (clickedItem.type == Material.AIR || clickedItem.type == Material.GRAY_STAINED_GLASS_PANE || 
+            clickedItem.type == Material.BLACK_STAINED_GLASS_PANE) return
+        
+        when {
+            // Back button
+            slot == 45 && clickedItem.type == Material.ARROW -> {
+                openShopManager(player)
+            }
+            
+            // Previous page
+            slot == 48 && clickedItem.type == Material.ARROW -> {
+                if (session.marketItemsPage > 0) {
+                    openMarketItemsManager(player, session, session.marketItemsPage - 1)
+                }
+            }
+            
+            // Next page
+            slot == 50 && clickedItem.type == Material.ARROW -> {
+                openMarketItemsManager(player, session, session.marketItemsPage + 1)
+            }
+            
+            // Close button
+            slot == 53 && clickedItem.type == Material.BARRIER -> {
+                player.closeInventory()
+            }
+            
+            // Item slots (0-44)
+            slot in 0..44 -> {
+                val itemMeta = clickedItem.itemMeta ?: return
+                val lore = itemMeta.lore ?: return
+                val isVanilla = lore.any { it.contains("[Vanilla]") }
+                val mat = clickedItem.type
+                
+                when {
+                    // Toggle enabled
+                    event.click == ClickType.MIDDLE -> {
+                        if (isVanilla) {
+                            val config = plugin.itemsConfigManager.get(mat) ?: return
+                            if (config.enabled) {
+                                plugin.itemsConfigManager.disable(mat)
+                                player.sendMessage(Lang.colorize("${Lang.prefix()} &cDisabled &e${mat.name}&c in market."))
+                            } else {
+                                plugin.itemsConfigManager.enable(mat)
+                                player.sendMessage(Lang.colorize("${Lang.prefix()} &aEnabled &e${mat.name}&a in market."))
+                            }
+                            plugin.itemsConfigManager.save()
+                            // Sync with market manager
+                            val sqliteStore = plugin.marketManager.sqliteStore()
+                            plugin.itemsConfigManager.syncToMarketManager(plugin.marketManager, sqliteStore)
+                            openMarketItemsManager(player, session, session.marketItemsPage)
+                        } else {
+                            // Find custom item ID from lore or match
+                            val customItem = plugin.itemsConfigManager.allCustomItems().find { it.material == mat }
+                            if (customItem != null) {
+                                val newEnabled = !customItem.enabled
+                                val updatedConfig = customItem.copy(enabled = newEnabled)
+                                plugin.itemsConfigManager.setCustomItem(updatedConfig)
+                                plugin.itemsConfigManager.save()
+                                player.sendMessage(Lang.colorize("${Lang.prefix()} ${if (newEnabled) "&aEnabled" else "&cDisabled"} &e${customItem.displayName}&7."))
+                                openMarketItemsManager(player, session, session.marketItemsPage)
+                            }
+                        }
+                        playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING)
+                    }
+                    
+                    // Remove item
+                    event.isShiftClick && event.isRightClick -> {
+                        if (isVanilla) {
+                            plugin.itemsConfigManager.remove(mat)
+                            plugin.itemsConfigManager.save()
+                            // Also remove from market.db immediately
+                            plugin.marketManager.remove(mat)
+                            plugin.marketManager.save()
+                            player.sendMessage(Lang.colorize("${Lang.prefix()} &cRemoved &e${mat.name}&c from market."))
+                        } else {
+                            val customItem = plugin.itemsConfigManager.allCustomItems().find { it.material == mat }
+                            if (customItem != null) {
+                                plugin.itemsConfigManager.removeCustomItem(customItem.id)
+                                plugin.itemsConfigManager.save()
+                                player.sendMessage(Lang.colorize("${Lang.prefix()} &cRemoved &e${customItem.displayName}&c from market."))
+                            }
+                        }
+                        playSound(player, Sound.ENTITY_ITEM_BREAK)
+                        openMarketItemsManager(player, session, session.marketItemsPage)
+                    }
+                    
+                    // Edit prices (left click)
+                    event.isLeftClick && !event.isShiftClick -> {
+                        if (isVanilla) {
+                            // Create a temporary CustomShopItem for the price editor
+                            val config = plugin.itemsConfigManager.get(mat) ?: return
+                            val tempItem = CustomShopItem(
+                                id = "vanilla_${mat.name}",
+                                material = mat,
+                                isCustomItem = false,
+                                serializedData = null,
+                                displayName = mat.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
+                                buyPrice = config.basePrice,
+                                sellPrice = config.minPrice,  // Use minPrice as reference
+                                slot = 0,
+                                enabled = config.enabled
+                            )
+                            session.currentItem = tempItem
+                            openMarketItemPriceEditor(player, session, mat, config)
+                        } else {
+                            player.sendMessage(Lang.colorize("${Lang.prefix()} &7Use the shop category editor to modify custom item prices."))
+                            playSound(player, Sound.ENTITY_VILLAGER_NO)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handle clicks in the Market Item Price Editor (for vanilla items).
+     * Slots: 11=Base, 13=Min, 15=Max, 18=Back, 26=Done
+     */
+    private fun handleMarketItemPriceClick(event: InventoryClickEvent, player: Player, session: EditorSession) {
+        val slot = event.rawSlot
+        val topSize = event.view.topInventory.size
+        
+        // Allow player inventory interaction
+        if (slot >= topSize) return
+        
+        event.isCancelled = true
+        
+        val material = session.currentMarketMaterial ?: return
+        val config = plugin.itemsConfigManager.get(material) ?: return
+        
+        when (slot) {
+            11 -> {  // Base price
+                promptForInput(player, session, InputType.MARKET_BASE_PRICE,
+                    "${ChatColor.GOLD}Enter the base price for ${material.name}:",
+                    "${ChatColor.GRAY}Current: $${String.format("%.2f", config.basePrice)} (type 'cancel' to cancel)")
+            }
+            13 -> {  // Min price
+                promptForInput(player, session, InputType.MARKET_MIN_PRICE,
+                    "${ChatColor.AQUA}Enter the minimum price for ${material.name}:",
+                    "${ChatColor.GRAY}Current: $${String.format("%.2f", config.minPrice)} (type 'cancel' to cancel)")
+            }
+            15 -> {  // Max price
+                promptForInput(player, session, InputType.MARKET_MAX_PRICE,
+                    "${ChatColor.LIGHT_PURPLE}Enter the maximum price for ${material.name}:",
+                    "${ChatColor.GRAY}Current: $${String.format("%.2f", config.maxPrice)} (type 'cancel' to cancel)")
+            }
+            18 -> {  // Back without saving
+                openMarketItemsManager(player, session, session.marketItemsPage)
+            }
+            26 -> {  // Done - return to market items
+                player.sendMessage(Lang.colorize("${Lang.prefix()} &aDone editing ${material.name}."))
+                playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP)
+                openMarketItemsManager(player, session, session.marketItemsPage)
+            }
+        }
+    }
+    
+    /**
+     * Open price editor for a vanilla market item.
+     */
+    private fun openMarketItemPriceEditor(player: Player, session: EditorSession, material: Material, config: org.lokixcz.theendex.market.ItemConfig) {
+        val inv = Bukkit.createInventory(null, 27, "${TITLE_PREFIX}Edit: ${material.name}")
+        
+        // Fill background
+        val filler = createItem(Material.GRAY_STAINED_GLASS_PANE, " ")
+        for (i in 0 until 27) {
+            inv.setItem(i, filler)
+        }
+        
+        // Item display
+        inv.setItem(4, createItem(
+            material,
+            "${ChatColor.AQUA}${material.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }}",
+            listOf(
+                "${ChatColor.GRAY}Editing price settings",
+                "",
+                "${ChatColor.YELLOW}Current Prices:",
+                "${ChatColor.WHITE}Base: $${String.format("%.2f", config.basePrice)}",
+                "${ChatColor.WHITE}Min: $${String.format("%.2f", config.minPrice)}",
+                "${ChatColor.WHITE}Max: $${String.format("%.2f", config.maxPrice)}"
+            )
+        ))
+        
+        // Base price button
+        inv.setItem(11, createItem(
+            Material.GOLD_INGOT,
+            "${ChatColor.GOLD}Base Price",
+            listOf(
+                "${ChatColor.GRAY}Current: ${ChatColor.WHITE}$${String.format("%.2f", config.basePrice)}",
+                "",
+                "${ChatColor.YELLOW}Click to change"
+            )
+        ))
+        
+        // Min price button
+        inv.setItem(13, createItem(
+            Material.IRON_INGOT,
+            "${ChatColor.AQUA}Min Price",
+            listOf(
+                "${ChatColor.GRAY}Current: ${ChatColor.WHITE}$${String.format("%.2f", config.minPrice)}",
+                "",
+                "${ChatColor.YELLOW}Click to change"
+            )
+        ))
+        
+        // Max price button
+        inv.setItem(15, createItem(
+            Material.DIAMOND,
+            "${ChatColor.LIGHT_PURPLE}Max Price",
+            listOf(
+                "${ChatColor.GRAY}Current: ${ChatColor.WHITE}$${String.format("%.2f", config.maxPrice)}",
+                "",
+                "${ChatColor.YELLOW}Click to change"
+            )
+        ))
+        
+        // Back button
+        inv.setItem(18, createItem(
+            Material.ARROW,
+            "${ChatColor.YELLOW}← Back",
+            listOf("${ChatColor.GRAY}Return to Market Items")
+        ))
+        
+        // Save & close
+        inv.setItem(26, createItem(
+            Material.LIME_DYE,
+            "${ChatColor.GREEN}Done",
+            listOf("${ChatColor.GRAY}Save and return")
+        ))
+        
+        // Store material in session for later
+        session.currentMarketMaterial = material
+        session.state = EditorState.MARKET_ITEM_PRICE
+        
+        player.openInventory(inv)
+        playSound(player, Sound.BLOCK_CHEST_OPEN)
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Utility Methods
     // ─────────────────────────────────────────────────────────────────────────

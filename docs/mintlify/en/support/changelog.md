@@ -16,6 +16,47 @@ Before upgrading, back up `plugins/TheEndex/` and skim the release notes for bre
 
 ---
 
+## Version 1.5.8 — January 4, 2026
+
+### Inflation System
+
+New configurable market inflation/deflation system:
+
+- **Base Rate** — Set positive values for inflation, negative for deflation
+- **Random Variance** — Adds realistic randomness to price changes
+- **Per-Category Rates** — Override inflation rates for specific categories (ORES, FOOD, BUILDING, etc.)
+- **Optional Base Price Adjustment** — Choose whether inflation permanently affects base prices
+
+```yaml
+inflation:
+  enabled: false
+  base-rate: 0.001          # 0.1% per cycle
+  variance: 0.0005          # Random variance ±0.05%
+  apply-to-base: false      # Permanently adjust base prices
+  category-rates:
+    ORES: 0.002             # Ore prices inflate faster
+    FOOD: -0.0005           # Food prices deflate slightly
+    BUILDING: 0.0           # Building materials stable
+```
+
+### Market Items Manager
+
+New "Market Items" button in `/market editor`:
+
+- **View All Items** — See all vanilla and custom items from items.yml in one place
+- **Pagination** — Navigate through items with Previous/Next buttons
+- **Quick Actions** — Left-click to edit prices, Middle-click to toggle, Shift+Right to remove
+- **Full Persistence** — Changes sync to both items.yml and market.db
+
+### Bug Fixes
+
+- **Market Item Price Editor** — Fixed vanilla item price editing not saving
+- **/market remove** — Now properly deletes from both items.yml and market.db
+- **/market disable** — Now syncs immediately (no restart required)
+- **/market setbase/setmin/setmax** — Now persists to SQLite database
+
+---
+
 ## Version 1.5.7-dec1038 — December 31, 2025
 
 ### Polish Language Support

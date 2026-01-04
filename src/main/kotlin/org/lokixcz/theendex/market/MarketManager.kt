@@ -31,6 +31,18 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
 
     fun get(material: Material): MarketItem? = items[material]
 
+    /**
+     * Remove an item from the market.
+     * This removes from memory and from the database (if using SQLite).
+     */
+    fun remove(material: Material): Boolean {
+        val removed = items.remove(material) != null
+        if (removed && db != null) {
+            db.deleteItem(material)
+        }
+        return removed
+    }
+
     fun addDemand(material: Material, amount: Double) {
         items[material]?.let { it.demand += amount }
     }
@@ -225,6 +237,19 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
         val alpha = plugin.config.getDouble("price-smoothing.ema-alpha", 0.3).coerceIn(0.0, 1.0)
         val maxPct = plugin.config.getDouble("price-smoothing.max-change-percent", 15.0).coerceAtLeast(0.0)
 
+        // Inflation/Deflation system - time-based price adjustment
+        val inflationEnabled = plugin.config.getBoolean("inflation.enabled", false)
+        val inflationRate = plugin.config.getDouble("inflation.rate-per-cycle", 0.01) / 100.0 // Convert from percent
+        val inflationRequirePlayers = plugin.config.getBoolean("inflation.require-players", true)
+        val inflationMaxDeviation = plugin.config.getDouble("inflation.max-deviation-percent", 200.0) / 100.0
+        val inflationCategoryRates = mapOf(
+            "ores" to plugin.config.getDouble("inflation.category-rates.ores", inflationRate * 100.0) / 100.0,
+            "food" to plugin.config.getDouble("inflation.category-rates.food", 0.0) / 100.0,
+            "building" to plugin.config.getDouble("inflation.category-rates.building", inflationRate * 100.0) / 100.0,
+            "mob-drops" to plugin.config.getDouble("inflation.category-rates.mob-drops", inflationRate * 100.0) / 100.0
+        )
+        val applyInflation = inflationEnabled && (!inflationRequirePlayers || Bukkit.getOnlinePlayers().isNotEmpty())
+
         // Inventory-driven price influence (optional) - online player inventories
         val invEnabled = plugin.config.getBoolean("price-inventory.enabled", true)
         val invSens = plugin.config.getDouble("price-inventory.sensitivity", 0.02).coerceAtLeast(0.0)
@@ -261,8 +286,28 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
             val worldDeltaRaw = -worldPressure * worldSens
             val worldDelta = if (worldEnabled) worldDeltaRaw.coerceIn(-worldMaxPct / 100.0, worldMaxPct / 100.0) else 0.0
             
+            // 4. Inflation/Deflation delta (time-based price drift)
+            val inflationDelta = if (applyInflation) {
+                // Determine category-specific rate
+                val categoryRate = getInflationRateForMaterial(item.material, inflationRate, inflationCategoryRates)
+                
+                // Apply max deviation cap if configured
+                if (inflationMaxDeviation > 0.0) {
+                    val maxPrice = item.basePrice * (1.0 + inflationMaxDeviation)
+                    val minPrice = item.basePrice * (1.0 - inflationMaxDeviation).coerceAtLeast(0.1)
+                    // Only apply inflation if within bounds
+                    when {
+                        categoryRate > 0 && item.currentPrice >= maxPrice -> 0.0
+                        categoryRate < 0 && item.currentPrice <= minPrice -> 0.0
+                        else -> categoryRate
+                    }
+                } else {
+                    categoryRate
+                }
+            } else 0.0
+            
             // Combine all influences
-            val delta = tradeDelta + invDelta + worldDelta
+            val delta = tradeDelta + invDelta + worldDelta + inflationDelta
             val rawTarget = (item.currentPrice * (1.0 + delta)).coerceIn(item.minPrice, item.maxPrice)
 
             // Apply EMA smoothing towards target if enabled
@@ -446,5 +491,78 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
         val toRemove = items.filterKeys { it.name in blacklist }.keys
         toRemove.forEach { items.remove(it) }
         if (toRemove.isNotEmpty()) plugin.logger.info("Excluded ${toRemove.size} blacklisted items from market.")
+    }
+    
+    /**
+     * Determines the inflation rate for a specific material based on its category.
+     * Categories: ores, food, building, mob-drops
+     * Falls back to default rate if material doesn't match any category.
+     */
+    private fun getInflationRateForMaterial(
+        material: org.bukkit.Material,
+        defaultRate: Double,
+        categoryRates: Map<String, Double>
+    ): Double {
+        val name = material.name
+        
+        // Ores category - valuable materials and ingots
+        val ores = setOf(
+            "COAL", "COAL_ORE", "DEEPSLATE_COAL_ORE", "COAL_BLOCK",
+            "IRON_INGOT", "IRON_ORE", "DEEPSLATE_IRON_ORE", "RAW_IRON", "IRON_BLOCK",
+            "GOLD_INGOT", "GOLD_ORE", "DEEPSLATE_GOLD_ORE", "RAW_GOLD", "GOLD_BLOCK", "NETHER_GOLD_ORE",
+            "COPPER_INGOT", "COPPER_ORE", "DEEPSLATE_COPPER_ORE", "RAW_COPPER", "COPPER_BLOCK",
+            "DIAMOND", "DIAMOND_ORE", "DEEPSLATE_DIAMOND_ORE", "DIAMOND_BLOCK",
+            "EMERALD", "EMERALD_ORE", "DEEPSLATE_EMERALD_ORE", "EMERALD_BLOCK",
+            "LAPIS_LAZULI", "LAPIS_ORE", "DEEPSLATE_LAPIS_ORE", "LAPIS_BLOCK",
+            "REDSTONE", "REDSTONE_ORE", "DEEPSLATE_REDSTONE_ORE", "REDSTONE_BLOCK",
+            "QUARTZ", "NETHER_QUARTZ_ORE", "QUARTZ_BLOCK",
+            "NETHERITE_INGOT", "NETHERITE_SCRAP", "ANCIENT_DEBRIS", "NETHERITE_BLOCK",
+            "AMETHYST_SHARD", "AMETHYST_CLUSTER"
+        )
+        if (name in ores) return categoryRates["ores"] ?: defaultRate
+        
+        // Food category - edibles and crops
+        val food = setOf(
+            "WHEAT", "BREAD", "CARROT", "POTATO", "BEETROOT", "MELON_SLICE", "PUMPKIN",
+            "APPLE", "GOLDEN_APPLE", "ENCHANTED_GOLDEN_APPLE",
+            "BEEF", "COOKED_BEEF", "PORKCHOP", "COOKED_PORKCHOP",
+            "CHICKEN", "COOKED_CHICKEN", "MUTTON", "COOKED_MUTTON",
+            "RABBIT", "COOKED_RABBIT", "COD", "COOKED_COD", "SALMON", "COOKED_SALMON",
+            "TROPICAL_FISH", "PUFFERFISH", "DRIED_KELP",
+            "COOKIE", "CAKE", "PUMPKIN_PIE", "SWEET_BERRIES", "GLOW_BERRIES",
+            "HONEY_BOTTLE", "MUSHROOM_STEW", "RABBIT_STEW", "BEETROOT_SOUP", "SUSPICIOUS_STEW",
+            "SUGAR_CANE", "SUGAR", "COCOA_BEANS", "NETHER_WART", "CHORUS_FRUIT"
+        )
+        if (name in food) return categoryRates["food"] ?: defaultRate
+        
+        // Building materials
+        val building = setOf(
+            "COBBLESTONE", "STONE", "GRANITE", "DIORITE", "ANDESITE",
+            "DEEPSLATE", "COBBLED_DEEPSLATE", "TUFF", "CALCITE", "DRIPSTONE_BLOCK",
+            "SAND", "RED_SAND", "GRAVEL", "CLAY", "CLAY_BALL", "BRICK", "BRICKS",
+            "GLASS", "GLASS_PANE",
+            "OAK_LOG", "SPRUCE_LOG", "BIRCH_LOG", "JUNGLE_LOG", "ACACIA_LOG", "DARK_OAK_LOG",
+            "MANGROVE_LOG", "CHERRY_LOG", "CRIMSON_STEM", "WARPED_STEM", "BAMBOO",
+            "OAK_PLANKS", "SPRUCE_PLANKS", "BIRCH_PLANKS", "JUNGLE_PLANKS", "ACACIA_PLANKS", "DARK_OAK_PLANKS",
+            "DIRT", "GRASS_BLOCK", "PODZOL", "MYCELIUM", "MUD",
+            "SANDSTONE", "RED_SANDSTONE", "PRISMARINE", "DARK_PRISMARINE", "SEA_LANTERN",
+            "NETHERRACK", "NETHER_BRICKS", "BASALT", "BLACKSTONE", "END_STONE"
+        )
+        if (name in building) return categoryRates["building"] ?: defaultRate
+        
+        // Mob drops
+        val mobDrops = setOf(
+            "ROTTEN_FLESH", "BONE", "STRING", "SPIDER_EYE", "FERMENTED_SPIDER_EYE",
+            "GUNPOWDER", "ENDER_PEARL", "BLAZE_ROD", "BLAZE_POWDER",
+            "GHAST_TEAR", "SLIME_BALL", "MAGMA_CREAM",
+            "LEATHER", "RABBIT_HIDE", "FEATHER", "INK_SAC", "GLOW_INK_SAC",
+            "PHANTOM_MEMBRANE", "SHULKER_SHELL", "PRISMARINE_SHARD", "PRISMARINE_CRYSTALS",
+            "NAUTILUS_SHELL", "HEART_OF_THE_SEA", "WITHER_SKELETON_SKULL",
+            "DRAGON_BREATH", "NETHER_STAR", "TRIDENT", "TOTEM_OF_UNDYING"
+        )
+        if (name in mobDrops) return categoryRates["mob-drops"] ?: defaultRate
+        
+        // Default rate for uncategorized items
+        return defaultRate
     }
 }

@@ -150,6 +150,25 @@ class SqliteStore(private val plugin: JavaPlugin) {
         }
     }
 
+    /**
+     * Delete an item from the market database.
+     * Also removes associated price history.
+     */
+    fun deleteItem(material: Material) {
+        connect().use { conn ->
+            // Delete from items table
+            conn.prepareStatement("DELETE FROM items WHERE material=?").use { ps ->
+                ps.setString(1, material.name)
+                ps.executeUpdate()
+            }
+            // Delete associated history
+            conn.prepareStatement("DELETE FROM history WHERE material=?").use { ps ->
+                ps.setString(1, material.name)
+                ps.executeUpdate()
+            }
+        }
+    }
+
     fun appendHistory(material: Material, point: PricePoint) {
         connect().use { conn ->
             conn.prepareStatement("INSERT INTO history(material, time, price) VALUES(?,?,?)").use { ps ->

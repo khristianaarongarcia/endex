@@ -7,6 +7,36 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.8] - 2026-01-04
+### Added
+- **Inflation System:** New configurable market inflation/deflation system that adjusts prices over time.
+  - `inflation.enabled` - Toggle the inflation system on/off
+  - `inflation.base-rate` - Base inflation rate per price update cycle (positive = inflation, negative = deflation)
+  - `inflation.variance` - Random variance for realistic market simulation
+  - `inflation.apply-to-base` - Option to permanently adjust base prices
+  - `inflation.category-rates` - Per-category inflation rate overrides (e.g., ORES, FOOD, BUILDING)
+- **Market Items Manager:** New "Market Items" button in `/market editor` showing all items from items.yml with pagination.
+  - View all vanilla and custom market items in one place
+  - Left-click to edit prices, Middle-click to toggle enabled/disabled, Shift+Right-click to remove
+  - Full persistence to both items.yml and market.db
+
+### Fixed
+- **Market Item Price Editor:** Fixed editor not saving prices for vanilla market items.
+  - Created separate `MARKET_ITEM_PRICE` state with proper slot layout (11, 13, 15 for base/min/max)
+  - Added dedicated input handlers for market item prices
+  - Now properly syncs to both `items.yml` and `market.db`
+- **/market remove:** Now properly removes items from both `items.yml` AND `market.db` (previously only removed from items.yml)
+- **/market disable:** Now properly syncs disabled state to market manager (no longer requires restart)
+- **/market setbase/setmin/setmax:** Now properly persists price changes to SQLite database
+
+### Technical
+- Added `EditorState.MARKET_ITEM_PRICE` for vanilla market item editing
+- Added `InputType.MARKET_BASE_PRICE`, `MARKET_MIN_PRICE`, `MARKET_MAX_PRICE`
+- Added `currentMarketMaterial` to EditorSession for tracking edited material
+- Added `handleMarketItemPriceClick()` and related input handlers
+- Added `getInflationRateForMaterial()` helper in MarketManager
+- Inflation delta integrated into existing price update cycle
+
 ## [1.5.7-dec1038] - 2025-12-31
 ### Added
 - **Polish Language Support:** Complete Polish (Polski) translation for both plugin and documentation.

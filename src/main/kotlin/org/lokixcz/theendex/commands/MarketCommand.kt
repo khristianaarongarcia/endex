@@ -1171,9 +1171,11 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         plugin.itemsConfigManager.remove(mat)
         plugin.itemsConfigManager.save()
 
-        // Note: Item will remain in market.db until server restart or manual removal
+        // Also remove from market.db immediately (no restart required)
+        plugin.marketManager.remove(mat)
+        plugin.marketManager.save()
+
         sender.sendMessage(Lang.prefixed("admin.remove.success", "item" to prettyName(mat)))
-        sender.sendMessage(Lang.get("admin.remove.reload-hint"))
         return true
     }
 
@@ -1214,6 +1216,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         if (marketItem != null) {
             marketItem.basePrice = price
             marketItem.currentPrice = price.coerceIn(existing.minPrice, existing.maxPrice)
+            plugin.marketManager.save()  // Persist to SQLite
         }
 
         sender.sendMessage(Lang.prefixed("admin.setbase.success", "item" to prettyName(mat), "price" to format(price)))
@@ -1258,6 +1261,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             marketItem.minPrice = price
             // Clamp current price to new range
             marketItem.currentPrice = marketItem.currentPrice.coerceIn(price, existing.maxPrice)
+            plugin.marketManager.save()  // Persist to SQLite
         }
 
         sender.sendMessage(Lang.prefixed("admin.setmin.success", "item" to prettyName(mat), "price" to format(price)))
@@ -1307,6 +1311,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             marketItem.maxPrice = price
             // Clamp current price to new range
             marketItem.currentPrice = marketItem.currentPrice.coerceIn(existing.minPrice, price)
+            plugin.marketManager.save()  // Persist to SQLite
         }
 
         sender.sendMessage(Lang.prefixed("admin.setmax.success", "item" to prettyName(mat), "price" to format(price)))
@@ -1409,9 +1414,12 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
 
         plugin.itemsConfigManager.disable(mat)
         plugin.itemsConfigManager.save()
+        
+        // Sync with market manager
+        val db = plugin.marketManager.sqliteStore()
+        plugin.itemsConfigManager.syncToMarketManager(plugin.marketManager, db)
 
         sender.sendMessage(Lang.prefixed("admin.disable.success", "item" to prettyName(mat)))
-        sender.sendMessage(Lang.get("admin.disable.reload-hint"))
         return true
     }
 
@@ -1443,7 +1451,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         }
         
         if (totalPages > 1) {
-            sender.sendMessage(Lang.get("admin.items.page-hint"))
+            sender.sendMessage(Lang.get("admin.items.page-usage"))
         }
         return true
     }

@@ -99,6 +99,26 @@ web:
     export-default: true
 ```
 
+## Inflation System
+
+Control gradual price changes over time:
+
+```yaml
+inflation:
+  enabled: false
+  base-rate: 0.001          # 0.1% per cycle (positive = inflation, negative = deflation)
+  variance: 0.0005          # Random variance ±0.05%
+  apply-to-base: false      # Permanently adjust base prices
+  category-rates:           # Per-category overrides
+    ORES: 0.002             # Ore prices inflate faster
+    FOOD: -0.0005           # Food prices deflate slightly
+    BUILDING: 0.0           # Building materials stable
+```
+
+<Info>
+Inflation is applied during each price update cycle. Set `apply-to-base: true` to make changes permanent, or leave it `false` for temporary price drift that resets on restart.
+</Info>
+
 ## GUI Customization
 
 GUI layouts are configured in separate files under `guis/`:

@@ -1,6 +1,6 @@
 <div align="center">
 
-# The Endex 1.5.7-dec1038 | Dynamic Market & Addons [1.20.1 - 1.21.x]
+# The Endex 1.5.8 | Dynamic Market & Addons [1.20.1 - 1.21.x]
 
 <img src="https://i.imgur.com/onDbDSW.png" alt="The Endex Banner" />
 
@@ -18,19 +18,19 @@
 
 The Endex is a dynamic economy plugin that brings realistic market mechanics to your Minecraft server. Prices fluctuate based on player trading activity, server-wide item storage, and random market events.
 
-### 🆕 Version 1.5.7-dec1038 Highlights:
-- **Polish Language Support** — Complete Polish (Polski) translation for plugin and documentation!
-- **Config Translations Auto-Extract** — 10 language configs now auto-extract to config_translations/ folder!
-- **Optimized Default Config** — Now ships with minimal resource usage settings by default
-- **World Storage Scanning** — DISABLED by default for better performance (easily enabled)
-- **Reduced Disk I/O** — Save-on-each-update disabled, longer update intervals
-- **10 Language Support** — English, Polish, Chinese, Spanish, French, German, Japanese, Korean, Portuguese, Russian
+### 🆕 Version 1.5.8 Highlights:
+- **Inflation System** — New configurable inflation/deflation system with per-category rates!
+- **Market Items Manager** — New editor button to view/edit all market items in one place!
+- **Price Editor Fix** — Fixed vanilla item price editing in the market editor!
+- **Admin Commands Fixed** — `/market remove`, `disable`, `setbase`, `setmin`, `setmax` now persist properly!
 
 **Previous 1.5.7 Features:**
-- **Web Dashboard Translation** — Google Translate integration for 26+ languages!
-- **Sell from Holdings** — Sell items directly from virtual holdings without withdrawing first!
+- **Polish Language Support** — Complete Polish (Polski) translation for plugin and documentation
+- **Config Translations Auto-Extract** — 10 language configs now auto-extract to config_translations/ folder
+- **Optimized Default Config** — Now ships with minimal resource usage settings by default
+- **Web Dashboard Translation** — Google Translate integration for 26+ languages
+- **Sell from Holdings** — Sell items directly from virtual holdings without withdrawing first
 - **Arclight/Hybrid Server Support** — Fixed compatibility issues with Arclight, Mohist, and other hybrid servers
-- **Performance Indicators** — Config options now show `[PERF: LOW/MEDIUM/HIGH]` impact tags
 
 ---
 
