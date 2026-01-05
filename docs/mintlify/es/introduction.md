@@ -60,6 +60,31 @@ description: "The Endex — Un mercado dinámico y realista impulsado por la ofe
 
 ¿Listo para comenzar? Consulta la guía de [Instalación](/es/getting-started/installation).
 
+## Cambiar Idioma
+
+Esta documentación está disponible en **10 idiomas**. Para cambiar de idioma:
+
+1. Busca el **selector de idioma** en el encabezado/navegación de la documentación
+2. Haz clic en él para ver los idiomas disponibles
+3. Selecciona tu idioma preferido
+
+| Idioma | Código |
+| --- | --- |
+| 🇺🇸 Inglés | `en` |
+| 🇨🇳 Chino (Simplificado) | `cn` |
+| 🇪🇸 Español | `es` |
+| 🇫🇷 Francés | `fr` |
+| 🇩🇪 Alemán | `de` |
+| 🇯🇵 Japonés | `jp` |
+| 🇰🇷 Coreano | `ko` |
+| 🇧🇷 Portugués (Brasil) | `pt-BR` |
+| 🇷🇺 Ruso | `ru` |
+| 🇵🇱 Polaco | `pl` |
+
+<Tip>
+¡El plugin en el juego también admite múltiples idiomas! Configura tu idioma preferido en `config.yml` bajo `language: es` (usa el código de idioma de la tabla anterior).
+</Tip>
+
 ## Soporte
 
 <CardGroup cols={2}>

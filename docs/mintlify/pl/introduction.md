@@ -67,6 +67,33 @@ Oferuje:
 
 ***
 
+## Zmiana Języka
+
+Ta dokumentacja jest dostępna w **10 językach**. Aby zmienić język:
+
+1. Znajdź **selektor języka** w nagłówku/nawigacji dokumentacji
+2. Kliknij go, aby zobaczyć dostępne języki
+3. Wybierz preferowany język
+
+| Język | Kod |
+| --- | --- |
+| 🇺🇸 Angielski | `en` |
+| 🇨🇳 Chiński (Uproszczony) | `cn` |
+| 🇪🇸 Hiszpański | `es` |
+| 🇫🇷 Francuski | `fr` |
+| 🇩🇪 Niemiecki | `de` |
+| 🇯🇵 Japoński | `jp` |
+| 🇰🇷 Koreański | `ko` |
+| 🇧🇷 Portugalski (Brazylia) | `pt-BR` |
+| 🇷🇺 Rosyjski | `ru` |
+| 🇵🇱 Polski | `pl` |
+
+<Tip>
+Plugin w grze również obsługuje wiele języków! Ustaw preferowany język w `config.yml` pod `language: pl` (użyj kodu języka z powyższej tabeli).
+</Tip>
+
+***
+
 ## Wsparcie
 
 * **Discord:** [Dołącz do Serwera](https://discord.gg/ujFRXksUBE)
@@ -76,4 +103,4 @@ Oferuje:
 
 ***
 
-_Ostatnia aktualizacja: 30 Grudnia 2025 | Wersja 1.5.7-dec1022_
+_Ostatnia aktualizacja: 4 Stycznia 2026 | Wersja 1.5.8_

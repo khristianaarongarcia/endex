@@ -71,3 +71,28 @@ Folgen Sie unserer Schnellstartanleitung, um The Endex auf Ihrem Server zu insta
 >
   Installieren und konfigurieren Sie The Endex in weniger als 5 Minuten.
 </Card>
+
+## Sprache ändern
+
+Diese Dokumentation ist in **10 Sprachen** verfügbar. So wechseln Sie die Sprache:
+
+1. Suchen Sie den **Sprachauswähler** in der Kopfzeile/Navigation der Dokumentation
+2. Klicken Sie darauf, um die verfügbaren Sprachen anzuzeigen
+3. Wählen Sie Ihre bevorzugte Sprache
+
+| Sprache | Code |
+| --- | --- |
+| 🇺🇸 Englisch | `en` |
+| 🇨🇳 Chinesisch (Vereinfacht) | `cn` |
+| 🇪🇸 Spanisch | `es` |
+| 🇫🇷 Französisch | `fr` |
+| 🇩🇪 Deutsch | `de` |
+| 🇯🇵 Japanisch | `jp` |
+| 🇰🇷 Koreanisch | `ko` |
+| 🇧🇷 Portugiesisch (Brasilien) | `pt-BR` |
+| 🇷🇺 Russisch | `ru` |
+| 🇵🇱 Polnisch | `pl` |
+
+<Tip>
+Das Plugin im Spiel unterstützt ebenfalls mehrere Sprachen! Stellen Sie Ihre bevorzugte Sprache in `config.yml` unter `language: de` ein (verwenden Sie den Sprachcode aus der obigen Tabelle).
+</Tip>

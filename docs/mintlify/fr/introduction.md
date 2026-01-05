@@ -71,3 +71,28 @@ Suivez notre guide de démarrage rapide pour installer et configurer The Endex s
 >
   Installez et configurez The Endex en moins de 5 minutes.
 </Card>
+
+## Changer de Langue
+
+Cette documentation est disponible en **10 langues**. Pour changer de langue :
+
+1. Recherchez le **sélecteur de langue** dans l'en-tête/navigation de la documentation
+2. Cliquez dessus pour voir les langues disponibles
+3. Sélectionnez votre langue préférée
+
+| Langue | Code |
+| --- | --- |
+| 🇺🇸 Anglais | `en` |
+| 🇨🇳 Chinois (Simplifié) | `cn` |
+| 🇪🇸 Espagnol | `es` |
+| 🇫🇷 Français | `fr` |
+| 🇩🇪 Allemand | `de` |
+| 🇯🇵 Japonais | `jp` |
+| 🇰🇷 Coréen | `ko` |
+| 🇧🇷 Portugais (Brésil) | `pt-BR` |
+| 🇷🇺 Russe | `ru` |
+| 🇵🇱 Polonais | `pl` |
+
+<Tip>
+Le plugin en jeu prend également en charge plusieurs langues ! Définissez votre langue préférée dans `config.yml` sous `language: fr` (utilisez le code de langue du tableau ci-dessus).
+</Tip>

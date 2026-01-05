@@ -67,6 +67,33 @@ It provides:
 
 ***
 
+## Changing Language
+
+This documentation is available in **10 languages**. To switch languages:
+
+1. Look for the **language selector** in the documentation header/navigation
+2. Click on it to see available languages
+3. Select your preferred language
+
+| Language | Code |
+| --- | --- |
+| 🇺🇸 English | `en` |
+| 🇨🇳 Chinese (Simplified) | `cn` |
+| 🇪🇸 Spanish | `es` |
+| 🇫🇷 French | `fr` |
+| 🇩🇪 German | `de` |
+| 🇯🇵 Japanese | `jp` |
+| 🇰🇷 Korean | `ko` |
+| 🇧🇷 Portuguese (Brazil) | `pt-BR` |
+| 🇷🇺 Russian | `ru` |
+| 🇵🇱 Polish | `pl` |
+
+<Tip>
+The in-game plugin also supports multiple languages! Set your preferred language in `config.yml` under `language: en` (use the language code from the table above).
+</Tip>
+
+***
+
 ## Support
 
 * **Discord:** [Join Server](https://discord.gg/ujFRXksUBE)
@@ -76,4 +103,4 @@ It provides:
 
 ***
 
-_Last updated: December 30, 2025 | Version 1.5.7-dec1022_
+_Last updated: January 4, 2026 | Version 1.5.8_
