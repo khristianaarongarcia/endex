@@ -7,6 +7,21 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning (MAJO
 ## [Unreleased]
 *No unreleased changes at this time.*
 
+## [1.5.8-JAN60132] - 2026-01-06
+### Fixed
+- **Custom Shop Category Creation:** Fixed "Create Category" dialog in the shop editor not responding to clicks.
+  - Clicking compass (Filter mode) or chest (Manual mode) icons now properly creates new categories.
+  - Added `CREATE_CATEGORY` state to EditorState enum for proper state tracking.
+  - Implemented `handleCreateCategoryClick()` handler with full click handling flow.
+  - Added `startCategoryCreation()` helper method for the text input flow.
+  - Added `addCategory()` and `removeCategory()` methods to CustomShopManager for persistence.
+
+### Technical
+- `EditorState.CREATE_CATEGORY` tracks when the create category dialog is open.
+- `openCreateCategoryDialog()` now sets session state before displaying the GUI.
+- Category creation flow: click icon → enter ID → enter name → select filter (if FILTER mode) → save to config.
+- New categories persist to shop YAML files immediately.
+
 ## [1.5.8] - 2026-01-04
 ### Added
 - **Inflation System:** New configurable market inflation/deflation system that adjusts prices over time.

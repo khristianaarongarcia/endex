@@ -309,4 +309,91 @@ class CustomShopManager(private val plugin: Endex) {
             pageChange = section.getString("page-change")
         )
     }
+    
+    /**
+     * Add a new category to a shop and save to the YAML file.
+     * @param shopId The shop ID
+     * @param category The category to add
+     * @throws IllegalArgumentException if shop doesn't exist
+     */
+    fun addCategory(shopId: String, category: ShopCategory) {
+        val shop = shops[shopId] ?: throw IllegalArgumentException("Shop '$shopId' not found")
+        
+        // Update in-memory shop config
+        val updatedCategories = shop.categories.toMutableMap()
+        updatedCategories[category.id] = category
+        
+        // Create updated shop with new category
+        val updatedShop = shop.copy(categories = updatedCategories)
+        shops[shopId] = updatedShop
+        
+        // Save to YAML file
+        val file = File(shopsFolder, "$shopId.yml")
+        if (!file.exists()) {
+            throw IllegalArgumentException("Shop file '$shopId.yml' not found")
+        }
+        
+        val yaml = YamlConfiguration.loadConfiguration(file)
+        
+        // Ensure categories section exists
+        if (!yaml.isConfigurationSection("categories")) {
+            yaml.createSection("categories")
+        }
+        
+        // Add new category to YAML
+        val catPath = "categories.${category.id}"
+        yaml.set("$catPath.name", category.name.replace("§", "&"))  // Convert back to color codes
+        yaml.set("$catPath.icon", category.icon.name)
+        yaml.set("$catPath.icon-name", category.iconName.replace("§", "&"))
+        yaml.set("$catPath.icon-lore", category.iconLore.map { it.replace("§", "&") })
+        yaml.set("$catPath.page-title", category.pageTitle.replace("§", "&"))
+        yaml.set("$catPath.page-size", category.pageSize)
+        yaml.set("$catPath.item-slots.start", category.itemSlots.first)
+        yaml.set("$catPath.item-slots.end", category.itemSlots.last)
+        yaml.set("$catPath.fill-empty", category.fillEmpty)
+        yaml.set("$catPath.empty-material", category.emptyMaterial.name)
+        yaml.set("$catPath.filter", category.filter.name)
+        yaml.set("$catPath.mode", if (category.isManualMode) "MANUAL" else "FILTER")
+        
+        // For manual mode, initialize empty items list
+        if (category.isManualMode) {
+            yaml.set("$catPath.items", emptyList<Any>())
+        }
+        
+        yaml.save(file)
+        plugin.logger.info("[Shop] Added category '${category.id}' to shop '$shopId'")
+    }
+    
+    /**
+     * Remove a category from a shop and save to the YAML file.
+     * @param shopId The shop ID
+     * @param categoryId The category ID to remove
+     * @throws IllegalArgumentException if shop or category doesn't exist
+     */
+    fun removeCategory(shopId: String, categoryId: String) {
+        val shop = shops[shopId] ?: throw IllegalArgumentException("Shop '$shopId' not found")
+        
+        if (!shop.categories.containsKey(categoryId)) {
+            throw IllegalArgumentException("Category '$categoryId' not found in shop '$shopId'")
+        }
+        
+        // Update in-memory shop config
+        val updatedCategories = shop.categories.toMutableMap()
+        updatedCategories.remove(categoryId)
+        
+        val updatedShop = shop.copy(categories = updatedCategories)
+        shops[shopId] = updatedShop
+        
+        // Save to YAML file
+        val file = File(shopsFolder, "$shopId.yml")
+        if (!file.exists()) {
+            throw IllegalArgumentException("Shop file '$shopId.yml' not found")
+        }
+        
+        val yaml = YamlConfiguration.loadConfiguration(file)
+        yaml.set("categories.$categoryId", null)  // Remove the section
+        yaml.save(file)
+        
+        plugin.logger.info("[Shop] Removed category '$categoryId' from shop '$shopId'")
+    }
 }

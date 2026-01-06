@@ -1,6 +1,6 @@
 <div align="center">
 
-# The Endex 1.5.8 | Dynamic Market & Addons [1.20.1 - 1.21.x]
+# The Endex 1.5.8-JAN60132 | Dynamic Market & Addons [1.20.1 - 1.21.x]
 
 <img src="https://i.imgur.com/onDbDSW.png" alt="The Endex Banner" />
 
@@ -18,7 +18,10 @@
 
 The Endex is a dynamic economy plugin that brings realistic market mechanics to your Minecraft server. Prices fluctuate based on player trading activity, server-wide item storage, and random market events.
 
-### 🆕 Version 1.5.8 Highlights:
+### 🆕 Version 1.5.8-JAN60132 Highlights:
+- **🔧 Shop Editor Category Fix** — Fixed "Create Category" dialog not responding to clicks! Compass and chest icons now work properly!
+
+**Previous 1.5.8 Features:**
 - **Inflation System** — New configurable inflation/deflation system with per-category rates!
 - **Market Items Manager** — New editor button to view/edit all market items in one place!
 - **Price Editor Fix** — Fixed vanilla item price editing in the market editor!
@@ -242,6 +245,12 @@ web:
 
 <details>
 <summary>📜 Full Changelog</summary>
+
+### New in 1.5.8-JAN60132:
+- **Shop Editor Category Fix:** Fixed "Create Category" dialog in the shop editor not responding to clicks
+- Clicking compass (Filter mode) or chest (Manual mode) icons now properly creates new categories
+- Added `CREATE_CATEGORY` state tracking and proper click handling flow
+- Categories now persist immediately to shop YAML config files
 
 ### New in 1.5.7-dec1038:
 - Polish Language Support: Complete Polish (Polski) translation for plugin and documentation

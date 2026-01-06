@@ -49,6 +49,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         LAYOUT_CATEGORY_SELECT,  // Selecting a category for layout placement
         LAYOUT_BUTTON_SELECT,    // Selecting a button type for layout
         MARKET_ITEMS,            // Viewing/editing all items.yml market items
+        CREATE_CATEGORY,         // Create category dialog (selecting FILTER/MANUAL mode)
         TEXT_INPUT,              // Waiting for chat input
         NONE
     }
@@ -1156,6 +1157,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         ))
         
         val session = sessions.getOrPut(player.uniqueId) { EditorSession() }
+        session.state = EditorState.CREATE_CATEGORY
         session.currentShopId = shopId
         
         player.openInventory(inv)
@@ -1186,6 +1188,7 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
             EditorState.LAYOUT_CATEGORY_SELECT -> handleLayoutCategorySelectClick(event, player, session)
             EditorState.LAYOUT_BUTTON_SELECT -> handleLayoutButtonSelectClick(event, player, session)
             EditorState.MARKET_ITEMS -> handleMarketItemsClick(event, player, session)
+            EditorState.CREATE_CATEGORY -> handleCreateCategoryClick(event, player, session)
             else -> event.isCancelled = true
         }
     }
@@ -1932,6 +1935,57 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
         reopenLayoutEditor(player, session)
     }
 
+    /**
+     * Handle clicks in the Create Category dialog.
+     * Slot 11 = FILTER mode, Slot 15 = MANUAL mode, Slot 22 = Cancel
+     */
+    private fun handleCreateCategoryClick(event: InventoryClickEvent, player: Player, session: EditorSession) {
+        val slot = event.rawSlot
+        val topSize = event.view.topInventory.size
+        
+        // Allow player inventory interaction
+        if (slot >= topSize) {
+            return
+        }
+        
+        event.isCancelled = true
+        
+        val clickedItem = event.currentItem ?: return
+        if (clickedItem.type == Material.AIR || clickedItem.type == Material.GRAY_STAINED_GLASS_PANE) return
+        
+        val shopId = session.currentShopId ?: return
+        
+        when (slot) {
+            11 -> {  // FILTER mode (Compass)
+                if (clickedItem.type == Material.COMPASS) {
+                    session.tempCategoryMode = CategoryMode.FILTER
+                    startCategoryCreation(player, session)
+                }
+            }
+            15 -> {  // MANUAL mode (Chest)
+                if (clickedItem.type == Material.CHEST) {
+                    session.tempCategoryMode = CategoryMode.MANUAL
+                    startCategoryCreation(player, session)
+                }
+            }
+            22 -> {  // Cancel (Barrier)
+                if (clickedItem.type == Material.BARRIER) {
+                    openCategoryManager(player, shopId)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Start the category creation flow by prompting for category name.
+     */
+    private fun startCategoryCreation(player: Player, session: EditorSession) {
+        promptForInput(player, session, InputType.CATEGORY_NAME,
+            "${ChatColor.GREEN}Enter the display name for your new category:",
+            "${ChatColor.GRAY}This is what players will see in the shop menu",
+            "${ChatColor.GRAY}(type 'cancel' to cancel)")
+    }
+
     private fun handleItemPriceClick(event: InventoryClickEvent, player: Player, session: EditorSession) {
         val slot = event.rawSlot
         val topSize = event.view.topInventory.size
@@ -2000,18 +2054,102 @@ class ShopEditorGUI(private val plugin: Endex) : Listener {
     }
     
     private fun handleCategoryNameInput(player: Player, session: EditorSession, input: String) {
-        session.pendingInputType = InputType.CATEGORY_ID
+        // Store the name temporarily in the session
+        // We'll use displayName field temporarily
         val suggestedId = input.lowercase().replace(Regex("[^a-z0-9_]"), "_")
+        
+        // Store the category name for later
+        session.tempItems.clear()  // Repurpose to store temp data
+        val tempItem = CustomShopItem(
+            id = "temp",
+            material = Material.STONE,
+            isCustomItem = false,
+            serializedData = null,
+            displayName = input,  // Store the category name here
+            buyPrice = 0.0,
+            sellPrice = 0.0,
+            slot = 0,
+            enabled = true
+        )
+        session.tempItems.add(tempItem)
         
         promptForInput(player, session, InputType.CATEGORY_ID,
             "${ChatColor.GREEN}Enter the category ID (suggested: $suggestedId):",
-            "${ChatColor.GRAY}Or press Enter to use the suggested ID")
+            "${ChatColor.GRAY}This is used internally to identify the category",
+            "${ChatColor.GRAY}(type 'cancel' to cancel)")
     }
     
     private fun handleCategoryIdInput(player: Player, session: EditorSession, input: String) {
-        // TODO: Create the category
-        player.sendMessage(Lang.colorize(Lang.get("shop-editor.category-creation-soon")))
-        reopenPreviousView(player, session)
+        val shopId = session.currentShopId ?: run {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cNo shop selected!"))
+            openShopManager(player)
+            return
+        }
+        
+        val categoryId = input.lowercase().replace(Regex("[^a-z0-9_]"), "_")
+        
+        // Check if category already exists
+        val manager = plugin.customShopManager ?: run {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cShop manager not available!"))
+            openShopManager(player)
+            return
+        }
+        
+        val shop = manager.get(shopId)
+        if (shop?.categories?.containsKey(categoryId) == true) {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cA category with ID '$categoryId' already exists!"))
+            openCategoryManager(player, shopId)
+            return
+        }
+        
+        // Get the stored category name
+        val categoryName = session.tempItems.firstOrNull()?.displayName ?: categoryId
+        
+        // Create the category based on mode
+        val mode = session.tempCategoryMode
+        val filter = if (mode == CategoryMode.FILTER) {
+            org.lokixcz.theendex.shop.MarketCategoryFilter.ALL
+        } else {
+            // For MANUAL mode, filter isn't used but we still need a value
+            org.lokixcz.theendex.shop.MarketCategoryFilter.MISC
+        }
+        
+        // Create a proper ShopCategory object
+        val newCategory = ShopCategory(
+            id = categoryId,
+            name = "§a$categoryName",  // Green color by default
+            icon = Material.CHEST,
+            iconName = "§e$categoryName",
+            iconLore = listOf("§7Click to browse"),
+            pageTitle = "§8$categoryName",
+            pageSize = 54,
+            itemSlots = 0..44,
+            fillEmpty = true,
+            emptyMaterial = Material.GRAY_STAINED_GLASS_PANE,
+            filter = filter,
+            isManualMode = (mode == CategoryMode.MANUAL),
+            sortOrder = shop?.categories?.size ?: 0
+        )
+        
+        // Add the category to the shop
+        try {
+            manager.addCategory(shopId, newCategory)
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &aCategory '&e$categoryName&a' created with ID '&e$categoryId&a' in mode &e${mode.name}&a!"))
+            playSound(player, Sound.ENTITY_PLAYER_LEVELUP)
+        } catch (e: Exception) {
+            player.sendMessage(Lang.colorize("${Lang.prefix()} &cFailed to create category: ${e.message}"))
+            playSound(player, Sound.ENTITY_VILLAGER_NO)
+        }
+        
+        // Clear temp data
+        session.tempItems.clear()
+        
+        // Open the category for editing if it's MANUAL mode
+        if (mode == CategoryMode.MANUAL) {
+            openCategoryItemEditor(player, shopId, categoryId)
+        } else {
+            openCategoryManager(player, shopId)
+        }
     }
     
     private fun handlePriceInput(player: Player, session: EditorSession, input: String, isBuyPrice: Boolean) {

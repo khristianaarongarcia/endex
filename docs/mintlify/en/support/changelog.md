@@ -16,6 +16,29 @@ Before upgrading, back up `plugins/TheEndex/` and skim the release notes for bre
 
 ---
 
+## Version 1.5.8-JAN60132 — January 6, 2026
+
+### 🔧 Shop Editor Fix
+
+**Fixed critical bug in Custom Shop category creation:**
+
+- **Create Category Dialog** — Clicking compass (Filter mode) or chest (Manual mode) icons now properly creates new categories
+- Previously, the "Create Category" dialog appeared but button clicks were unresponsive
+- Full category creation flow now works: click icon → enter ID → enter name → select filter → save
+
+<Warning>
+This was a blocking issue for users trying to create custom shop categories via the visual editor. Upgrading to this version is recommended if you use the shop editor.
+</Warning>
+
+### Technical Details
+
+- Added `CREATE_CATEGORY` state tracking to `EditorState` enum
+- Implemented `handleCreateCategoryClick()` handler for the dialog
+- Added `addCategory()` and `removeCategory()` methods to `CustomShopManager`
+- Category creation now persists immediately to shop YAML config files
+
+---
+
 ## Version 1.5.8 — January 4, 2026
 
 ### Inflation System
