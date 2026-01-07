@@ -54,6 +54,20 @@ permissions:
     default: true
   theendex.web:
     default: true
+  # Shop editor permissions
+  endex.shop.editor:
+    description: Allows access to the shop editor GUI
+    default: op
+  endex.shop.admin:
+    description: Allows admin actions in custom shops (shift-click edit)
+    default: op
+  # Web interface permissions
+  endex.web.trade:
+    description: Allows trading via web interface
+    default: true
+  endex.web.admin:
+    description: Allows viewing other players holdings via web API
+    default: op
   # Crypto addon permissions
   theendex.crypto.info:
     default: true

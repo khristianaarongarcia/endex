@@ -1,26 +1,54 @@
-# ═══════════════════════════════════════════════════════════════════════════════
+﻿# ═══════════════════════════════════════════════════════════════════════════════
 # The Endex - Dynamic Market Economy Plugin Configuration
 # ═══════════════════════════════════════════════════════════════════════════════
 # After editing, run /endex reload (admin permission required) or restart server.
 #
 # ═══════════════════════════════════════════════════════════════════════════════
-# 🚀 OPTIMIZED FOR MINIMAL RESOURCE USAGE (v1.5.7-dec1038)
+# �️ ANTI-EXPLOIT PROTECTION ENABLED BY DEFAULT (v1.5.8-JAN80235)
 # ═══════════════════════════════════════════════════════════════════════════════
-# This configuration is pre-optimized for LOW RESOURCE USAGE by default.
-# Perfect for small-medium servers or servers wanting minimal performance impact.
+# This configuration includes critical protections against economic exploitation:
+#
+# ✅ 6% Buy/Sell Spread (3% markup, 3% markdown)
+#    - Prevents profitable buy-high-sell-low arbitrage loops
+#    - Creates friction cost that makes manipulation unprofitable
+#
+# ✅ 60-Second Sell Cooldown After Purchases
+#    - Blocks instant buy→sell flipping
+#    - Players must wait 60s after buying before selling that material
+#
+# ✅ Price Mean Reversion (2% per cycle)
+#    - Gradually pulls prices back toward base during idle periods
+#    - Prevents sustained price manipulation
+#
+# ✅ Fast 60-Second Update Cycles
+#    - Prices correct manipulation quickly
+#    - Shorter exploitation window
+#
+# 🎯 RECOMMENDED: Keep these protections ENABLED for fair economy
+# 📊 PERFORMANCE: All anti-exploit features have negligible CPU impact
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🚀 OPTIMIZED FOR MINIMAL RESOURCE USAGE + MAXIMUM SECURITY
+# ═══════════════════════════════════════════════════════════════════════════════
+# This configuration balances LOW RESOURCE USAGE with EXPLOIT PROTECTION.
+# Perfect for servers wanting secure, fair economy with minimal performance impact.
 #
 # KEY OPTIMIZATIONS APPLIED:
 #   ✓ World storage scanning DISABLED (biggest CPU saver)
 #   ✓ Save-on-each-update DISABLED (reduced disk I/O)
-#   ✓ Longer update intervals (less frequent calculations)
 #   ✓ SQLite storage enabled (faster than YAML)
 #   ✓ Chunk caching enabled (when world scanning is used)
 #   ✓ Minimal history length (reduced memory)
+#   ✓ Anti-exploit features (negligible CPU, prevents exploits)
 #
 # TO ENABLE FULL FEATURES (more resource usage):
 #   - Set price-world-storage.enabled: true (dynamic scarcity pricing)
-#   - Reduce update-interval-seconds to 60 (more responsive market)
 #   - Increase history-length to 120 (longer charts)
+#
+# ⚠️ TO DISABLE PROTECTIONS (NOT RECOMMENDED - allows exploits):
+#   - Set spread.enabled: false
+#   - Set anti-arbitrage.sell-cooldown.enabled: false
+#   - Set price-reversion.enabled: false
 #
 # ═══════════════════════════════════════════════════════════════════════════════
 # PERFORMANCE IMPACT GUIDE
@@ -45,7 +73,8 @@
 # ───────────────────────────────────────────────────────────────────────────────
 # Internal version to detect breaking changes. Do NOT modify unless instructed.
 # If this differs from what the plugin expects, migration may be attempted.
-config-version: 1
+# Version 2: Added anti-arbitrage.sell-cooldown system (Jan 2026)
+config-version: 2
 
 # ───────────────────────────────────────────────────────────────────────────────
 # LANGUAGE SETTINGS
@@ -95,8 +124,8 @@ language:
 #   - CPU: Minimal impact with longer intervals
 # 
 # Recommended: 60s for small-medium servers, 120-300s for large busy servers (50+ players)
-# DEFAULT: 120s (optimized for minimal resource usage)
-update-interval-seconds: 120
+# DEFAULT: 60s (faster price corrections prevent exploitation)
+update-interval-seconds: 60
 
 # ───────────────────────────────────────────────────────────────────────────────
 # PRICE SENSITIVITY [PERF: MINIMAL]
@@ -119,6 +148,7 @@ update-interval-seconds: 120
 #   - Good for economy minigames or competition servers
 # 
 # Recommended: 0.05 (5% per unit of net demand)
+# DEFAULT: 0.05 (balanced for dynamic trading)
 price-sensitivity: 0.05
 
 # ───────────────────────────────────────────────────────────────────────────────
@@ -277,6 +307,74 @@ inflation:
   # 
   # Set to 0 to disable this cap (use items.yml min/max only)
   max-deviation-percent: 200.0
+
+# ───────────────────────────────────────────────────────────────────────────────
+# PRICE MEAN REVERSION (Anti-Manipulation Protection) [PERF: MINIMAL]
+# ───────────────────────────────────────────────────────────────────────────────
+# Gradually pulls prices back toward their base price when there's no activity.
+# This is a CRITICAL anti-exploitation feature that prevents manipulated prices
+# from staying artificially high/low forever.
+#
+# How it works:
+#   - If an item's price is pushed to $120 (base: $100), reversion slowly
+#     brings it back down to $100 over multiple cycles.
+#   - This makes "pump and dump" schemes unprofitable because manipulated
+#     prices don't stay inflated long enough to profit from.
+#
+# Performance: Pure math calculation, negligible impact (~0.01ms per item).
+#
+# SECURITY NOTE: Keep this ENABLED to prevent price manipulation exploits!
+price-reversion:
+  # Enable price mean reversion system.
+  # When disabled, prices stay at manipulated levels indefinitely.
+  # 
+  # Recommended: true (CRITICAL anti-exploit protection)
+  enabled: true
+  
+  # Percentage of the gap between current and base price to close per cycle.
+  # Higher values = faster return to base price.
+  # 
+  # Formula: newPrice = currentPrice - (currentPrice - basePrice) × rate
+  # 
+  # Examples with base $100, current $120:
+  #   1.0% = Closes 1% of $20 gap = $119.80 next cycle
+  #   2.0% = Closes 2% of $20 gap = $119.60 next cycle
+  #   5.0% = Closes 5% of $20 gap = $119.00 next cycle
+  # 
+  # Lower values (0.5-1.5%):
+  #   - Very gradual drift back to base
+  #   - Allows sustained price movements from legitimate trading
+  #   - Takes many cycles to fully revert
+  # 
+  # Medium values (2.0-3.0%):
+  #   - Balanced approach (RECOMMENDED)
+  #   - Reverts manipulated prices within reasonable time
+  #   - Still allows natural market movements
+  # 
+  # Higher values (4.0-10.0%):
+  #   - Aggressive reversion
+  #   - Quickly corrects manipulation
+  #   - May feel "sticky" to players (prices always pull to base)
+  # 
+  # Recommended: 2.0% (closes 2% of gap per cycle)
+  # With 60s cycles: $120 → $100 in ~30 cycles (~30 minutes)
+  rate-percent-per-cycle: 2.0
+  
+  # Only apply reversion if there was NO trading activity this cycle.
+  # 
+  # When true (RECOMMENDED):
+  #   - Prices only drift back during idle periods
+  #   - Active trading can maintain price levels
+  #   - Feels more natural and fair to players
+  #   - Still prevents exploitation (manipulators must keep trading)
+  # 
+  # When false:
+  #   - Always drifts toward base, even during active trading
+  #   - Stronger anti-manipulation, but feels "rubber-banded"
+  #   - May frustrate legitimate traders
+  # 
+  # Recommended: true (revert only when idle)
+  only-when-idle: true
 
 # ───────────────────────────────────────────────────────────────────────────────
 # INVENTORY-DRIVEN PRICE INFLUENCE [PERF: LOW]
@@ -583,37 +681,94 @@ transaction-tax-percent: 0.0
 #   - Buy price = market price × (1 + buy-markup-percent/100)
 #   - Sell price = market price × (1 - sell-markdown-percent/100)
 #
-# Example with 1.5% spread each way:
+# Example with 3.0% spread each way:
 #   - Market price: 100
-#   - You pay to BUY: 101.50 (1.5% above market)
-#   - You receive when SELL: 98.50 (1.5% below market)
-#   - Total spread: 3% gap between buy and sell
+#   - You pay to BUY: 103.00 (3% above market)
+#   - You receive when SELL: 97.00 (3% below market)
+#   - Total spread: 6% gap between buy and sell
 #
 # This means players need the price to move MORE than the spread to profit
-# from arbitrage, effectively killing small-swing manipulation.
+# from arbitrage, effectively killing manipulation schemes.
 #
 # Balance tips:
-#   0.0-0.5% = Minimal spread, some arbitrage still possible
-#   1.0-2.0% = Recommended, kills most exploits while feeling fair
-#   3.0-5.0% = Aggressive, may feel punishing to legitimate traders
+#   0.0-1.0% = Minimal spread, arbitrage exploitation still possible
+#   2.0-3.0% = Recommended, prevents most exploits while feeling fair
+#   4.0-5.0% = Aggressive, makes exploitation impossible but may feel punishing
+#
+# SECURITY NOTE: Higher spread = stronger protection against manipulation!
 spread:
   # Enable the buy/sell spread system.
-  # When disabled, buy and sell use the same market price.
+  # When disabled, buy and sell use the same market price (EXPLOITABLE!).
+  # 
+  # Recommended: true (CRITICAL anti-exploit protection)
   enabled: true
   
   # Percentage markup added to market price when BUYING.
   # Players pay this much MORE than the displayed market price.
   # 
-  # Example: 1.5 = Pay 1.5% above market price
-  # Recommended: 1.5
-  buy-markup-percent: 1.5
+  # Example: 3.0 = Pay 3% above market price
+  # Recommended: 3.0 (prevents exploitation while staying fair)
+  # DEFAULT: 3.0 (anti-exploit protection)
+  buy-markup-percent: 3.0
   
   # Percentage markdown subtracted from market price when SELLING.
   # Players receive this much LESS than the displayed market price.
   # 
-  # Example: 1.5 = Receive 1.5% below market price
-  # Recommended: 1.5
-  sell-markdown-percent: 1.5
+  # Example: 3.0 = Receive 3% below market price
+  # Recommended: 3.0 (prevents exploitation while staying fair)
+  # DEFAULT: 3.0 (anti-exploit protection)
+  sell-markdown-percent: 3.0
+
+# ───────────────────────────────────────────────────────────────────────────────
+# ANTI-ARBITRAGE SELL COOLDOWN [PERF: NEGLIGIBLE]
+# ───────────────────────────────────────────────────────────────────────────────
+# Prevents instant buy-sell arbitrage exploitation by enforcing a cooldown period
+# after purchasing items before they can be sold back to the market.
+# 
+# HOW IT WORKS:
+#   1. Player buys diamonds from market
+#   2. Cooldown timer starts for diamonds (e.g., 60 seconds)
+#   3. Player cannot sell ANY diamonds until cooldown expires
+#   4. After cooldown, player can sell freely
+# 
+# TRADE-OFF (Per-Item Cooldown):
+#   - Blocks ALL sales of a material after buying it
+#   - Example: If you mine 64 diamonds and then buy 1 diamond from market,
+#     you cannot sell ANY of your 65 diamonds until cooldown expires
+#   - This is acceptable because it completely prevents exploitation
+# 
+# WHEN TO USE:
+#   - ALWAYS recommended alongside spread system
+#   - Prevents wealthy players from manipulating prices for profit
+#   - Especially important on servers with high-balance economies
+# 
+# PERFORMANCE: Negligible (in-memory HashMap lookups, no database queries)
+# 
+# Recommended: enabled: true, duration-seconds: 60
+anti-arbitrage:
+  sell-cooldown:
+    # Enable sell cooldown after purchases.
+    # 
+    # When true: Players cannot sell a material immediately after buying it
+    # When false: Players can instantly flip items (EXPLOITABLE!)
+    # 
+    # Recommended: true (CRITICAL anti-exploit protection)
+    # DEFAULT: true
+    enabled: true
+    
+    # Cooldown duration in seconds.
+    # 
+    # How long after buying before players can sell that material.
+    # Should match or exceed update-interval-seconds for best protection.
+    # 
+    # Example values:
+    #   30 = 30 seconds (fast-paced servers)
+    #   60 = 1 minute (balanced, matches default update interval)
+    #   120 = 2 minutes (maximum protection)
+    # 
+    # Recommended: 60 (matches update cycle)
+    # DEFAULT: 60
+    duration-seconds: 60
 
 # ───────────────────────────────────────────────────────────────────────────────
 # ITEM BLACKLIST

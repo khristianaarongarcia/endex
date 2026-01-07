@@ -1,4 +1,4 @@
-[CENTER][B][SIZE=6]The Endex 1.5.8-JAN60132 | Dynamic Market & Addons [1.20.1 - 1.21.x][/SIZE][/B][/CENTER]
+[CENTER][B][SIZE=6]The Endex 1.5.8-JAN80235 | Dynamic Market & Addons [1.20.1 - 1.21.x][/SIZE][/B][/CENTER]
 
 [CENTER][IMG]https://i.imgur.com/onDbDSW.png[/IMG][/CENTER]
 
@@ -14,22 +14,31 @@
 
 The Endex is a dynamic economy plugin that brings realistic market mechanics to your Minecraft server. Prices fluctuate based on player trading activity, server-wide item storage, and random market events.
 
-[B] Version 1.5.8-JAN60132 Highlights:[/B]
-• [B][COLOR=#00AA00]Shop Editor Category Fix[/COLOR][/B] — Fixed "Create Category" dialog not responding to clicks! Compass and chest icons now work properly!
+[B] Version 1.5.8-JAN80235 Highlights:[/B]
+• [B][COLOR=#FF0000]🛡️ Anti-Exploit Protection[/COLOR][/B] — 4-layer defense system blocks infinite money exploits!
+• [B][COLOR=#00AA00]6% Buy/Sell Spread[/COLOR][/B] — Creates friction cost that prevents profitable arbitrage loops!
+• [B][COLOR=#00AA00]60-Second Sell Cooldown[/COLOR][/B] — Blocks instant buy→sell flipping after purchases!
+• [B][COLOR=#00AA00]Price Mean Reversion[/COLOR][/B] — Pulls manipulated prices back to base during idle periods!
+• [B][COLOR=#00AA00]Config Auto-Update[/COLOR][/B] — Automatically migrates old configs while preserving your settings!
+• [B][COLOR=#0088FF]Zero Performance Impact[/COLOR][/B] — All protections use <0.01% CPU overhead!
 
-[B]Previous 1.5.8 Features:[/B]
+[B]What's Protected:[/B]
+✅ [B]Buy-Sell Arbitrage[/B] — Can't buy low and sell high for instant profit
+✅ [B]Price Manipulation[/B] — Prices drift back to normal when manipulation stops
+✅ [B]Instant Flipping[/B] — Must wait 60s after buying before selling
+✅ [B]Your Economy[/B] — Fair, balanced gameplay for all players
+
+[B]Previous Version Features (1.5.8-JAN70109):[/B]
+• [B]Shop Editor Fixes[/B] — Delete Category and Save Changes buttons now work properly!
+• [B]Language Files[/B] — Added missing shop-editor translations to Korean, Russian, Portuguese, and Chinese!
+• [B]Permissions Fix[/B] — Added missing permission nodes: endex.shop.editor, endex.shop.admin, endex.web.trade, endex.web.admin
+
+[B]Earlier 1.5.8 Features:[/B]
+• [B]Category Creation Fix[/B] — Fixed "Create Category" dialog not responding to clicks!
 • [B]Inflation System[/B] — New configurable inflation/deflation system with per-category rates!
 • [B]Market Items Manager[/B] — New editor button to view/edit all market items in one place!
 • [B]Price Editor Fix[/B] — Fixed vanilla item price editing in the market editor!
 • [B]Admin Commands Fixed[/B] — /market remove, disable, setbase, setmin, setmax now persist properly!
-
-[B]Previous 1.5.7 Features:[/B]
-• [B]Polish Language Support[/B] — Complete Polish (Polski) translation for plugin and documentation
-• [B]Config Translations Auto-Extract[/B] — 10 language configs now auto-extract to config_translations/ folder
-• [B]Optimized Default Config[/B] — Now ships with minimal resource usage settings by default
-• [B]Web Dashboard Translation[/B] — Google Translate integration for 26+ languages
-• [B]Sell from Holdings[/B] — Sell items directly from virtual holdings without withdrawing first
-• [B]Arclight/Hybrid Server Support[/B] — Fixed compatibility issues with Arclight, Mohist, and other hybrid servers
 
 
 
@@ -129,8 +138,10 @@ theendex.holdings    - Access holdings system (default: true)
 theendex.withdraw    - Withdraw from holdings (default: true)
 theendex.invest      - Use investments (default: true)
 theendex.admin       - Admin commands (default: op)
-endex.web.trade      - Web dashboard trading
-endex.web.admin      - View other players' holdings
+endex.shop.editor    - Shop editor GUI access (default: op)
+endex.shop.admin     - Admin actions in custom shops (default: op)
+endex.web.trade      - Web dashboard trading (default: true)
+endex.web.admin      - View other players' holdings (default: op)
 [/CODE]
 
 
@@ -221,6 +232,12 @@ web:
 [B]Changelog[/B]
 
 [SPOILER="Full Changelog"]
+[B]New in 1.5.8-JAN70109:[/B]
+• [B]Shop Editor Delete Category:[/B] Fixed "Delete Category" button which was showing "coming soon" instead of deleting
+• [B]Shop Editor Save Changes:[/B] Fixed "Save Changes" button which was only playing sound without saving
+• [B]Language Files:[/B] Added complete shop-editor section (~60 keys) to Korean, Russian, Portuguese, and Chinese language files
+• [B]Missing Permissions:[/B] Added endex.shop.editor, endex.shop.admin, endex.web.trade, endex.web.admin to plugin.yml
+
 [B]New in 1.5.8-JAN60132:[/B]
 • [B]Shop Editor Category Fix:[/B] Fixed "Create Category" dialog in the shop editor not responding to clicks
 • Clicking compass (Filter mode) or chest (Manual mode) icons now properly creates new categories

@@ -116,6 +116,7 @@ market:
     price-info: "&7{item}: &e{price} c/u &7(Compra hasta {max})"
     usage: "&cUsa: /market buy <material> <cantidad>"
     cancelled: "&cCompra cancelada por políticas del servidor."
+    cooldown-active: "&cNo puedes vender {material} - lo compraste recientemente. Cooldown anti-manipulaci�n: {seconds} segundos restantes."
     capped: "&6Compra limitada a {amount} {item} por espacio (pediste {requested})."
     capacity-hint: "&7Consejo: Vacía tu inventario para pedidos grandes."
     tax-info: "&8(Impuesto: {tax} al {percent}%)"
@@ -132,6 +133,7 @@ market:
     nothing-to-sell: "&cNo tienes este objeto para vender."
     usage: "&cUsa: /market sell <material> <cantidad>"
     cancelled: "&cVenta cancelada por políticas del servidor."
+    cooldown-active: "&cNo puedes vender {material} - lo compraste recientemente. Cooldown anti-manipulaci�n: {seconds} segundos restantes."
 
   sellholdings:
     success: "&a¡Vendido(s) {amount}x {item} del almacén por {price}! (Impuesto {tax} al {percent}%)"
@@ -405,7 +407,15 @@ admin:
     
   remove:
     success: "&a{item}&a eliminado del mercado."
+    orphaned: "&aItem huérfano &e{item}&a eliminado de la base de datos del mercado."
+    config-only: "&a{item}&a eliminado de la configuración de items."
+    not-found: "&c{item} no está en el mercado ni en la configuración."
     usage: "&cUsa: /market removeitem <material>"
+    
+  purge:
+    success: "&a{count}&a items huérfanos eliminados de la base de datos del mercado."
+    none: "&aNo se encontraron items huérfanos. ¡El mercado está limpio!"
+    list: "&7Eliminados: {items}"
     
   setbase:
     success: "&aPrecio base de &e{item}&a fijado en &e{price}."
@@ -613,6 +623,7 @@ market-help:
     setprice: "&e/market setprice <item> <precio> &7- Forzar precio actual"
     toggle: "&e/market enable/disable <item> &7- Alternar estado"
     items: "&e/market items [página] &7- Lista de objetos"
+    purge: "&e/market purge &7- Eliminar items huérfanos"
 
 # Comando de precio
 market-price:
@@ -726,6 +737,8 @@ shop-editor:
   shop-deleted: "&aTienda eliminada: {shop}"
   shop-file-not-found-delete: "&c¡No se encontró el archivo para borrar!"
   category-deletion-soon: "&e¡Borrado de categorías próximamente!"
+  category-deleted: "&aCategoría eliminada: {category}"
+  category-delete-failed: "&cError al eliminar categoría: {error}"
   shop-changes-saved: "&a¡Cambios de la tienda guardados!"
 
 # =============================================================================

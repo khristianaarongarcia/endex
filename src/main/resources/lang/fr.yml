@@ -116,6 +116,7 @@ market:
     price-info: "&7{item} : &e{price} l'unité &7(Achat max : {max})"
     usage: "&cUtilisez : /market buy <matériau> <montant>"
     cancelled: "&cAchat annulé par la politique du serveur."
+    cooldown-active: "&cImpossible de vendre {material} - r�cemment achet�. Cooldown anti-manipulation: {seconds} secondes restantes."
     capped: "&6Achat limité à {amount} {item} par manque de place (demandé : {requested})."
     capacity-hint: "&7Conseil : Videz votre inventaire pour les grosses commandes."
     tax-info: "&8(Taxe : {tax} à {percent}%)"
@@ -132,6 +133,7 @@ market:
     nothing-to-sell: "&cVous n'avez pas cet objet à vendre."
     usage: "&cUtilisez : /market sell <matériau> <montant>"
     cancelled: "&cVente annulée par la politique du serveur."
+    cooldown-active: "&cImpossible de vendre {material} - r�cemment achet�. Cooldown anti-manipulation: {seconds} secondes restantes."
 
   sellholdings:
     success: "&a{amount}x {item} de l'entrepôt vendu(s) pour {price} ! (Taxe {tax} à {percent}%)"
@@ -404,7 +406,15 @@ admin:
     
   remove:
     success: "&a{item}&a retiré du marché."
+    orphaned: "&aArticle orphelin &e{item}&a supprimé de la base de données du marché."
+    config-only: "&a{item}&a supprimé de la configuration des articles."
+    not-found: "&c{item} n'est pas dans le marché ou la configuration."
     usage: "&cUtilisez : /market removeitem <matériau>"
+    
+  purge:
+    success: "&a{count}&a articles orphelins supprimés de la base de données du marché."
+    none: "&aAucun article orphelin trouvé. Le marché est propre !"
+    list: "&7Supprimés : {items}"
     
   setbase:
     success: "&aPrix de base de &e{item}&a défini sur &e{price}."
@@ -612,6 +622,7 @@ market-help:
     setprice: "&e/market setprice <objet> <prix> &7- Forcer prix actuel"
     toggle: "&e/market enable/disable <objet> &7- Activer/Désactiver"
     items: "&e/market items [page] &7- Liste de tous les objets"
+    purge: "&e/market purge &7- Supprimer objets orphelins"
 
 # Commande de prix
 market-price:
@@ -725,6 +736,8 @@ shop-editor:
   shop-deleted: "&aBoutique supprimée : {shop}"
   shop-file-not-found-delete: "&cImpossible de trouver le fichier à supprimer !"
   category-deletion-soon: "&eLa suppression de catégorie arrive !"
+  category-deleted: "&aCatégorie supprimée : {category}"
+  category-delete-failed: "&cÉchec de suppression de la catégorie : {error}"
   shop-changes-saved: "&aModifications de la boutique enregistrées !"
 
 # =============================================================================

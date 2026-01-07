@@ -57,6 +57,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             "enable" -> handleEnableItem(sender, args)
             "disable" -> handleDisableItem(sender, args)
             "items" -> handleListItems(sender, args)
+            "purge" -> handlePurgeOrphaned(sender)
             else -> {
                 sender.sendMessage(Lang.get("general.invalid-args"))
                 true
@@ -168,6 +169,7 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.setprice")))
             sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.toggle")))
             sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.items")))
+            sender.sendMessage(Lang.colorize(Lang.get("market-help.admin-items.purge")))
         }
         
         sender.sendMessage(Lang.colorize(Lang.get("market-help.separator")))
@@ -308,6 +310,9 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             
             plugin.marketManager.addDemand(mat, amount.toDouble())
             
+            // Record purchase for anti-arbitrage cooldown tracking
+            org.lokixcz.theendex.market.AntiArbitrageCooldowns.recordPurchase(sender.uniqueId, mat)
+            
             sender.sendMessage(Lang.prefixed("market.buy.success", "amount" to amount, "item" to prettyName(mat), "price" to format(total)))
             sender.sendMessage(Lang.get("market.holdings.added-to-holdings"))
             sender.sendMessage(Lang.get("market.holdings.withdraw-command", "item" to mat.name))
@@ -409,6 +414,9 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
 
         plugin.marketManager.addDemand(mat, amount.toDouble())
         
+        // Record purchase for anti-arbitrage cooldown tracking
+        org.lokixcz.theendex.market.AntiArbitrageCooldowns.recordPurchase(sender.uniqueId, mat)
+        
         // Build success message
         if (pendingDelivery > 0) {
             sender.sendMessage(Lang.colorize(Lang.get("market-transaction.buy-success", "amount" to amount.toString(), "item" to mat.name, "price" to format(total))))
@@ -448,6 +456,13 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
         val item = plugin.marketManager.get(mat)
         if (item == null) {
             sender.sendMessage(Lang.get("market.sell.item-not-tracked", "item" to mat.name))
+            return true
+        }
+
+        // Check anti-arbitrage sell cooldown
+        if (org.lokixcz.theendex.market.AntiArbitrageCooldowns.isOnCooldown(plugin, sender.uniqueId, mat)) {
+            val remaining = org.lokixcz.theendex.market.AntiArbitrageCooldowns.getRemainingCooldown(plugin, sender.uniqueId, mat)
+            sender.sendMessage(Lang.get("market.sell.cooldown-active", "material" to mat.name, "seconds" to remaining))
             return true
         }
 
@@ -516,6 +531,13 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             return true
         }
 
+        // Check anti-arbitrage sell cooldown
+        if (org.lokixcz.theendex.market.AntiArbitrageCooldowns.isOnCooldown(plugin, sender.uniqueId, mat)) {
+            val remaining = org.lokixcz.theendex.market.AntiArbitrageCooldowns.getRemainingCooldown(plugin, sender.uniqueId, mat)
+            sender.sendMessage(Lang.get("market.sell.cooldown-active", "material" to mat.name, "seconds" to remaining))
+            return true
+        }
+
         // Get database reference
         val db = plugin.marketManager.sqliteStore()
         if (db == null) {
@@ -568,7 +590,9 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
     }
 
     private fun handleTop(sender: CommandSender): Boolean {
-        val entries = plugin.marketManager.allItems()
+        // Only show items enabled in items.yml (filter out orphaned DB entries)
+        val enabledMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
+        val entries = plugin.marketManager.allItems().filter { it.material in enabledMaterials }
         if (entries.isEmpty()) {
             sender.sendMessage(Lang.get("market.trend.no-data"))
             return true
@@ -1161,21 +1185,76 @@ class MarketCommand(private val plugin: Endex) : CommandExecutor {
             return true
         }
 
-        val existing = plugin.itemsConfigManager.get(mat)
-        if (existing == null) {
+        val existsInConfig = plugin.itemsConfigManager.get(mat) != null
+        val existsInMarket = plugin.marketManager.get(mat) != null
+        
+        if (!existsInConfig && !existsInMarket) {
             sender.sendMessage(Lang.get("admin.remove.not-found", "item" to mat.name))
             return true
         }
 
-        // Remove from items.yml
-        plugin.itemsConfigManager.remove(mat)
-        plugin.itemsConfigManager.save()
+        // Remove from items.yml (if present)
+        if (existsInConfig) {
+            plugin.itemsConfigManager.remove(mat)
+            plugin.itemsConfigManager.save()
+        }
 
         // Also remove from market.db immediately (no restart required)
-        plugin.marketManager.remove(mat)
+        if (existsInMarket) {
+            plugin.marketManager.remove(mat)
+            plugin.marketManager.save()
+        }
+
+        // Show appropriate message
+        if (existsInConfig && existsInMarket) {
+            sender.sendMessage(Lang.prefixed("admin.remove.success", "item" to prettyName(mat)))
+        } else if (existsInMarket) {
+            // Item was orphaned (in DB but not config)
+            sender.sendMessage(Lang.prefixed("admin.remove.orphaned", "item" to prettyName(mat)))
+        } else {
+            // Item was only in config (shouldn't normally happen)
+            sender.sendMessage(Lang.prefixed("admin.remove.config-only", "item" to prettyName(mat)))
+        }
+        return true
+    }
+
+    /**
+     * Purge orphaned items from market.db that aren't in items.yml.
+     * These items appear in the market but can't be configured or managed.
+     */
+    private fun handlePurgeOrphaned(sender: CommandSender): Boolean {
+        if (!sender.hasPermission("theendex.admin")) {
+            sender.sendMessage(Lang.get("general.no-permission"))
+            return true
+        }
+
+        // Find orphaned items (in market but not in config)
+        val marketMaterials = plugin.marketManager.allItems().map { it.material }.toSet()
+        val configMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
+        val orphaned = marketMaterials - configMaterials
+
+        if (orphaned.isEmpty()) {
+            sender.sendMessage(Lang.prefixed("admin.purge.none"))
+            return true
+        }
+
+        // Remove all orphaned items
+        var removed = 0
+        for (mat in orphaned) {
+            if (plugin.marketManager.remove(mat)) {
+                removed++
+            }
+        }
         plugin.marketManager.save()
 
-        sender.sendMessage(Lang.prefixed("admin.remove.success", "item" to prettyName(mat)))
+        sender.sendMessage(Lang.prefixed("admin.purge.success", "count" to removed.toString()))
+        
+        // List removed items if not too many
+        if (orphaned.size <= 20) {
+            val itemList = orphaned.joinToString(", ") { prettyName(it) }
+            sender.sendMessage(Lang.get("admin.purge.list", "items" to itemList))
+        }
+        
         return true
     }
 

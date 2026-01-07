@@ -306,8 +306,21 @@ class MarketManager(private val plugin: JavaPlugin, private val db: SqliteStore?
                 }
             } else 0.0
             
+            // 5. Price mean reversion delta (drift back toward base price when idle)
+            val reversionEnabled = plugin.config.getBoolean("price-reversion.enabled", false)
+            val reversionRate = plugin.config.getDouble("price-reversion.rate-percent-per-cycle", 2.0) / 100.0
+            val reversionOnlyIdle = plugin.config.getBoolean("price-reversion.only-when-idle", true)
+            val shouldRevert = reversionEnabled && (!reversionOnlyIdle || !hadActivity)
+            
+            val reversionDelta = if (shouldRevert && item.currentPrice != item.basePrice) {
+                // Calculate gap between current and base as percentage
+                val gap = (item.currentPrice - item.basePrice) / item.basePrice
+                // Apply reversion rate to close the gap
+                -gap * reversionRate
+            } else 0.0
+            
             // Combine all influences
-            val delta = tradeDelta + invDelta + worldDelta + inflationDelta
+            val delta = tradeDelta + invDelta + worldDelta + inflationDelta + reversionDelta
             val rawTarget = (item.currentPrice * (1.0 + delta)).coerceIn(item.minPrice, item.maxPrice)
 
             // Apply EMA smoothing towards target if enabled

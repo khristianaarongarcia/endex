@@ -116,6 +116,7 @@ market:
     price-info: "&7{item}: &e単価 {price} &7(最大 {max} 個購入可能)"
     usage: "&c使用法: /market buy <素材> <数量>"
     cancelled: "&cサーバーポリシーにより購入がキャンセルされました。"
+    cooldown-active: "&c{material}???????? - ???????????????????: ??{seconds}??"
     capped: "&6空き容量の関係で、{amount}個の {item} に制限されました (要求: {requested})。"
     capacity-hint: "&7ヒント: 大量注文の場合はインベントリを空けるかエンダーチェストを使用してください。"
     tax-info: "&8(税金: {percent}% で {tax})"
@@ -132,6 +133,7 @@ market:
     nothing-to-sell: "&c売却できるアイテムを持っていません。"
     usage: "&c使用法: /market sell <素材> <数量>"
     cancelled: "&cサーバーポリシーにより売却がキャンセルされました。"
+    cooldown-active: "&c{material}???????? - ???????????????????: ??{seconds}??"
 
   sellholdings:
     success: "&a倉庫から {amount}個の {item} を {price} で売却しました！ (税 {tax} / {percent}%)"
@@ -402,7 +404,15 @@ admin:
     
   remove:
     success: "&a{item}&a を市場から削除しました。"
+    orphaned: "&a孤立したアイテム &e{item}&a を市場データベースから削除しました。"
+    config-only: "&a{item}&a をアイテム設定から削除しました。"
+    not-found: "&c{item} は市場や設定に存在しません。"
     usage: "&c使用法: /market removeitem <素材>"
+    
+  purge:
+    success: "&a{count}&a 個の孤立したアイテムを市場データベースから削除しました。"
+    none: "&a孤立したアイテムは見つかりませんでした。市場はクリーンです！"
+    list: "&7削除: {items}"
     
   setbase:
     success: "&e{item}&a の基準価格を &e{price}&a に設定しました。"
@@ -610,6 +620,7 @@ market-help:
     setprice: "&e/market setprice <アイテム> <価格> &7- 現在価格を強制設定"
     toggle: "&e/market enable/disable <アイテム> &7- 有効/無効化"
     items: "&e/market items [ページ] &7- 設定済みアイテム一覧"
+    purge: "&e/market purge &7- 孤立アイテムを削除"
 
 # 価格コマンド詳細
 market-price:
@@ -717,6 +728,8 @@ shop-editor:
   shop-deleted: "&aショップを削除しました: {shop}"
   shop-file-not-found-delete: "&c削除するショップファイルが見つかりません！"
   category-deletion-soon: "&eカテゴリー削除機能は近日公開予定です！"
+  category-deleted: "&aカテゴリーを削除しました: {category}"
+  category-delete-failed: "&cカテゴリーの削除に失敗しました: {error}"
   shop-changes-saved: "&aショップの変更を保存しました！"
 
 # =============================================================================

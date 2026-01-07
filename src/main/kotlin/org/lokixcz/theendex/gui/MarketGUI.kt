@@ -156,7 +156,9 @@ class MarketGUI(private val plugin: Endex) : Listener {
         val state = states[player.uniqueId] ?: load(player)
         state.page = page.coerceAtLeast(0)
 
-        val itemsRaw = plugin.marketManager.allItems().toList()
+        // Only show items that are enabled in items.yml (filter out orphaned DB entries)
+        val enabledMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
+        val itemsRaw = plugin.marketManager.allItems().filter { it.material in enabledMaterials }.toList()
         val filtered = itemsRaw.filter { mi ->
             val matchesCategory = when (state.category) {
                 Category.ALL -> true
@@ -341,6 +343,7 @@ class MarketGUI(private val plugin: Endex) : Listener {
         e.isCancelled = true
         
         // Block all item movement actions (shift-click, number keys, drag, etc.)
+        // MIDDLE click is NOT blocked - it's used for details view
         if (e.click == ClickType.SHIFT_LEFT || e.click == ClickType.SHIFT_RIGHT ||
             e.click == ClickType.NUMBER_KEY || e.click == ClickType.DOUBLE_CLICK ||
             e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) {
@@ -360,8 +363,8 @@ class MarketGUI(private val plugin: Endex) : Listener {
             val mat = clicked.type.takeIf { it != Material.AIR } ?: return
             if (plugin.marketManager.get(mat) == null) return
             val amount = amounts[state.amountIdx]
-            // Details view open on shift-left or middle click
-            if (e.isShiftClick && e.isLeftClick || e.click == ClickType.MIDDLE) {
+            // Details view open on shift-left-click or middle-click
+            if (e.click == ClickType.SHIFT_LEFT || e.click == ClickType.MIDDLE) {
                 openDetails(player, mat)
             } else if (e.isLeftClick) {
                 Bukkit.getScheduler().runTask(plugin, Runnable {

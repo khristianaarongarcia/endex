@@ -66,7 +66,7 @@ class Endex : JavaPlugin() {
     private var backupTask: BukkitTask? = null
     private var eventsTask: BukkitTask? = null
     private var trackingSaveTask: BukkitTask? = null
-    private val expectedConfigVersion = 1
+    private val expectedConfigVersion = 2  // Updated for anti-arbitrage cooldown system
     private lateinit var logx: org.lokixcz.theendex.util.EndexLogger
 
     override fun onEnable() {
@@ -608,19 +608,46 @@ class Endex : JavaPlugin() {
 
             // Merge user values from old into fresh where keys match
             val oldCfg = YamlConfiguration.loadConfiguration(cfgFile)
+            var preservedKeys = 0
+            var newKeys = 0
+            
             for (path in oldCfg.getKeys(true)) {
                 if (oldCfg.isConfigurationSection(path)) continue
                 if (fresh.contains(path)) {
                     fresh.set(path, oldCfg.get(path))
+                    preservedKeys++
                 }
             }
+            
+            // Count new keys added from fresh config
+            for (path in fresh.getKeys(true)) {
+                if (fresh.isConfigurationSection(path)) continue
+                if (!oldCfg.contains(path)) {
+                    newKeys++
+                }
+            }
+            
             // Set new version
             fresh.set("config-version", expectedConfigVersion)
-            fresh.options().header("The Endex configuration (auto-migrated on $ts). Some comments may be lost during migration.")
+            fresh.options().header("""
+                The Endex configuration (auto-migrated on $ts)
+                Migrated from version $got to $expectedConfigVersion
+                - Preserved $preservedKeys user settings
+                - Added $newKeys new configuration keys
+                
+                Anti-Exploit Features (Enabled by Default):
+                - 6% Buy/Sell Spread (3% each side)
+                - Price Mean Reversion (2% per cycle)
+                - 60-second Sell Cooldown after purchases
+                - 60-second Update Cycles
+                
+                These settings prevent infinite money exploits while maintaining fair gameplay.
+                See config comments for customization options.
+            """.trimIndent())
 
             // Save merged config
             fresh.save(cfgFile)
-            logx.info("Migrated config.yml from version $got to $expectedConfigVersion")
+            logx.info("Migrated config.yml: v$got → v$expectedConfigVersion ($preservedKeys settings preserved, $newKeys new keys added)")
             true
         } catch (t: Throwable) {
             logx.error("Config migration failed: ${t.message}")

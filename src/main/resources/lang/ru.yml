@@ -116,6 +116,7 @@ market:
     price-info: "&7{item}: &e{price} за шт. &7(До {max})"
     usage: "&cИспользование: /market buy <предмет> <количество>"
     cancelled: "&cПокупка отменена политикой сервера."
+    cooldown-active: "&c?????????? ??????? {material} - ??????? ??????. ?????? ?? ???????????: ???????? {seconds} ???."
     capped: "&6Покупка ограничена до {amount} {item} из-за места в инвентаре (запрошено: {requested})."
     capacity-hint: "&7Совет: Освободите инвентарь для больших заказов."
     tax-info: "&8(Налог: {tax} при {percent}%)"
@@ -132,6 +133,7 @@ market:
     nothing-to-sell: "&cУ вас нет этого предмета для продажи."
     usage: "&cИспользование: /market sell <предмет> <количество>"
     cancelled: "&cПродажа отменена политикой сервера."
+    cooldown-active: "&c?????????? ??????? {material} - ??????? ??????. ?????? ?? ???????????: ???????? {seconds} ???."
 
   sellholdings:
     success: "&aПродано {amount}x {item} со склада за {price}! (Налог {tax} при {percent}%)"
@@ -402,7 +404,15 @@ admin:
     
   remove:
     success: "&aПредмет &e{item}&a удален с рынка."
+    orphaned: "&aОсиротевший предмет &e{item}&a удален из базы данных рынка."
+    config-only: "&a{item}&a удален из конфигурации предметов."
+    not-found: "&c{item} не найден на рынке или в конфигурации."
     usage: "&cИспользование: /market removeitem <предмет>"
+    
+  purge:
+    success: "&a{count}&a осиротевших предметов удалено из базы данных рынка."
+    none: "&aОсиротевших предметов не найдено. Рынок чист!"
+    list: "&7Удалено: {items}"
     
   setbase:
     success: "&aБазовая цена для &e{item}&a установлена на &e{price}"
@@ -537,6 +547,116 @@ endex:
   unknown-subcommand: "&cНеизвестная подкоманда. Используйте /endex help."
 
 # =============================================================================
+# ПОМОЩЬ ПО КОМАНДАМ РЫНКА
+# =============================================================================
+market-help:
+  separator: "&6═══════════════════════════════════════"
+  title: "&d&lThe Endex &7- Команды Рынка"
+  empty-line: ""
+  
+  basic:
+    market: "&e/market &7- Открыть GUI рынка/магазина"
+    shop: "&e/market shop [id] &7- Открыть кастомный магазин"
+    stock: "&e/market stock &7- Открыть GUI фондового рынка"
+    price: "&e/market price <предмет> &7- Проверить цену предмета"
+    buy: "&e/market buy <предмет> <кол-во> &7- Купить предметы"
+    sell: "&e/market sell <предмет> <кол-во> &7- Продать предметы из инвентаря"
+    sellholdings: "&e/market sellholdings <предмет> <кол-во> &7- Продать из активов"
+    top: "&e/market top &7- Показать топ роста/падения"
+  
+  holdings-section: "&bАктивы и Доставка:"
+  holdings:
+    holdings: "&e/market holdings &7- Показать виртуальные активы"
+    withdraw: "&e/market withdraw <предмет> [кол-во] &7- Вывести из активов"
+    withdraw-all: "&e/market withdraw all &7- Вывести все активы"
+    delivery: "&e/market delivery &7- Показать ожидающие доставки"
+    delivery-claim: "&e/market delivery claim <предмет> &7- Забрать определённую доставку"
+    delivery-claim-all: "&e/market delivery claim-all &7- Забрать все доставки"
+  
+  invest-section: "&bИнвестиции:"
+  invest:
+    buy: "&e/market invest buy <предмет> <кол-во> &7- Купить инвестицию"
+    list: "&e/market invest list &7- Показать инвестиции"
+    redeem: "&e/market invest redeem-all &7- Вывести все инвестиции"
+  
+  admin-events-section: "&cАдмин События:"
+  admin-events:
+    list: "&e/market event &7- Список/запуск событий"
+    trigger: "&e/market event <имя> &7- Запустить событие"
+    end: "&e/market event end <имя> &7- Завершить событие"
+    clear: "&e/market event clear &7- Очистить все события"
+  
+  admin-editor-section: "&cАдмин Редактор Магазина:"
+  admin-editor:
+    editor: "&e/market editor &7- Открыть GUI редактора магазина"
+  
+  admin-items-section: "&cАдмин Управление Предметами:"
+  admin-items:
+    add: "&e/market add <предмет> <база> [мин] [макс] &7- Добавить предмет"
+    remove: "&e/market remove <предмет> &7- Удалить предмет"
+    setbase: "&e/market setbase <предмет> <цена> &7- Установить базовую цену"
+    setmin: "&e/market setmin <предмет> <цена> &7- Установить мин. цену"
+    setmax: "&e/market setmax <предмет> <цена> &7- Установить макс. цену"
+    setprice: "&e/market setprice <предмет> <цена> &7- Установить текущую цену (врем.)"
+    toggle: "&e/market enable/disable <предмет> &7- Включить/выключить предмет"
+    items: "&e/market items [страница] &7- Список настроенных предметов"
+    purge: "&e/market purge &7- Удалить осиротевшие предметы"
+
+# Команда цены
+market-price:
+  usage: "&cИспользование: /market price <материал>"
+  unknown-material: "&cНеизвестный материал: {material}"
+  not-tracked: "&c{material} не отслеживается рынком."
+  header: "&6[The Endex] &b{item}&7: &a{price} &7({arrow}&7 {diff})"
+  event-multiplier: "&3Множитель события: &bx{multiplier}  &7Эффективно: &a{effective}"
+  stats: "&8База {base}  Мин {min}  Макс {max}"
+  history-label: "&7История: {history}"
+  chart-label: "&8График: &7{chart}"
+
+# Сообщения транзакций
+market-transaction:
+  item-dropped: "&e[TheEndex] &6{count} {item} выброшено (лимит доставки / без прогресса)."
+  item-dropped-zero: "&e[TheEndex] &6{count} {item} выброшено (без прогресса)."
+  item-dropped-limit: "&e[TheEndex] &6{count} {item} выброшено (лимит доставки)."
+  item-dropped-full: "&e[TheEndex] &6{count} {item} выброшено (инвентарь полон)."
+  buy-success: "&6[TheEndex] &aКуплено {amount} {item} за {price}."
+  buy-delivered: "&e  Доставлено: {delivered} | Ожидает: {pending} &7(кликните на Эндер-сундук в GUI рынка)"
+  buy-with-tax: "&6[TheEndex] &aКуплено {amount} {item} за {price} (налог {tax} по ставке {taxpct}%)."
+  buy-dropped: "&6[TheEndex] &aКуплено {amount} {item} за {price}."
+  buy-dropped-note: "&e  Доставлено: {delivered} | Выброшено: {dropped}"
+  top-gainer: "&a+{percent}% &b{item}"
+  top-loser: "&c{percent}% &b{item}"
+
+# Отображение активов
+market-holdings-display:
+  entry: "&7- &b{item}&7 {id}  П: {principal}  Накоплено: &a{accrued}"
+  item-line: "&b{item}: &e{amount}"
+  item-detail: "&b{item}: &e{qty} &7@ &a{price} {pnl_color}({pnl_sign}{pnl})"
+  total-value: "&7{label}: &a{value} {pnl_color}({pnl_sign}{pnl} П/У)"
+  delivery-item: "&7  • &b{item}: &6{count}"
+
+# Отображение событий
+market-event-display:
+  available: "&b{name}&7 -> {target} x{multiplier} {duration}м {broadcast}"
+  active: "&b{name}&7 заканчивается через &e{remaining}м"
+
+# Отображение инвестиций
+market-invest-display:
+  entry: "&7- &b{item}&7 {id}  П: {principal}  Накоплено: &a{accrued}"
+
+# Список предметов админа
+market-items-list:
+  entry: "{status} &b{item} &7Б:{base} Мин:{min} Макс:{max}"
+
+# Форматирование отображения
+market-display:
+  investment-entry: "&7- &b{material}&7 {id_short}…  П: {principal}  Накоплено: &a{accrued}"
+  event-available: "&b{name}&7 -> {target} x{multiplier} {duration}м {broadcast}"
+  event-active: "&b{name}&7 заканчивается через &e{remaining}м"
+  delivery-detail: "&7  • &b{item}: &6{count}"
+  items-list-entry: "{status} &b{item} &7Б:{base} Мин:{min} Макс:{max}"
+
+# =============================================================================
 # СООБЩЕНИЯ ОБ ОШИБКАХ
 # =============================================================================
 errors:
@@ -561,3 +681,64 @@ time:
   remaining: "осталось {time}"
   now: "только что"
   never: "никогда"
+
+# =============================================================================
+# РЕДАКТОР МАГАЗИНА (SHOP EDITOR)
+# =============================================================================
+shop-editor:
+  no-permission: "&cУ вас нет прав для редактора магазина!"
+  not-loaded: "&cСистема пользовательских магазинов не загружена."
+  shop-not-found: "&cМагазин не найден: {shop}"
+  unsaved-warning: "&e⚠ У вас есть несохранённые изменения! Откройте редактор снова, чтобы сохранить."
+  input-cancelled: "&eВвод отменён."
+  mode-changed: "&aРежим магазина изменён на {mode}. Выполните &e/endex reload&a для применения."
+  cannot-delete-main: "&cНельзя удалить главный магазин!"
+  set-main-shop: "&a'{shop}' установлен как главный магазин."
+  category-settings-soon: "&eРедактор настроек категорий скоро будет доступен!"
+  mode-changed-layout: "&eРежим изменён на: &f{mode}"
+  click-empty-slot: "&eСначала нажмите на пустой слот, чтобы разместить категорию"
+  fill-toggle-hint: "&eПереключение заливки - пока используйте config.yml"
+  drag-filler-hint: "&eПеретащите предмет из инвентаря для установки материала заливки"
+  border-mode-hint: "&eРежим рамки: Нажмите на слоты для переключения рамки"
+  unsaved-changes-warning: "&eПредупреждение: У вас есть несохранённые изменения!"
+  opening-preview: "&dОткрытие превью магазина..."
+  undo-not-implemented: "&6Отмена ещё не реализована"
+  editing-slot: "&eРедактирование слота {slot} ({type})"
+  editing-slot-prompt: "&7Сначала введите новое имя, затем будет запрошено описание."
+  removed-slot: "&cСодержимое слота {slot} удалено"
+  click-move-target: "&eНажмите на другой слот для перемещения {type}, или нажмите здесь снова для отмены"
+  moved-content: "&aСодержимое перемещено в слот {slot}"
+  move-cancelled: "&7Перемещение отменено"
+  placed-decoration: "&aДекорация размещена в слоте {slot}"
+  cursor-item-hint: "&eПоложите предмет на курсор для размещения как декорации"
+  slot-empty: "&cЭтот слот пуст - нечего редактировать"
+  slot-already-empty: "&7Слот уже пуст"
+  shop-file-not-found: "&cФайл магазина не найден!"
+  layout-saved: "&aМакет сохранён в shops/{shop}.yml"
+  placed-category: "&aКатегория '{category}' размещена в слоте {slot}"
+  placed-button: "&aКнопка {button} размещена в слоте {slot}"
+  item-settings-saved: "&aНастройки предмета сохранены!"
+  shop-exists: "&cМагазин с ID '{shop}' уже существует!"
+  shop-created: "&aСоздан новый магазин: {name} (ID: {id})"
+  category-creation-soon: "&aСоздание категорий скоро будет доступно!"
+  invalid-price: "&cНеверная цена! Введите положительное число."
+  buy-price-set: "&aЦена покупки установлена: ${price}"
+  sell-price-set: "&aЦена продажи установлена: ${price}"
+  permission-set: "&aПраво установлено: {permission}"
+  invalid-number: "&cНеверное число! Введите целое число."
+  stock-limit-set: "&aЛимит запаса установлен: {limit}"
+  no-slot-selected: "&cСлот не выбран!"
+  slot-is-empty: "&cСлот пуст!"
+  slot-name-updated: "&aИмя слота обновлено: {name}"
+  keeping-current-name: "&7Сохраняем текущее имя."
+  slot-lore-updated: "&aОписание слота обновлено!"
+  keeping-current-lore: "&7Сохраняем текущее описание."
+  item-added: "&a{item} добавлен в слот {slot}. Нажмите для установки цены!"
+  item-removed: "&e{item} удалён из слота {slot}"
+  items-saved: "&aСохранено {count} предметов в категорию '{category}'!"
+  items-saved-note: "&7Предметы добавлены в items.yml и market.db"
+  shop-deleted: "&aМагазин удалён: {shop}"
+  shop-file-not-found-delete: "&cФайл магазина не найден!"
+  category-deleted: "&aКатегория удалена: {category}"
+  category-delete-failed: "&cОшибка удаления категории: {error}"
+  shop-changes-saved: "&aИзменения магазина сохранены!"

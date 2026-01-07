@@ -116,6 +116,7 @@ market:
     price-info: "&7{item}: &e{price} pro Stück &7(Kauf bis zu {max})"
     usage: "&cNutze: /market buy <material> <amount>"
     cancelled: "&cKauf durch Server-Richtlinie abgebrochen."
+    cooldown-active: "&cKann {material} nicht verkaufen - k�rzlich gekauft. Anti-Manipulation-Cooldown: noch {seconds} Sekunden."
     capped: "&6Kauf auf {amount} {item} begrenzt wegen Inventarplatz (angefragt: {requested})."
     capacity-hint: "&7Tipp: Leere dein Inventar für größere Bestellungen."
     tax-info: "&8(Steuer: {tax} bei {percent}%)"
@@ -132,6 +133,7 @@ market:
     nothing-to-sell: "&cDu hast dieses Item nicht zum Verkaufen."
     usage: "&cNutze: /market sell <material> <amount>"
     cancelled: "&cVerkauf durch Server-Richtlinie abgebrochen."
+    cooldown-active: "&cKann {material} nicht verkaufen - k�rzlich gekauft. Anti-Manipulation-Cooldown: noch {seconds} Sekunden."
 
   sellholdings:
     success: "&a{amount}x {item} aus dem Depot für {price} verkauft! (Steuer {tax} bei {percent}%)"
@@ -405,7 +407,15 @@ admin:
     
   remove:
     success: "&a{item}&a vom Markt entfernt."
+    orphaned: "&aVerwaistes Item &e{item}&a aus der Markt-Datenbank entfernt."
+    config-only: "&a{item}&a aus der Items-Konfiguration entfernt."
+    not-found: "&c{item} ist nicht im Markt oder in der Konfiguration."
     usage: "&cNutze: /market removeitem <material>"
+    
+  purge:
+    success: "&a{count}&a verwaiste Items aus der Markt-Datenbank entfernt."
+    none: "&aKeine verwaisten Items gefunden. Der Markt ist sauber!"
+    list: "&7Entfernt: {items}"
     
   setbase:
     success: "&aBasispreis für &e{item}&a auf &e{price} gesetzt."
@@ -613,6 +623,7 @@ market-help:
     setprice: "&e/market setprice <item> <preis> &7- Preis setzen (temp)"
     toggle: "&e/market enable/disable <item> &7- Item an/aus"
     items: "&e/market items [seite] &7- Liste aller Items"
+    purge: "&e/market purge &7- Verwaiste Markt-Items entfernen"
 
 # Price command
 market-price:
@@ -726,6 +737,8 @@ shop-editor:
   shop-deleted: "&aShop gelöscht: {shop}"
   shop-file-not-found-delete: "&cShop-Datei nicht gefunden!"
   category-deletion-soon: "&eKategorie-Löschung folgt!"
+  category-deleted: "&aKategorie gelöscht: {category}"
+  category-delete-failed: "&cKategorie konnte nicht gelöscht werden: {error}"
   shop-changes-saved: "&aShop-Änderungen gespeichert!"
 
 # =============================================================================

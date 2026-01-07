@@ -116,6 +116,7 @@ market:
     price-info: "&7{item}: &e{price} cada &7(Máximo de {max} por compra)"
     usage: "&cUso: /market buy <material> <quantidade>"
     cancelled: "&cCompra cancelada pelas políticas do servidor."
+    cooldown-active: "&cN�o � poss�vel vender {material} - comprado recentemente. Cooldown anti-manipula��o: {seconds} segundos restantes."
     capped: "&6Compra limitada a {amount}x {item} devido ao espaço (Solicitado: {requested})."
     capacity-hint: "&7Dica: Para grandes pedidos, limpe seu inventário ou use o armazém."
     tax-info: "&8(Imposto: {tax} para {percent}%)"
@@ -132,6 +133,7 @@ market:
     nothing-to-sell: "&cVocê não tem itens para vender."
     usage: "&cUso: /market sell <material> <quantidade>"
     cancelled: "&cVenda cancelada pelas políticas do servidor."
+    cooldown-active: "&cN�o � poss�vel vender {material} - comprado recentemente. Cooldown anti-manipula��o: {seconds} segundos restantes."
 
   sellholdings:
     success: "&aVendeu {amount}x {item} do armazém por {price}! (Imp: {tax} / {percent}%)"
@@ -402,7 +404,15 @@ admin:
     
   remove:
     success: "&a{item}&a removido do mercado."
+    orphaned: "&aItem órfão &e{item}&a removido do banco de dados do mercado."
+    config-only: "&a{item}&a removido da configuração de itens."
+    not-found: "&c{item} não está no mercado ou na configuração."
     usage: "&cUso: /market removeitem <material>"
+    
+  purge:
+    success: "&a{count}&a itens órfãos removidos do banco de dados do mercado."
+    none: "&aNenhum item órfão encontrado. O mercado está limpo!"
+    list: "&7Removidos: {items}"
     
   setbase:
     success: "&aPreço base de &e{item}&a definido para &e{price}&a."
@@ -537,6 +547,116 @@ endex:
   unknown-subcommand: "&cSubcomando desconhecido. Use /endex help."
 
 # =============================================================================
+# AJUDA DO COMANDO MARKET
+# =============================================================================
+market-help:
+  separator: "&6═══════════════════════════════════════"
+  title: "&d&lThe Endex &7- Comandos do Mercado"
+  empty-line: ""
+  
+  basic:
+    market: "&e/market &7- Abrir GUI do mercado/loja"
+    shop: "&e/market shop [id] &7- Abrir loja personalizada"
+    stock: "&e/market stock &7- Abrir GUI do mercado de ações"
+    price: "&e/market price <item> &7- Verificar preço do item"
+    buy: "&e/market buy <item> <quantidade> &7- Comprar itens"
+    sell: "&e/market sell <item> <quantidade> &7- Vender itens do inventário"
+    sellholdings: "&e/market sellholdings <item> <quantidade> &7- Vender itens das reservas"
+    top: "&e/market top &7- Ver maiores altas/baixas"
+  
+  holdings-section: "&bReservas & Entregas:"
+  holdings:
+    holdings: "&e/market holdings &7- Ver suas reservas virtuais"
+    withdraw: "&e/market withdraw <item> [quantidade] &7- Retirar das reservas"
+    withdraw-all: "&e/market withdraw all &7- Retirar todas as reservas"
+    delivery: "&e/market delivery &7- Ver entregas pendentes"
+    delivery-claim: "&e/market delivery claim <item> &7- Reclamar entrega específica"
+    delivery-claim-all: "&e/market delivery claim-all &7- Reclamar todas as entregas"
+  
+  invest-section: "&bInvestimentos:"
+  invest:
+    buy: "&e/market invest buy <item> <quantidade> &7- Comprar investimento"
+    list: "&e/market invest list &7- Ver investimentos"
+    redeem: "&e/market invest redeem-all &7- Resgatar todos investimentos"
+  
+  admin-events-section: "&cEventos Admin:"
+  admin-events:
+    list: "&e/market event &7- Listar/acionar eventos"
+    trigger: "&e/market event <nome> &7- Acionar um evento"
+    end: "&e/market event end <nome> &7- Encerrar um evento"
+    clear: "&e/market event clear &7- Limpar todos os eventos"
+  
+  admin-editor-section: "&cEditor de Loja Admin:"
+  admin-editor:
+    editor: "&e/market editor &7- Abrir GUI do editor de lojas"
+  
+  admin-items-section: "&cGerenciamento de Itens Admin:"
+  admin-items:
+    add: "&e/market add <item> <base> [min] [max] &7- Adicionar item"
+    remove: "&e/market remove <item> &7- Remover item"
+    setbase: "&e/market setbase <item> <preço> &7- Definir preço base"
+    setmin: "&e/market setmin <item> <preço> &7- Definir preço mínimo"
+    setmax: "&e/market setmax <item> <preço> &7- Definir preço máximo"
+    setprice: "&e/market setprice <item> <preço> &7- Definir preço atual (temp)"
+    toggle: "&e/market enable/disable <item> &7- Ativar/desativar item"
+    items: "&e/market items [página] &7- Listar itens configurados"
+    purge: "&e/market purge &7- Remover itens órfãos do mercado"
+
+# Comando de preço
+market-price:
+  usage: "&cUso: /market price <material>"
+  unknown-material: "&cMaterial desconhecido: {material}"
+  not-tracked: "&c{material} não é rastreado pelo mercado."
+  header: "&6[The Endex] &b{item}&7: &a{price} &7({arrow}&7 {diff})"
+  event-multiplier: "&3Multiplicador do evento: &bx{multiplier}  &7Efetivo: &a{effective}"
+  stats: "&8Base {base}  Mín {min}  Máx {max}"
+  history-label: "&7Histórico: {history}"
+  chart-label: "&8Gráfico: &7{chart}"
+
+# Mensagens de transação
+market-transaction:
+  item-dropped: "&e[TheEndex] &6{count} {item} dropados (limite de entrega atingido / sem progresso)."
+  item-dropped-zero: "&e[TheEndex] &6{count} {item} dropados (sem progresso)."
+  item-dropped-limit: "&e[TheEndex] &6{count} {item} dropados (limite de entrega atingido)."
+  item-dropped-full: "&e[TheEndex] &6{count} {item} dropados (inventário cheio)."
+  buy-success: "&6[TheEndex] &aComprou {amount} {item} por {price}."
+  buy-delivered: "&e  Entregues: {delivered} | Pendentes: {pending} &7(clique no Baú do Ender na GUI do mercado)"
+  buy-with-tax: "&6[TheEndex] &aComprou {amount} {item} por {price} (taxa {tax} em {taxpct}%)."
+  buy-dropped: "&6[TheEndex] &aComprou {amount} {item} por {price}."
+  buy-dropped-note: "&e  Entregues: {delivered} | Dropados: {dropped}"
+  top-gainer: "&a+{percent}% &b{item}"
+  top-loser: "&c{percent}% &b{item}"
+
+# Exibição de reservas
+market-holdings-display:
+  entry: "&7- &b{item}&7 {id}  P: {principal}  Acumulado: &a{accrued}"
+  item-line: "&b{item}: &e{amount}"
+  item-detail: "&b{item}: &e{qty} &7@ &a{price} {pnl_color}({pnl_sign}{pnl})"
+  total-value: "&7{label}: &a{value} {pnl_color}({pnl_sign}{pnl} L/P)"
+  delivery-item: "&7  • &b{item}: &6{count}"
+
+# Exibição de eventos
+market-event-display:
+  available: "&b{name}&7 -> {target} x{multiplier} {duration}m {broadcast}"
+  active: "&b{name}&7 termina em &e{remaining}m"
+
+# Exibição de investimentos
+market-invest-display:
+  entry: "&7- &b{item}&7 {id}  P: {principal}  Acumulado: &a{accrued}"
+
+# Lista de itens admin
+market-items-list:
+  entry: "{status} &b{item} &7B:{base} Mín:{min} Máx:{max}"
+
+# Formatação de exibição
+market-display:
+  investment-entry: "&7- &b{material}&7 {id_short}…  P: {principal}  Acumulado: &a{accrued}"
+  event-available: "&b{name}&7 -> {target} x{multiplier} {duration}m {broadcast}"
+  event-active: "&b{name}&7 termina em &e{remaining}m"
+  delivery-detail: "&7  • &b{item}: &6{count}"
+  items-list-entry: "{status} &b{item} &7B:{base} Mín:{min} Máx:{max}"
+
+# =============================================================================
 # MENSAGENS DE ERRO
 # =============================================================================
 errors:
@@ -561,3 +681,64 @@ time:
   remaining: "{time} restantes"
   now: "agora"
   never: "nunca"
+
+# =============================================================================
+# EDITOR DE LOJA (SHOP EDITOR)
+# =============================================================================
+shop-editor:
+  no-permission: "&cVocê não tem permissão para usar o editor de loja!"
+  not-loaded: "&cO sistema de lojas personalizadas não está carregado."
+  shop-not-found: "&cLoja não encontrada: {shop}"
+  unsaved-warning: "&e⚠ Você tem alterações não salvas! Abra o editor novamente para salvar."
+  input-cancelled: "&eEntrada cancelada."
+  mode-changed: "&aModo da loja alterado para {mode}. Execute &e/endex reload&a para aplicar."
+  cannot-delete-main: "&cNão é possível excluir a loja principal!"
+  set-main-shop: "&a'{shop}' definida como loja principal."
+  category-settings-soon: "&eEditor de configurações de categoria em breve!"
+  mode-changed-layout: "&eModo alterado para: &f{mode}"
+  click-empty-slot: "&eClique em um slot vazio primeiro para posicionar a categoria"
+  fill-toggle-hint: "&eAlternar padrão de preenchimento - use config.yml por enquanto"
+  drag-filler-hint: "&eArraste um item do inventário para definir o material de preenchimento"
+  border-mode-hint: "&eModo de borda: Clique nos slots para alternar como borda"
+  unsaved-changes-warning: "&eAviso: Você tem alterações não salvas!"
+  opening-preview: "&dAbrindo visualização da loja..."
+  undo-not-implemented: "&6Desfazer ainda não implementado"
+  editing-slot: "&eEditando slot {slot} ({type})"
+  editing-slot-prompt: "&7Digite o novo nome primeiro, depois será solicitada a descrição."
+  removed-slot: "&cConteúdo removido do slot {slot}"
+  click-move-target: "&eClique em outro slot para mover este {type}, ou clique aqui novamente para cancelar"
+  moved-content: "&aConteúdo movido para o slot {slot}"
+  move-cancelled: "&7Movimentação cancelada"
+  placed-decoration: "&aDecoração colocada no slot {slot}"
+  cursor-item-hint: "&eColoque um item no cursor para usar como decoração"
+  slot-empty: "&cEste slot está vazio - nada para editar"
+  slot-already-empty: "&7Slot já está vazio"
+  shop-file-not-found: "&cArquivo da loja não encontrado!"
+  layout-saved: "&aLayout salvo em shops/{shop}.yml"
+  placed-category: "&aCategoria '{category}' colocada no slot {slot}"
+  placed-button: "&aBotão {button} colocado no slot {slot}"
+  item-settings-saved: "&aConfigurações do item salvas!"
+  shop-exists: "&cUma loja com ID '{shop}' já existe!"
+  shop-created: "&aNova loja criada: {name} (ID: {id})"
+  category-creation-soon: "&aCriação de categoria em breve!"
+  invalid-price: "&cPreço inválido! Digite um número positivo."
+  buy-price-set: "&aPreço de compra definido como ${price}"
+  sell-price-set: "&aPreço de venda definido como ${price}"
+  permission-set: "&aPermissão definida: {permission}"
+  invalid-number: "&cNúmero inválido! Digite um número inteiro."
+  stock-limit-set: "&aLimite de estoque definido: {limit}"
+  no-slot-selected: "&cNenhum slot selecionado!"
+  slot-is-empty: "&cO slot está vazio!"
+  slot-name-updated: "&aNome do slot atualizado para: {name}"
+  keeping-current-name: "&7Mantendo o nome atual."
+  slot-lore-updated: "&aDescrição do slot atualizada!"
+  keeping-current-lore: "&7Mantendo a descrição atual."
+  item-added: "&a{item} adicionado ao slot {slot}. Clique para definir o preço!"
+  item-removed: "&e{item} removido do slot {slot}"
+  items-saved: "&aSalvos {count} itens na categoria '{category}'!"
+  items-saved-note: "&7Itens foram adicionados ao items.yml e market.db"
+  shop-deleted: "&aLoja excluída: {shop}"
+  shop-file-not-found-delete: "&cArquivo da loja não encontrado!"
+  category-deleted: "&aCategoria excluída: {category}"
+  category-delete-failed: "&cFalha ao excluir categoria: {error}"
+  shop-changes-saved: "&aAlterações da loja salvas!"

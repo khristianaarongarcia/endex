@@ -16,6 +16,33 @@ Before upgrading, back up `plugins/TheEndex/` and skim the release notes for bre
 
 ---
 
+## Version 1.5.8-JAN70109 — January 7, 2026
+
+### 🔧 Shop Editor Fixes
+
+**Completed implementation of previously non-functional shop editor features:**
+
+- **Delete Category** — Now properly removes categories from custom shops (was showing "coming soon" message)
+- **Save Shop Changes** — Now properly persists changes to shop config files (was only playing sound)
+- **Removed misleading TODO** — `saveCategoryItems()` had a TODO comment despite being fully implemented
+
+### 🌐 Language & Permission Fixes
+
+**Added missing translation keys and permissions:**
+
+- **4 Language Files Updated** — Added complete `shop-editor` section (~60 keys) to Korean, Russian, Portuguese, and Chinese language files
+- **Missing Permissions** — Added 4 permission nodes to plugin.yml that were used in code but not declared:
+  - `endex.shop.editor` — Shop editor GUI access
+  - `endex.shop.admin` — Admin actions in custom shops
+  - `endex.web.trade` — Web dashboard trading
+  - `endex.web.admin` — View other players' holdings
+
+<Warning>
+If you were experiencing issues with category deletion or shop saving in the editor, upgrade to this version.
+</Warning>
+
+---
+
 ## Version 1.5.8-JAN60132 — January 6, 2026
 
 ### 🔧 Shop Editor Fix

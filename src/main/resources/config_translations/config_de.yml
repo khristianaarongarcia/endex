@@ -1,365 +1,364 @@
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                    ÜBERSETZTE KONFIGURATIONSDATEI - DEUTSCH                  ║
-# ║                                                                              ║
-# ║  WIE MAN DIESE DATEI VERWENDET:                                              ║
-# ║  1. Benennen Sie diese Datei in 'config.yml' um                              ║
-# ║  2. Ersetzen Sie die bestehende config.yml in plugins/TheEndex/              ║
-# ║  ODER kopieren Sie nur die benötigten Kommentare in Ihre Konfiguration       ║
-# ║                                                                              ║
-# ║  HINWEIS: Die Konfigurationswerte bleiben auf Englisch, da sie               ║
-# ║  vom Plugin gelesen werden. Nur Kommentare sind übersetzt.                   ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
-# ============================================================================
-#                          THE ENDEX - KONFIGURATIONSDATEI
-#            Von Mineables - Die ultimative Economy/Aktienmarkt-Lösung
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# The Endex - Dynamische Marktwirtschaft Plugin-Konfiguration
+# ═══════════════════════════════════════════════════════════════════════════════
+# Nach dem Bearbeiten: /endex reload ausführen (Admin-Rechte erforderlich) oder Server neu starten.
 #
-# LEISTUNGSANZEIGER FÜR DIE KONFIGURATION
-# Jede Einstellung ist mit ihrer Leistungsauswirkung gekennzeichnet:
-#   [PERF: MINIMAL]  - Vernachlässigbare Leistungsauswirkung
-#   [PERF: LOW]      - Geringe Leistungsauswirkung
-#   [PERF: MEDIUM]   - Moderate Leistungsauswirkung
-#   [PERF: HIGH]     - Hohe Leistungsauswirkung - mit Vorsicht aktivieren
-#   [PERF: CRITICAL] - Kritische Leistungsauswirkung - nur bei Bedarf aktivieren
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🚀 OPTIMIERT FÜR MINIMALEN RESSOURCENVERBRAUCH (v1.5.8-JAN80235)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Diese Konfiguration ist standardmäßig für NIEDRIGEN RESSOURCENVERBRAUCH optimiert.
+# Ideal für kleine bis mittlere Server oder Server, die minimale Leistungseinbußen wünschen.
 #
-# ALLGEMEINE LEISTUNGSTIPPS:
-# - SQLite-Speicher verwenden für beste Leistung mit vielen Spielern
-# - Caching aktiviert lassen für häufig zugegriffene Daten
-# - Scan-Intervalle erhöhen bei geringen Ressourcen des Servers
-# - Detailliertes Logging nur zur Fehlerbehebung aktivieren
-# ============================================================================
+# ANGEWANDTE OPTIMIERUNGEN:
+#   ✓ Welt-Speicher-Scan DEAKTIVIERT (größte CPU-Einsparung)
+#   ✓ Speichern-bei-jedem-Update DEAKTIVIERT (reduzierte Festplatten-I/O)
+#   ✓ Längere Update-Intervalle (weniger häufige Berechnungen)
+#   ✓ SQLite-Speicherung aktiviert (schneller als YAML)
+#   ✓ Chunk-Caching aktiviert (wenn Welt-Scan verwendet wird)
+#   ✓ Minimale Verlaufslänge (reduzierter Speicherbedarf)
+#
+# UM VOLLE FUNKTIONEN ZU AKTIVIEREN (höherer Ressourcenverbrauch):
+#   - Setze price-world-storage.enabled: true (Dynamische Knappheitspreise)
+#   - Verringere update-interval-seconds auf 60 (reaktionsschnellerer Markt)
+#   - Erhöhe history-length auf 120 (längere Diagramme)
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+# PERFORMANCE-GUIDE
+# ═══════════════════════════════════════════════════════════════════════════════
+# Jede Option ist mit ihrer Auswirkung auf die Leistung gekennzeichnet:
+#   [PERF: MINIMAL]  - Vernachlässigbare Auswirkungen, sicher für jeden Server
+#   [PERF: LOW]      - Geringe CPU-/Speichernutzung, sicher für alle Server
+#   [PERF: MEDIUM]   - Moderate Auswirkungen, je nach Servergröße anpassen
+#   [PERF: HIGH]     - Erhebliche Auswirkungen, für große Server (50+ Spieler) optimieren
+#   [PERF: CRITICAL] - Hohe Ressourcenauslastung, sorgfältige Abstimmung empfohlen
+#
+# Allgemeine Tipps für große Server:
+#   - Erhöhe update-interval-seconds (300-600)
+#   - Deaktiviere price-world-storage oder limitiere scanned-worlds
+#   - Aktiviere chunk-caching in world-storage
+#   - Reduziere history-length auf 30-50
+#   - Verwende SQLite anstelle von YAML
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                        ALLGEMEINE EINSTELLUNGEN                              ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
+# Interne Version zur Erkennung von Änderungen. NICHT ändern.
+config-version: 1
 
-general:
-  # Sprache für Plugin-Nachrichten [PERF: MINIMAL]
-  language: "en"
+# ───────────────────────────────────────────────────────────────────────────────
+# SPRACHEINSTELLUNGEN
+# ───────────────────────────────────────────────────────────────────────────────
+language:
+  locale: de
 
-  # [PERF: MEDIUM] Wie oft Preise aktualisiert werden (in Sekunden).
-  # Niedrigere Werte = mehr CPU-Last. Empfohlen: 30-300
-  update-interval-seconds: 60
+# ───────────────────────────────────────────────────────────────────────────────
+# PREIS-UPDATE-ZYKLUS [PERF: MEDIUM]
+# ───────────────────────────────────────────────────────────────────────────────
+# Wie oft (in Sekunden) der Markt die Preise basierend auf Angebot/Nachfrage neu berechnet.
+# Empfohlen: 60s für kleine Server, 120-300s für große, geschäftige Server.
+update-interval-seconds: 60
 
-  # Prefix für alle Plugin-Nachrichten [PERF: MINIMAL]
-  prefix: "&8[&6TheEndex&8]&r "
+# ───────────────────────────────────────────────────────────────────────────────
+# PREISSENSIBILITÄT [PERF: MINIMAL]
+# ───────────────────────────────────────────────────────────────────────────────
+# Steuert, wie stark Ungleichgewichte zwischen Angebot/Nachfrage die Preise beeinflussen.
+# Empfohlen: 0.05 (5% pro Einheit Netto-Nachfrage)
+price-sensitivity: 0.05
 
-  # Dezimalstellen für Preisanzeige [PERF: MINIMAL]
-  decimal-places: 2
+# ───────────────────────────────────────────────────────────────────────────────
+# VERLAUFSVERFOLGUNG [PERF: LOW]
+# ───────────────────────────────────────────────────────────────────────────────
+# Anzahl der gespeicherten Preispunkte für Diagramme.
+# Empfohlen: 5-10 für Sparklines, 50-120 für detaillierte Web-Charts.
+history-length: 5
 
-  # Währungssymbol für Preisanzeige [PERF: MINIMAL]
-  currency-symbol: "$"
+# ───────────────────────────────────────────────────────────────────────────────
+# AUTOSAVE & BACKUP [PERF: LOW bis MEDIUM]
+# ───────────────────────────────────────────────────────────────────────────────
+# Wie oft (in Minuten) Marktdaten auf die Festplatte gespeichert werden.
+autosave-minutes: 5
 
-  # [PERF: MINIMAL] Empfindlichkeit bei Preisänderungen (0.01 bis 1.0).
-  # Niedrigere Werte = sanftere Preisbewegungen
-  price-sensitivity: 0.15
+# Speichert market.yml sofort nach JEDEM Preisupdate (Nur YAML-Modus).
+# [PERF: HIGH wenn aktiviert]
+save-on-each-update: false
 
-  # Debug-Modus für erweiterte Konsolenausgabe [PERF: LOW wenn aktiviert]
-  debug: false
-
-  # [PERF: LOW] Wie viele Preisupdates in der Historie behalten werden.
-  # Beeinflusst Speichernutzung bei großen Mengen
-  history-length: 100
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                    AUTOMATISCHES SPEICHERN EINSTELLUNGEN                     ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
-autosave:
-  # Automatisches Speichern aktivieren/deaktivieren [PERF: LOW bis MEDIUM]
-  enabled: true
-  # Intervall zwischen automatischen Speicherungen in Minuten
-  interval-minutes: 5
-  # Spieler über Speichervorgänge informieren
-  notify-players: false
-  # Nur änderbare Daten speichern (effizienter)
-  only-dirty: true
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         SPEICHER-KONFIGURATION                               ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-# LEISTUNGSLEITFADEN:
-# - YAML: [PERF: HIGH] Einfach, aber langsamer bei großen Datenmengen
-# - SQLite: [PERF: MEDIUM] Empfohlen für die meisten Server - gute Balance
-# - MySQL: [PERF: LOW-MEDIUM] Am besten für große Server oder Server-Netzwerke
-
+# ───────────────────────────────────────────────────────────────────────────────
+# DATENSPEICHERMODUS [PERF: MEDIUM bis HIGH]
+# ───────────────────────────────────────────────────────────────────────────────
+# SQLite (sqlite: true) wird DRINGEND EMPFOHLEN: 5-10x schneller als YAML.
 storage:
-  # Speicherart: "yaml", "sqlite", oder "mysql"
-  mode: "sqlite"
+  sqlite: true
 
-  sqlite:
-    # Datenbankdateiname [PERF: LOW]
-    file: "database.db"
-
-  mysql:
-    # MySQL-Host und Port [PERF: ABHÄNGIG VOM NETZWERK]
-    host: "localhost"
-    port: 3306
-    database: "theendex"
-    username: "root"
-    password: ""
-    # Tabellenpräfix für Datenbanktabellen
-    table-prefix: "endex_"
-    # Verbindungspool-Einstellungen
-    pool:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         PREISGLÄTTUNG                                        ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
+# ───────────────────────────────────────────────────────────────────────────────
+# PREISGLÄTTUNG & VOLATILITÄTSSCHUTZ [PERF: MINIMAL]
+# ───────────────────────────────────────────────────────────────────────────────
 price-smoothing:
-  # Preisglättung aktivieren [PERF: MINIMAL]
   enabled: true
-  # Glättungsfaktor (0.0-1.0) - höher = sanftere Änderungen
-  factor: 0.3
-  # Schwellenwert - minimale Änderung vor Preisanpassung
-  threshold: 0.05
+  # EMA Alpha (0.0 - 1.0): Wie schnell sich Preise anpassen. Empfohlen: 0.3
+  ema-alpha: 0.3
+  # Maximale Preisänderung pro Zyklus in Prozent. Empfohlen: 15.0
+  max-change-percent: 15.0
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         BESTANDSVERFOLGUNG                                   ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-# Verfolgt Item-Bestände in Spielerinventaren zur dynamischen Preisgestaltung
+# ───────────────────────────────────────────────────────────────────────────────
+# INFLATIONS- / DEFLATIONSSYSTEM [PERF: MINIMAL]
+# ───────────────────────────────────────────────────────────────────────────────
+inflation:
+  enabled: false
+  # Änderungsrate pro Zyklus. Positiv = Inflation, Negativ = Deflation.
+  rate-per-cycle: 0.01
+  category-rates:
+    ores: 0.02
+    food: 0.0
+    building: 0.01
+    mob-drops: 0.01
+  # Inflation nur anwenden, wenn Spieler online sind.
+  require-players: true
+  # Maximale Abweichung vom Basispreis in Prozent.
+  max-deviation-percent: 200.0
 
+# ───────────────────────────────────────────────────────────────────────────────
+# PREIS-RÜCKKEHR ZUM MITTELWERT (Anti-Manipulation) [PERF: MINIMAL]
+# ───────────────────────────────────────────────────────────────────────────────
+# Zieht Preise allmählich zum Basispreis zurück, wenn keine Aktivität herrscht.
+price-reversion:
+  enabled: true
+  # Prozentsatz der Lücke, die pro Zyklus geschlossen wird. Empfohlen: 2.0%
+  rate-percent-per-cycle: 2.0
+  # Nur anwenden, wenn in diesem Zyklus KEIN Handel stattfand.
+  only-when-idle: true
+
+# ───────────────────────────────────────────────────────────────────────────────
+# INVENTAR-BASIERTER PREISEINFLUSS [PERF: LOW]
+# ───────────────────────────────────────────────────────────────────────────────
+# Passt Preise basierend auf den Inventaren der Online-Spieler an.
 price-inventory:
-  # Inventarverfolgung aktivieren [PERF: LOW]
-  enabled: true
-  # [PERF: LOW] Wie stark Bestand die Preise beeinflusst (0.0-1.0)
-  influence: 0.1
-  # Spielerinventare beim Beitritt scannen
-  scan-on-join: true
-  # Spielerinventare beim Verlassen scannen
-  scan-on-quit: true
+  enabled: false
+  sensitivity: 0.02
+  # Basiswert pro Spieler. Darüber = Preis sinkt, darunter = Preis steigt.
+  per-player-baseline: 64
+  max-impact-percent: 10.0
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                    WELTSPEICHER-PREISGESTALTUNG                              ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-# ⚠️ WARNUNG: Dies ist das leistungsintensivste Feature!
-# Scannt geladene Chunks um Items in Truhen/Containern zu zählen
-
+# ───────────────────────────────────────────────────────────────────────────────
+# WELT-SPEICHER-BASIERTER PREISEINFLUSS [PERF: HIGH bis CRITICAL]
+# ───────────────────────────────────────────────────────────────────────────────
+# Scant Truhen, Fässer etc. in geladenen Chunks. 
+# ⚠️ RECHENINTENSIVSTE FUNKTION.
 price-world-storage:
-  # [PERF: HIGH bis CRITICAL] Weltspeicherscan aktivieren
-  # NUR aktivieren wenn unbedingt notwendig für realistische Preise
   enabled: false
-  # [PERF: HIGH] Wie stark Weltspeicher die Preise beeinflusst
-  influence: 0.3
-  # [PERF: CRITICAL] Wie oft die Welt gescannt wird (in Sekunden)
-  # Empfohlen: 600+ für Produktionsserver
   scan-interval-seconds: 300
-  # [PERF: HIGH] Chunks pro Tick zum Scannen - niedriger = besser für Server
-  chunks-per-tick: 5
-  # Spezifische Containertypen aktiviert
-  scan-chests: true
-  scan-barrels: true
-  scan-shulkers: true
-  scan-hoppers: false
+  sensitivity: 0.01
+  global-baseline: 1000
+  max-impact-percent: 5.0
+  # Chunks, die pro Server-Tick verarbeitet werden. Empfohlen: 50.
+  chunks-per-tick: 50
+  containers:
+    chests: true
+    barrels: true
+    shulker-boxes: true
+    hoppers: false
+    droppers: false
+    dispensers: false
+    furnaces: false
+    brewing-stands: false
+  scan-shulker-contents: true
+  excluded-worlds: []
+  
+  # ANTI-MANIPULATIONS-SCHUTZ
+  anti-manipulation:
+    per-chunk-item-cap: 10000
+    per-material-chunk-cap: 5000
+    min-tps: 18.0
+    log-suspicious: true
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         CACHE-EINSTELLUNGEN                                  ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
+  # INTELLIGENTES CACHING [PERF: CRITICAL - Für beste Leistung aktivieren!]
+  cache:
+    enabled: true
+    chunk-expiry-seconds: 600
+    full-refresh-cycles: 5
+    persist-to-disk: true
 
-cache:
-  # [PERF: CRITICAL - Für beste Leistung aktivieren!]
-  # Caching reduziert Datenbankabfragen drastisch
+# ───────────────────────────────────────────────────────────────────────────────
+# INITIALES MARKT-SETUP
+# ───────────────────────────────────────────────────────────────────────────────
+seed-all-materials: false
+include-default-important-items: true
+
+# ───────────────────────────────────────────────────────────────────────────────
+# TRANSAKTIONSSTEUER [PERF: MINIMAL]
+# ───────────────────────────────────────────────────────────────────────────────
+# Prozentsatz der Steuer auf alle Käufe und Verkäufe.
+transaction-tax-percent: 0.0
+
+# ───────────────────────────────────────────────────────────────────────────────
+# KAUF/VERKAUF-SPANNE (SPREAD - Anti-Arbitrage-Schutz)
+# ───────────────────────────────────────────────────────────────────────────────
+# Erzeugt eine Preisdifferenz zwischen Kauf und Verkauf.
+spread:
   enabled: true
-  # Cache-Ablaufzeit in Sekunden
-  expiry-seconds: 300
-  # Maximale Einträge im Cache
-  max-size: 1000
+  # Aufschlag beim Kauf.
+  buy-markup-percent: 3.0
+  # Abschlag beim Verkauf.
+  sell-markdown-percent: 3.0
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         BESTÄNDE-SYSTEM                                      ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
+# ───────────────────────────────────────────────────────────────────────────────
+# ANTI-ARBITRAGE VERKAUFS-COOLDOWN [PERF: NEGLIGIBLE]
+# ───────────────────────────────────────────────────────────────────────────────
+anti-arbitrage:
+  sell-cooldown:
+    enabled: true
+    duration-seconds: 60
 
+# ───────────────────────────────────────────────────────────────────────────────
+# ITEM-BLACKLIST
+# ───────────────────────────────────────────────────────────────────────────────
+# Materialien, die NIEMALS im Markt erscheinen sollen (z.B. BEDROCK).
+blacklist-items: []
+
+# ───────────────────────────────────────────────────────────────────────────────
+# VIRTUELLER BESITZ (HOLDINGS) [PERF: LOW]
+# ───────────────────────────────────────────────────────────────────────────────
 holdings:
-  # Bestände-System aktivieren [PERF: LOW]
   enabled: true
-  # Maximale verschiedene Items die ein Spieler halten kann
-  max-items-per-player: 50
-  # Maximale Menge pro Item-Typ
-  max-quantity-per-item: 1000000
+  max-total-per-player: 100000
+  auto-withdraw-on-login: false
 
-# ╔══════════════════════════════════════════════════════════════════════════════╝
-# ║                         LIEFERSYSTEM                                         ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
+# ───────────────────────────────────────────────────────────────────────────────
+# VIRTUELLER LIEFER-SYSTEM (DEPRECATED - Nutze Holdings)
+# ───────────────────────────────────────────────────────────────────────────────
 delivery:
-  # Liefersystem aktivieren [PERF: LOW]
   enabled: true
-  # [PERF: LOW] Lieferung beim Beitritt verarbeiten
-  process-on-join: true
-  # Benachrichtigung bei ausstehenden Lieferungen
-  notify-on-login: true
+  auto-claim-on-login: false
+  max-pending-per-player: 10000
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         GUI-EINSTELLUNGEN                                    ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
+# ───────────────────────────────────────────────────────────────────────────────
+# MARKT-GUI ANPASSUNG
+# ───────────────────────────────────────────────────────────────────────────────
 gui:
-  # GUI-System aktivieren [PERF: MINIMAL]
-  enabled: true
-  # Sound bei GUI-Öffnung abspielen
-  open-sound: true
-  # Sound bei GUI-Schließung abspielen
-  close-sound: true
-  # GUI-Titel
-  market-title: "&6&lDer Endex Markt"
-  portfolio-title: "&6&lIhr Portfolio"
+  details-chart: true
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         SHOP-EINSTELLUNGEN                                   ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
+# ───────────────────────────────────────────────────────────────────────────────
+# SHOP-SYSTEM MODUS
+# ───────────────────────────────────────────────────────────────────────────────
+# DEFAULT = Scrollbare Liste / CUSTOM = Kategorien-basierter Shop.
 shop:
-  # Shop-System aktivieren [PERF: MINIMAL]
-  enabled: true
-  # Nur registrierte Items im Shop anzeigen
-  registered-only: false
-  # Kaufsteuer (0.0 bis 1.0)
-  buy-tax: 0.0
-  # Verkaufssteuer (0.0 bis 1.0)
-  sell-tax: 0.0
+  mode: DEFAULT
+  main-shop: main
+  command: shop
+  custom:
+    items-per-page: 45
+    show-back-button: true
+    back-button-slot: 49
+    show-pagination: true
+    prev-page-slot: 48
+    next-page-slot: 50
+    show-amount-button: true
+    amount-button-slot: 45
+    admin-edit: true
+    # Preisformat in der GUI Lore.
+    price-lore:
+      - "&7"
+      - "&aLinksklick: &fKaufen: &6$%buy_price%"
+      - "&cRechtsklick: &fVerkaufen: &6$%sell_price%"
+      - "&7"
+      - "&8Bestand: %stock% | Nachfrage: %demand%"
+    admin-lore: "&e⚡ Shift-Klick: Item bearbeiten (Admin)"
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                       INVESTITIONSSYSTEM                                     ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
+# ───────────────────────────────────────────────────────────────────────────────
+# INVESTMENT-SYSTEM [PERF: LOW]
+# ───────────────────────────────────────────────────────────────────────────────
 investments:
-  # Investitionssystem aktivieren [PERF: LOW]
   enabled: true
-  # Aktivierung aller verfügbaren Investitionstypen
-  allow-stocks: true
-  allow-bonds: true
-  allow-commodities: true
-  # Minimaler Investitionsbetrag
-  minimum-investment: 100.0
-  # Dividendenverteilungsintervall in Minuten
-  dividend-interval-minutes: 60
+  # Jährlicher Zinssatz (APR). Empfohlen: 5.0
+  apr-percent: 5.0
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         WEB-DASHBOARD                                        ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
+# ───────────────────────────────────────────────────────────────────────────────
+# VERLAUFS-EXPORT (ANALYSE)
+# ───────────────────────────────────────────────────────────────────────────────
+history-export:
+  enabled: true
+  folder: history
 
+# ───────────────────────────────────────────────────────────────────────────────
+# RESSOURCEN-TRACKING
+# ───────────────────────────────────────────────────────────────────────────────
+tracking:
+  resources:
+    enabled: true
+    # Gesammelte Ressourcen automatisch zum Marktangebot hinzufügen?
+    # ⚠️ VORSICHT: Kann massive Deflation verursachen. Empfohlen: false.
+    apply-to-market: false
+    sources:
+      block-break: true
+      mob-drops: true
+      fishing: true
+
+# ───────────────────────────────────────────────────────────────────────────────
+# MARKT-EVENTS
+# ───────────────────────────────────────────────────────────────────────────────
+events:
+  multiplier-cap: 10.0
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WEB-DASHBOARD KONFIGURATION [PERF: LOW bis MEDIUM]
+# ═══════════════════════════════════════════════════════════════════════════════
 web:
-  # [PERF: LOW bis MEDIUM] Web-Dashboard aktivieren
-  enabled: false
-  # Port für den Webserver
-  port: 8080
-  # Dashboard-Titel
-  title: "TheEndex Dashboard"
-  # CORS-Einstellungen
-  cors:
+  enabled: true
+  host: 127.0.0.1
+  port: 3434
+  session-duration-hours: 2
+  
+  compression:
     enabled: true
-    allowed-origins:
-      - "*"
-  # API-Schlüssel-Authentifizierung
-  api-key:
+    level: 4
+
+  poll-ms: 1000
+  history-limit: 120
+  sse:
+    enabled: false
+  websocket:
     enabled: true
-    key: "ÄNDERN_SIE_DIESEN_SCHLÜSSEL"
-  # Ratenbegrenzung
+  
   rate-limit:
     enabled: true
-    requests-per-minute: 60
+    requests: 30
+    per-seconds: 10
+    exempt-ui: true
+  
+  roles:
+    default: TRADER
+    trader-permission: endex.web.trade
+    admin-view-permission: endex.web.admin
+  
+  icons:
+    enabled: false
+    source: ""
+  
+  addons: []
+  
+  custom:
+    enabled: false
+    root: webui
+    reload: false
+    export-default: true
+  
+  holdings:
+    inventory:
+      enabled: true
+      include-enderchest: false
+      cache-seconds: 15
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         KOMPRESSION                                          ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
-compression:
-  # [PERF: LOW] HTTP-Kompression aktivieren - reduziert Bandbreite
-  enabled: true
-  # Kompressionsebene (1-9, höher = mehr Kompression, mehr CPU)
-  level: 6
-  # Minimale Größe für Kompression (Bytes)
-  min-size: 1024
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                         PROTOKOLLIERUNG                                      ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
+# ═══════════════════════════════════════════════════════════════════════════════
+# LOGGING & DEBUGGING
+# ═══════════════════════════════════════════════════════════════════════════════
 logging:
-  # [PERF: LOW] Transaktionen in Datei protokollieren
-  log-transactions: true
-  # [PERF: LOW] Preisänderungen protokollieren
-  log-price-changes: false
-  # [PERF: MEDIUM wenn aktiviert] Ausführliche Protokollierung
+  # Nur zur Fehlerbehebung aktivieren. Erhöht die Log-Größe massiv.
   verbose: false
-  # Protokolldateiname
-  file: "transactions.log"
-  # Maximale Protokolldateigröße in MB
-  max-size-mb: 10
-  # Anzahl der zu behaltenden Protokoll-Backups
-  max-backups: 5
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                      UPDATE-PRÜFUNG                                          ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
+# ═══════════════════════════════════════════════════════════════════════════════
+# UPDATE-CHECKER
+# ═══════════════════════════════════════════════════════════════════════════════
 update-checker:
-  # [PERF: MINIMAL] Auf neue Updates prüfen
   enabled: true
-  # Nur Admins über Updates informieren
-  notify-ops-only: true
+  notify-ops: true
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                      ITEM-REGISTRIERUNG                                      ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-# Hier registrieren Sie Items mit ihren Basispreisen.
-# Format: MATERIAL: Basispreis
-# Verwenden Sie Minecraft-Materialnamen (Großbuchstaben)
-
-items:
-  DIAMOND: 100.0
-  GOLD_INGOT: 50.0
-  IRON_INGOT: 25.0
-  EMERALD: 75.0
-  COAL: 5.0
-  LAPIS_LAZULI: 10.0
-  REDSTONE: 8.0
-  NETHERITE_INGOT: 500.0
-  COPPER_INGOT: 15.0
-  AMETHYST_SHARD: 20.0
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                      PREISLIMITS                                             ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-# Verhindert extreme Preisschwankungen
-
-price-limits:
-  # Preislimits aktivieren [PERF: MINIMAL]
-  enabled: true
-  # Minimaler Preis (absolut)
-  min-price: 0.01
-  # Maximaler Preis (absolut)
-  max-price: 1000000.0
-  # Maximale Preisänderung pro Update (Prozent, 0.0-1.0)
-  max-change-percent: 0.25
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                    MARKTEREIGNISSE                                           ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-# Zufällige Ereignisse die den Markt beeinflussen
-
-market-events:
-  # Marktereignisse aktivieren [PERF: LOW]
-  enabled: true
-  # Wahrscheinlichkeit eines Ereignisses pro Preisaktualisierung (0.0-1.0)
-  chance: 0.05
-  # Minimale Minuten zwischen Ereignissen
-  min-interval-minutes: 30
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                      BERECHTIGUNGEN                                          ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-# Berechtigungsbasierte Features
-
-permissions:
-  # Berechtigungsprüfungen aktivieren [PERF: MINIMAL]
-  enabled: true
-  # Bypass-Berechtigung für Admins
-  admin-bypass: "endex.admin"
+# ═══════════════════════════════════════════════════════════════════════════════
+# ENDE DER KONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════

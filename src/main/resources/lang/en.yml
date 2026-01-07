@@ -125,6 +125,7 @@ market:
     price-info: "&7{item}: &e{price} each &7(Buy up to {max})"
     usage: "&cUsage: /market buy <material> <amount>"
     cancelled: "&cPurchase cancelled by server policy."
+    cooldown-active: "&cCannot sell {material} - you recently purchased this item. Anti-manipulation cooldown: {seconds} seconds remaining."
     capped: "&6Purchase capped to {amount} {item} due to inventory space (requested: {requested})."
     capacity-hint: "&7Tip: Empty your inventory or use Ender Chest for larger orders."
     tax-info: "&8(Tax: {tax} at {percent}%)"
@@ -142,6 +143,7 @@ market:
     nothing-to-sell: "&cYou don't have any of this item to sell."
     usage: "&cUsage: /market sell <material> <amount>"
     cancelled: "&cSale cancelled by server policy."
+    cooldown-active: "&cCannot sell {material} - you recently purchased this item. Anti-manipulation cooldown: {seconds} seconds remaining."
 
   # Sell Holdings command  
   sellholdings:
@@ -330,7 +332,7 @@ gui:
     min_max: "&8Min {min}  Max {max}"
     history: "&7History: {history}"
     click_hint: "&8Left: Buy  Right: Sell  Amount: {amount}"
-    details_hint: "&8Shift/Middle-click: Details"
+    details_hint: "&8Shift-click or Middle-click for details"
     you_have: "&7You have: &b{count} {material}"
     balance: "&7Balance: &6{balance}"
 
@@ -470,7 +472,16 @@ admin:
   # Remove item command
   remove:
     success: "&aRemoved &e{item}&a from market."
+    orphaned: "&aRemoved orphaned item &e{item}&a from market database."
+    config-only: "&aRemoved &e{item}&a from items config."
+    not-found: "&c{item} is not in the market or config."
     usage: "&cUsage: /market removeitem <material>"
+    
+  # Purge orphaned items command
+  purge:
+    success: "&aRemoved &e{count}&a orphaned items from market database."
+    none: "&aNo orphaned items found. Market is clean!"
+    list: "&7Removed: {items}"
     
   # Set base price command
   setbase:
@@ -687,6 +698,7 @@ market-help:
     setprice: "&e/market setprice <item> <price> &7- Set current price (temp)"
     toggle: "&e/market enable/disable <item> &7- Enable/disable item"
     items: "&e/market items [page] &7- List configured items"
+    purge: "&e/market purge &7- Remove orphaned market items"
 
 # Price command
 market-price:
@@ -800,6 +812,8 @@ shop-editor:
   shop-deleted: "&aDeleted shop: {shop}"
   shop-file-not-found-delete: "&cShop file not found!"
   category-deletion-soon: "&eCategory deletion coming soon!"
+  category-deleted: "&aDeleted category: {category}"
+  category-delete-failed: "&cFailed to delete category: {error}"
   shop-changes-saved: "&aShop changes saved!"
 
 # =============================================================================

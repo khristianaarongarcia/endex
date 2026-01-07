@@ -1,178 +1,155 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# ARCHIVO DE CONFIGURACIÓN TRADUCIDO - ESPAÑOL
-# ═══════════════════════════════════════════════════════════════════════════════
-# CÓMO USAR ESTE ARCHIVO:
-#   1. Copia este archivo a: plugins/TheEndex/config.yml (reemplaza el existente)
-#   2. O copia el contenido a tu config.yml existente
-#   3. Ejecuta /endex reload o reinicia tu servidor
-#
-# NOTA: Solo los comentarios están traducidos. Las claves y valores YAML reales
-# permanecen igual para asegurar que el plugin funcione correctamente.
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # The Endex - Configuración del Plugin de Economía de Mercado Dinámica
 # ═══════════════════════════════════════════════════════════════════════════════
 # Después de editar, ejecuta /endex reload (requiere permiso de admin) o reinicia.
 #
 # ═══════════════════════════════════════════════════════════════════════════════
+# 🚀 OPTIMIZADO PARA UN USO MÍNIMO DE RECURSOS (v1.5.8-JAN80235)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Esta configuración está pre-optimizada para BAJO CONSUMO de recursos por defecto.
+# Ideal para servidores pequeños-medianos o que buscan un impacto mínimo.
+#
+# OPTIMIZACIONES CLAVE APLICADAS:
+#   ✓ Escaneo de almacenamiento del mundo DESACTIVADO (mayor ahorro de CPU)
+#   ✓ Guardado en cada actualización DESACTIVADO (reduce E/S de disco)
+#   ✓ Intervalos de actualización más largos (cálculos menos frecuentes)
+#   ✓ Almacenamiento SQLite activado (más rápido que YAML)
+#   ✓ Caché de chunks activada (cuando se usa el escaneo del mundo)
+#   ✓ Historial mínimo (reduce el uso de memoria)
+#
+# PARA ACTIVAR TODAS LAS FUNCIONES (mayor uso de recursos):
+#   - Establece price-world-storage.enabled: true (precios por escasez dinámica)
+#   - Reduce update-interval-seconds a 60 (mercado más receptivo)
+#   - Aumenta history-length a 120 (gráficos más detallados)
+#
+# ═══════════════════════════════════════════════════════════════════════════════
 # GUÍA DE IMPACTO EN EL RENDIMIENTO
 # ═══════════════════════════════════════════════════════════════════════════════
 # Cada opción está etiquetada con su impacto en el rendimiento:
-#   [REND: MÍNIMO]   - Impacto insignificante, seguro para cualquier servidor
-#   [REND: BAJO]     - Bajo uso de CPU/memoria, seguro para todos los servidores
-#   [REND: MEDIO]    - Impacto moderado, ajustar según el tamaño del servidor
-#   [REND: ALTO]     - Impacto significativo, optimizar para servidores grandes (50+ jugadores)
-#   [REND: CRÍTICO]  - Uso intensivo de recursos, se recomienda ajuste cuidadoso
+#   [PERF: MINIMAL]  - Impacto insignificante, seguro para cualquier servidor.
+#   [PERF: LOW]      - Bajo uso de CPU/memoria, seguro para todos los servidores.
+#   [PERF: MEDIUM]   - Impacto moderado, ajustar según el tamaño del servidor.
+#   [PERF: HIGH]     - Impacto significativo, optimizar para servidores grandes (50+).
+#   [PERF: CRITICAL] - Uso pesado de recursos, se recomienda un ajuste cuidadoso.
 #
-# Consejos de optimización para servidores grandes:
-#   - Aumentar update-interval-seconds (300-600)
-#   - Desactivar price-world-storage o limitar mundos escaneados
-#   - Activar chunk-caching en world-storage
-#   - Reducir history-length a 30-50
-#   - Usar almacenamiento SQLite en lugar de YAML
+# Consejos generales para servidores grandes:
+#   - Aumenta update-interval-seconds (300-600)
+#   - Desactiva price-world-storage o limita scanned-worlds
+#   - Activa chunk-caching en world-storage
+#   - Reduce history-length a 30-50
+#   - Usa almacenamiento SQLite en lugar de YAML
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# ───────────────────────────────────────────────────────────────────────────────
-# VERSIÓN DE CONFIGURACIÓN
-# ───────────────────────────────────────────────────────────────────────────────
-# Versión interna para detectar cambios importantes. NO modificar a menos que se indique.
+# Versión interna para detectar cambios disruptivos. NO MODIFICAR.
 config-version: 1
 
 # ───────────────────────────────────────────────────────────────────────────────
-# CONFIGURACIÓN DE IDIOMA
+# AJUSTES DE IDIOMA
 # ───────────────────────────────────────────────────────────────────────────────
-# Establece el idioma para todos los mensajes del plugin.
-# Idiomas disponibles: en, zh_CN, ru, es, de, fr, pt, ja, ko
-# Recomendado: es (o el idioma principal de tu servidor)
+# Establece el idioma de los mensajes. Los archivos están en plugins/TheEndex/lang/
 language:
   locale: es
 
 # ───────────────────────────────────────────────────────────────────────────────
-# CICLO DE ACTUALIZACIÓN DE PRECIOS [REND: MEDIO]
+# CICLO DE ACTUALIZACIÓN DE PRECIOS [PERF: MEDIUM]
 # ───────────────────────────────────────────────────────────────────────────────
-# Con qué frecuencia (en segundos) el mercado recalcula precios basados en oferta/demanda.
-# Rendimiento: Cada ciclo dispara cálculos de precios, actualizaciones de historial y
-# opcionalmente escaneo de mundo. Intervalos más largos = menos uso de CPU.
-#
-# Valores bajos (30-60s):
-#   - Pros: Mercado más reactivo, precios responden rápido
-#   - Contras: Puede sentirse caótico, más difícil predecir tendencias
-#   - CPU: ~0.5-1% por ciclo en servidores medianos
-#
-# Valores altos (120-300s):
-#   - Pros: Mercado estable, da tiempo a los jugadores para planificar
-#   - Contras: Menos reactivo, puede sentirse lento
-#
-# Recomendado: 60s para servidores pequeños-medianos, 120-300s para grandes (50+ jugadores)
+# Frecuencia (en segundos) con la que el mercado recalcula precios.
+# Recomendado: 60s para pequeños-medianos, 120-300s para grandes servidores.
 update-interval-seconds: 60
 
 # ───────────────────────────────────────────────────────────────────────────────
-# SENSIBILIDAD DE PRECIOS [REND: MÍNIMO]
+# SENSIBILIDAD DE PRECIOS [PERF: MINIMAL]
 # ───────────────────────────────────────────────────────────────────────────────
-# Controla cuánto afecta el desequilibrio oferta/demanda a los precios por ciclo.
-# Fórmula: nuevo_precio = precio_anterior × (1 + (demanda - oferta) × sensibilidad)
-# Rendimiento: Cálculo matemático puro, impacto insignificante.
-#
-# Valores bajos (0.01-0.03): Cambios graduales, más predecible
-# Valores medios (0.04-0.07): Equilibrado, recompensa el timing del mercado
-# Valores altos (0.08-0.15): Mercado volátil, fomenta trading activo
-# Recomendado: 0.05
+# Controla cuánto afecta el desequilibrio oferta/demanda a los precios.
+# Recomendado: 0.05 (5% por unidad de demanda neta)
 price-sensitivity: 0.05
 
 # ───────────────────────────────────────────────────────────────────────────────
-# SEGUIMIENTO DE HISTORIAL [REND: BAJO]
+# SEGUIMIENTO DE HISTORIAL [PERF: LOW]
 # ───────────────────────────────────────────────────────────────────────────────
-# Número de puntos de precio pasados a mantener por ítem (para gráficos).
-# Rendimiento: ~0.5KB RAM por ítem rastreado × history-length
-# Recomendado: 5-10 para sparklines, 50-120 para gráficos web detallados
+# Cantidad de puntos de precio pasados a conservar (para gráficos).
+# Recomendado: 5-10 para sparklines, 50-120 para gráficos web detallados.
 history-length: 5
 
 # ───────────────────────────────────────────────────────────────────────────────
-# AUTOGUARDADO Y RESPALDO [REND: BAJO a MEDIO]
+# AUTOGUARDADO Y RESPALDO [PERF: LOW a MEDIUM]
 # ───────────────────────────────────────────────────────────────────────────────
-# Cada cuántos minutos guardar datos del mercado en disco.
-# Rendimiento: Cada guardado escribe en disco. SQLite ~1-5ms, YAML ~10-50ms.
-# Recomendado: 5 minutos
+# Frecuencia (en minutos) para guardar datos en el disco.
 autosave-minutes: 5
 
-# Guardar inmediatamente después de CADA actualización de precio (solo modo YAML).
-# [REND: ALTO cuando está activo] - ¡Crea I/O de disco cada ciclo!
-# Recomendado: false para la mayoría de servidores
-save-on-each-update: true
+# Guardar market.yml inmediatamente tras CADA actualización (Solo modo YAML).
+# [PERF: HIGH si está activado]
+save-on-each-update: false
 
 # ───────────────────────────────────────────────────────────────────────────────
-# MODO DE ALMACENAMIENTO [REND: MEDIO a ALTO impacto según elección]
+# MODO DE ALMACENAMIENTO DE DATOS [PERF: MEDIUM a HIGH]
 # ───────────────────────────────────────────────────────────────────────────────
-# Elige entre YAML (simple, legible) o SQLite (rápido, escalable).
-#
-# Modo YAML (sqlite: false):
-#   - Datos en market.yml como texto plano
-#   - Fácil de editar manualmente, ideal para servidores pequeños (<50 ítems)
-#   - [REND: ALTO I/O de disco con muchos ítems]
-#
-# Modo SQLite (sqlite: true) - RECOMENDADO:
-#   - Datos en base de datos binaria market.db
-#   - Maneja miles de ítems eficientemente
-#   - [REND: BAJO - 5-10x más rápido que YAML]
+# SQLite (sqlite: true) es RECOMENDADO: 5-10 veces más rápido que YAML.
 storage:
   sqlite: true
 
 # ───────────────────────────────────────────────────────────────────────────────
-# SUAVIZADO DE PRECIOS Y PROTECCIÓN DE VOLATILIDAD [REND: MÍNIMO]
+# SUAVIZADO DE PRECIOS Y PROTECCIÓN DE VOLATILIDAD [PERF: MINIMAL]
 # ───────────────────────────────────────────────────────────────────────────────
-# Previene cambios dramáticos de precio por manipulación o picos de demanda.
-# Rendimiento: Matemática pura, impacto insignificante.
 price-smoothing:
   enabled: true
+  # Factor EMA (0.0 - 1.0): Qué tan rápido se adaptan los precios. Recomendado: 0.3
   ema-alpha: 0.3
+  # Cambio máximo de precio permitido por ciclo (en porcentaje). Recomendado: 15.0
   max-change-percent: 15.0
 
 # ───────────────────────────────────────────────────────────────────────────────
-# INFLUENCIA DE PRECIO POR INVENTARIO [REND: BAJO]
+# SISTEMA DE INFLACIÓN / DEFLACIÓN [PERF: MINIMAL]
 # ───────────────────────────────────────────────────────────────────────────────
-# Ajusta precios basándose en cuánto de cada ítem tienen los jugadores online.
-# Rendimiento: Solo escanea inventarios de jugadores online. ~0.1ms por jugador.
-price-inventory:
+inflation:
+  enabled: false
+  # Tasa de cambio por ciclo. Positivo = Inflación, Negativo = Deflatería.
+  rate-per-cycle: 0.01
+  category-rates:
+    ores: 0.02
+    food: 0.0
+    building: 0.01
+    mob-drops: 0.01
+  # Aplicar solo si hay jugadores conectados.
+  require-players: true
+  # Desviación máxima total desde el precio base (en porcentaje).
+  max-deviation-percent: 200.0
+
+# ───────────────────────────────────────────────────────────────────────────────
+# REVERSIÓN A LA MEDIA (Protección Anti-Manipulación) [PERF: MINIMAL]
+# ───────────────────────────────────────────────────────────────────────────────
+# Atrae los precios gradualmente hacia su precio base cuando no hay actividad.
+price-reversion:
   enabled: true
+  # Porcentaje del hueco que se cierra por ciclo. Recomendado: 2.0%
+  rate-percent-per-cycle: 2.0
+  # Solo aplicar si NO hubo trading este ciclo.
+  only-when-idle: true
+
+# ───────────────────────────────────────────────────────────────────────────────
+# INFLUENCIA DE PRECIOS POR INVENTARIO [PERF: LOW]
+# ───────────────────────────────────────────────────────────────────────────────
+# Ajusta precios según lo que los jugadores online llevan en sus inventarios.
+price-inventory:
+  enabled: false
   sensitivity: 0.02
+  # Cantidad base por jugador. Por encima = el precio BAJA, por debajo = SUBE.
   per-player-baseline: 64
   max-impact-percent: 10.0
 
 # ───────────────────────────────────────────────────────────────────────────────
-# INFLUENCIA DE PRECIO POR ALMACENAMIENTO MUNDIAL [REND: ALTO a CRÍTICO]
+# INFLUENCIA POR ALMACENAMIENTO DEL MUNDO [PERF: HIGH a CRITICAL]
 # ───────────────────────────────────────────────────────────────────────────────
-# ⚠️ FUNCIÓN MÁS INTENSIVA EN RENDIMIENTO - ¡LEE CON CUIDADO! ⚠️
-#
-# Escanea TODOS los contenedores (cofres, barriles, shulkers, etc.) en chunks cargados.
-#
-# Impacto en rendimiento:
-#   - CPU: 1-5% durante escaneo activo
-#   - RAM: Cachea datos de chunks, ~50-200MB según tamaño del mundo
-#
-# Para servidores grandes (100+ jugadores), considera:
-#   - Establecer enabled: false
-#   - O aumentar scan-interval-seconds a 600+
-#   - O limitar mundos escaneados solo a "world"
+# Escanea cofres, barriles, etc., en chunks cargados. 
+# ⚠️ CARACTERÍSTICA QUE MÁS CONSUME RECURSOS.
 price-world-storage:
-  enabled: true
-  
-  # Frecuencia de escaneo (segundos) [REND: CRÍTICO]
-  # 60-120s = Servidores pequeños, ~2-3% CPU
-  # 180-300s = Servidores medianos, ~1% CPU
-  # 300-600s = Servidores grandes, ~0.5% CPU
+  enabled: false
   scan-interval-seconds: 300
-  
   sensitivity: 0.01
   global-baseline: 1000
   max-impact-percent: 5.0
-  
-  # Chunks a procesar por tick [REND: ALTO]
-  # 20-30 = Muy suave, ~0.1ms/tick
-  # 50-75 = Equilibrado (recomendado)
-  # 100-200 = Escaneos rápidos, notable en mundos grandes
+  # Chunks a procesar por cada tick del servidor. Recomendado: 50.
   chunks-per-tick: 50
-  
   containers:
     chests: true
     barrels: true
@@ -182,18 +159,17 @@ price-world-storage:
     dispensers: false
     furnaces: false
     brewing-stands: false
-  
   scan-shulker-contents: true
   excluded-worlds: []
   
+  # PROTECCIÓN ANTI-MANIPULACIÓN
   anti-manipulation:
     per-chunk-item-cap: 10000
     per-material-chunk-cap: 5000
     min-tps: 18.0
     log-suspicious: true
 
-  # Caché inteligente [REND: CRÍTICO - ¡Activar para mejor rendimiento!]
-  # ¡Con caché: Escaneos 70-90% más rápidos!
+  # CACHÉ INTELIGENTE [PERF: CRITICAL - ¡Activar para mejor rendimiento!]
   cache:
     enabled: true
     chunk-expiry-seconds: 600
@@ -201,38 +177,55 @@ price-world-storage:
     persist-to-disk: true
 
 # ───────────────────────────────────────────────────────────────────────────────
-# CONFIGURACIÓN INICIAL DEL MERCADO [REND: MÍNIMO - Solo primera ejecución]
+# CONFIGURACIÓN INICIAL DEL MERCADO
 # ───────────────────────────────────────────────────────────────────────────────
+# Solo aplica cuando no existe base de datos previa.
 seed-all-materials: false
 include-default-important-items: true
 
 # ───────────────────────────────────────────────────────────────────────────────
-# IMPUESTO DE TRANSACCIÓN [REND: MÍNIMO]
+# IMPUESTO POR TRANSACCIÓN [PERF: MINIMAL]
 # ───────────────────────────────────────────────────────────────────────────────
-# Aplica un porcentaje de impuesto en todas las transacciones de compra/venta.
+# Porcentaje de impuesto en compras y ventas (sumidero de dinero).
 transaction-tax-percent: 0.0
 
 # ───────────────────────────────────────────────────────────────────────────────
-# MARGEN COMPRA/VENTA (Protección Anti-Arbitraje)
+# DIFERENCIAL COMPRA/VENTA (SPREAD - Protección Anti-Arbitraje)
 # ───────────────────────────────────────────────────────────────────────────────
+# Crea una brecha entre el precio de compra y venta para evitar exploits.
 spread:
   enabled: true
-  buy-markup-percent: 1.5
-  sell-markdown-percent: 1.5
+  # Los jugadores pagan un X% MÁS al comprar.
+  buy-markup-percent: 3.0
+  # Los jugadores reciben un X% MENOS al vender.
+  sell-markdown-percent: 3.0
 
+# ───────────────────────────────────────────────────────────────────────────────
+# ENFRIAMIENTO DE VENTA ANTI-ARBITRAJE [PERF: NEGLIGIBLE]
+# ───────────────────────────────────────────────────────────────────────────────
+# Evita comprar y vender instantáneamente para manipular el precio.
+anti-arbitrage:
+  sell-cooldown:
+    enabled: true
+    duration-seconds: 60
+
+# ───────────────────────────────────────────────────────────────────────────────
+# LISTA NEGRA DE OBJETOS
+# ───────────────────────────────────────────────────────────────────────────────
+# Materiales que NUNCA aparecerán en el mercado. Ejemplo: [BEDROCK, BARRIER]
 blacklist-items: []
 
 # ───────────────────────────────────────────────────────────────────────────────
-# SISTEMA DE TENENCIAS VIRTUALES [REND: BAJO]
+# SISTEMA DE POSESIONES VIRTUALES (HOLDINGS) [PERF: LOW]
 # ───────────────────────────────────────────────────────────────────────────────
-# Almacenamiento virtual para ítems comprados. Los ítems van a tenencias, no al inventario.
+# Almacenamiento virtual. Las compras van aquí y luego se retiran físicamente.
 holdings:
   enabled: true
   max-total-per-player: 100000
   auto-withdraw-on-login: false
 
 # ───────────────────────────────────────────────────────────────────────────────
-# SISTEMA DE ENTREGA VIRTUAL [REND: BAJO] (OBSOLETO - usa tenencias)
+# SISTEMA DE ENTREGAS VIRTUALES (DEPRECADO - usar holdings)
 # ───────────────────────────────────────────────────────────────────────────────
 delivery:
   enabled: true
@@ -240,14 +233,16 @@ delivery:
   max-pending-per-player: 10000
 
 # ───────────────────────────────────────────────────────────────────────────────
-# PERSONALIZACIÓN DE GUI DEL MERCADO [REND: MÍNIMO]
+# PERSONALIZACIÓN DE LA GUI DEL MERCADO
 # ───────────────────────────────────────────────────────────────────────────────
 gui:
+  # Gráfico sparkline al hacer shift-click en un objeto.
   details-chart: true
 
 # ───────────────────────────────────────────────────────────────────────────────
-# MODO DEL SISTEMA DE TIENDA [REND: MÍNIMO]
+# MODO DEL SISTEMA DE TIENDA
 # ───────────────────────────────────────────────────────────────────────────────
+# DEFAULT = Lista scrollable / CUSTOM = Tienda basada en categorías.
 shop:
   mode: DEFAULT
   main-shop: main
@@ -262,24 +257,26 @@ shop:
     show-amount-button: true
     amount-button-slot: 45
     admin-edit: true
+    # Formato de la descripción del precio en la GUI.
     price-lore:
       - "&7"
-      - "&aClic Izq: &fComprar: &6$%buy_price%"
-      - "&cClic Der: &fVender: &6$%sell_price%"
+      - "&aClick Izquierdo: &fComprar: &6$%buy_price%"
+      - "&cClick Derecho: &fVender: &6$%sell_price%"
       - "&7"
       - "&8Stock: %stock% | Demanda: %demand%"
-    admin-lore: "&e⚡ Shift Clic: Editar ítem (Admin)"
+    admin-lore: "&e⚡ Shift Click: Editar objeto (Admin)"
 
 # ───────────────────────────────────────────────────────────────────────────────
-# SISTEMA DE INVERSIONES [REND: BAJO]
+# SISTEMA DE INVERSIONES [PERF: LOW]
 # ───────────────────────────────────────────────────────────────────────────────
-# Los jugadores pueden invertir en ítems para ganar ingresos pasivos.
+# Los jugadores pueden invertir en objetos para ganar interés compuesto.
 investments:
   enabled: true
+  # Tasa de Porcentaje Anual (APR). Recomendado: 5.0
   apr-percent: 5.0
 
 # ───────────────────────────────────────────────────────────────────────────────
-# EXPORTACIÓN DE HISTORIAL [REND: BAJO]
+# EXPORTACIÓN DE HISTORIAL (ANÁLISIS)
 # ───────────────────────────────────────────────────────────────────────────────
 history-export:
   enabled: true
@@ -291,6 +288,8 @@ history-export:
 tracking:
   resources:
     enabled: true
+    # ¿Añadir automáticamente recursos recolectados a la OFERTA del mercado?
+    # ⚠️ CUIDADO: Puede causar deflación masiva. Recomendado: false.
     apply-to-market: false
     sources:
       block-break: true
@@ -298,58 +297,64 @@ tracking:
       fishing: true
 
 # ───────────────────────────────────────────────────────────────────────────────
-# SISTEMA DE EVENTOS DEL MERCADO
+# SISTEMA DE EVENTOS DE MERCADO
 # ───────────────────────────────────────────────────────────────────────────────
 events:
+  # Tope máximo de multiplicadores apilados.
   multiplier-cap: 10.0
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CONFIGURACIÓN DEL PANEL WEB [REND: BAJO a MEDIO]
+# CONFIGURACIÓN DEL PANEL WEB [PERF: LOW a MEDIUM]
 # ═══════════════════════════════════════════════════════════════════════════════
-# Interfaz web integrada para trading, ver tenencias y gráficos en tiempo real.
-# Rendimiento: Servidor Javalin corre en hilos separados, impacto mínimo.
 web:
   enabled: true
+  # Usar 127.0.0.1 con proxy inverso (nginx) para producción.
   host: 127.0.0.1
   port: 3434
   session-duration-hours: 2
   
+  # COMPRESIÓN DE RESPUESTA [PERF: LOW - ahorra ancho de banda]
   compression:
     enabled: true
     level: 4
-  
+
+  # MÉTODOS DE ACTUALIZACIÓN EN TIEMPO REAL
   poll-ms: 1000
   history-limit: 120
-  
   sse:
     enabled: false
-  
   websocket:
     enabled: true
   
+  # LIMITACIÓN DE TASA API (Seguridad)
   rate-limit:
     enabled: true
     requests: 30
     per-seconds: 10
     exempt-ui: true
   
+  # PERMISOS Y ROLES
   roles:
     default: TRADER
     trader-permission: endex.web.trade
     admin-view-permission: endex.web.admin
   
+  # ICONOS DE MINECRAFT EN LA WEB
   icons:
     enabled: false
     source: ""
   
+  # INTEGRACIÓN DE ADDONS (Solo visualización)
   addons: []
   
+  # SOBRESCRITURA DE IU WEB PERSONALIZADA
   custom:
     enabled: false
     root: webui
     reload: false
     export-default: true
   
+  # API DE POSESIONES DE INVENTARIO
   holdings:
     inventory:
       enabled: true
@@ -357,13 +362,14 @@ web:
       cache-seconds: 15
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# REGISTRO Y DEPURACIÓN [REND: BAJO - modo verbose aumenta I/O de disco]
+# REGISTROS Y DEPURACIÓN [PERF: LOW - el modo verbose aumenta E/S]
 # ═══════════════════════════════════════════════════════════════════════════════
 logging:
+  # Activar solo para solucionar problemas. Aumenta mucho el tamaño de los logs.
   verbose: false
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# VERIFICADOR DE ACTUALIZACIONES [REND: MÍNIMO - solo al iniciar]
+# VERIFICADOR DE ACTUALIZACIONES
 # ═══════════════════════════════════════════════════════════════════════════════
 update-checker:
   enabled: true
@@ -372,4 +378,3 @@ update-checker:
 # ═══════════════════════════════════════════════════════════════════════════════
 # FIN DE LA CONFIGURACIÓN
 # ═══════════════════════════════════════════════════════════════════════════════
-# ¡Recuerda ejecutar /endex reload después de hacer cambios!

@@ -125,6 +125,7 @@ market:
     price-info: "&7{item}: 单价 &e{price} &7(最多购买 {max})"
     usage: "&c用法: /market buy <材料> <数量>"
     cancelled: "&c购买操作已被服务器策略取消。"
+    cooldown-active: "&c????{material} - ???????????????:??{seconds}??"
     capped: "&6由于背包空间限制，购买量已限制为 {amount} {item} (原请求: {requested})。"
     capacity-hint: "&7提示: 清空背包或使用末影箱来处理大额订单。"
     tax-info: "&8(税费: {tax}，税率 {percent}%)"
@@ -142,6 +143,7 @@ market:
     nothing-to-sell: "&c您没有任何该物品可供出售。"
     usage: "&c用法: /market sell <材料> <数量>"
     cancelled: "&c出售操作已被服务器策略取消。"
+    cooldown-active: "&c????{material} - ???????????????:??{seconds}??"
 
   # 虚拟仓库出售
   sellholdings:
@@ -398,7 +400,15 @@ admin:
     
   remove:
     success: "&a已从市场移除 &e{item}&a。"
+    orphaned: "&a已从市场数据库移除孤立物品 &e{item}&a。"
+    config-only: "&a已从物品配置中移除 &e{item}&a。"
+    not-found: "&c{item} 不在市场或配置中。"
     usage: "&c用法: /market removeitem <材料>"
+    
+  purge:
+    success: "&a已从市场数据库移除 &e{count}&a 个孤立物品。"
+    none: "&a未找到孤立物品。市场很干净！"
+    list: "&7已移除: {items}"
     
   setbase:
     success: "&a已将 &e{item}&a 的基础价设为 &e{price}"
@@ -503,6 +513,116 @@ endex:
   unknown-subcommand: "&c未知子命令。使用 /endex help 查看。"
 
 # =============================================================================
+# 市场命令帮助
+# =============================================================================
+market-help:
+  separator: "&6═══════════════════════════════════════"
+  title: "&d&lThe Endex &7- 市场命令"
+  empty-line: ""
+  
+  basic:
+    market: "&e/market &7- 打开市场/商店界面"
+    shop: "&e/market shop [id] &7- 打开自定义商店"
+    stock: "&e/market stock &7- 打开股票市场界面"
+    price: "&e/market price <物品> &7- 查询物品价格"
+    buy: "&e/market buy <物品> <数量> &7- 购买物品"
+    sell: "&e/market sell <物品> <数量> &7- 出售背包中的物品"
+    sellholdings: "&e/market sellholdings <物品> <数量> &7- 出售持有资产中的物品"
+    top: "&e/market top &7- 查看涨跌排行榜"
+  
+  holdings-section: "&b持有资产与配送:"
+  holdings:
+    holdings: "&e/market holdings &7- 查看虚拟持有资产"
+    withdraw: "&e/market withdraw <物品> [数量] &7- 从持有资产中提取"
+    withdraw-all: "&e/market withdraw all &7- 提取所有持有资产"
+    delivery: "&e/market delivery &7- 查看待配送物品"
+    delivery-claim: "&e/market delivery claim <物品> &7- 领取指定配送"
+    delivery-claim-all: "&e/market delivery claim-all &7- 领取所有配送"
+  
+  invest-section: "&b投资:"
+  invest:
+    buy: "&e/market invest buy <物品> <数量> &7- 购买投资"
+    list: "&e/market invest list &7- 查看投资列表"
+    redeem: "&e/market invest redeem-all &7- 赎回所有投资"
+  
+  admin-events-section: "&c管理员事件:"
+  admin-events:
+    list: "&e/market event &7- 列出/触发事件"
+    trigger: "&e/market event <名称> &7- 触发事件"
+    end: "&e/market event end <名称> &7- 结束事件"
+    clear: "&e/market event clear &7- 清除所有事件"
+  
+  admin-editor-section: "&c管理员商店编辑器:"
+  admin-editor:
+    editor: "&e/market editor &7- 打开商店编辑器界面"
+  
+  admin-items-section: "&c管理员物品管理:"
+  admin-items:
+    add: "&e/market add <物品> <基准> [最低] [最高] &7- 添加物品"
+    remove: "&e/market remove <物品> &7- 移除物品"
+    setbase: "&e/market setbase <物品> <价格> &7- 设置基准价格"
+    setmin: "&e/market setmin <物品> <价格> &7- 设置最低价格"
+    setmax: "&e/market setmax <物品> <价格> &7- 设置最高价格"
+    setprice: "&e/market setprice <物品> <价格> &7- 设置当前价格（临时）"
+    toggle: "&e/market enable/disable <物品> &7- 启用/禁用物品"
+    items: "&e/market items [页码] &7- 列出已配置物品"
+    purge: "&e/market purge &7- 移除孤立物品"
+
+# 价格命令
+market-price:
+  usage: "&c用法: /market price <材料>"
+  unknown-material: "&c未知材料: {material}"
+  not-tracked: "&c{material} 未被市场追踪。"
+  header: "&6[The Endex] &b{item}&7: &a{price} &7({arrow}&7 {diff})"
+  event-multiplier: "&3事件倍率: &bx{multiplier}  &7实际: &a{effective}"
+  stats: "&8基准 {base}  最低 {min}  最高 {max}"
+  history-label: "&7历史: {history}"
+  chart-label: "&8图表: &7{chart}"
+
+# 交易消息
+market-transaction:
+  item-dropped: "&e[TheEndex] &6{count} {item} 已掉落（达到配送限制/无进度）。"
+  item-dropped-zero: "&e[TheEndex] &6{count} {item} 已掉落（无进度）。"
+  item-dropped-limit: "&e[TheEndex] &6{count} {item} 已掉落（达到配送限制）。"
+  item-dropped-full: "&e[TheEndex] &6{count} {item} 已掉落（背包已满）。"
+  buy-success: "&6[TheEndex] &a购买了 {amount} {item}，花费 {price}。"
+  buy-delivered: "&e  已配送: {delivered} | 待处理: {pending} &7（点击市场界面中的末影箱）"
+  buy-with-tax: "&6[TheEndex] &a购买了 {amount} {item}，花费 {price}（税费 {tax}，税率 {taxpct}%）。"
+  buy-dropped: "&6[TheEndex] &a购买了 {amount} {item}，花费 {price}。"
+  buy-dropped-note: "&e  已配送: {delivered} | 已掉落: {dropped}"
+  top-gainer: "&a+{percent}% &b{item}"
+  top-loser: "&c{percent}% &b{item}"
+
+# 持有资产显示
+market-holdings-display:
+  entry: "&7- &b{item}&7 {id}  本金: {principal}  累计: &a{accrued}"
+  item-line: "&b{item}: &e{amount}"
+  item-detail: "&b{item}: &e{qty} &7@ &a{price} {pnl_color}({pnl_sign}{pnl})"
+  total-value: "&7{label}: &a{value} {pnl_color}({pnl_sign}{pnl} 盈亏)"
+  delivery-item: "&7  • &b{item}: &6{count}"
+
+# 事件显示
+market-event-display:
+  available: "&b{name}&7 -> {target} x{multiplier} {duration}分钟 {broadcast}"
+  active: "&b{name}&7 将在 &e{remaining}分钟&7 后结束"
+
+# 投资显示
+market-invest-display:
+  entry: "&7- &b{item}&7 {id}  本金: {principal}  累计: &a{accrued}"
+
+# 管理员物品列表
+market-items-list:
+  entry: "{status} &b{item} &7基:{base} 最低:{min} 最高:{max}"
+
+# 显示格式
+market-display:
+  investment-entry: "&7- &b{material}&7 {id_short}…  本金: {principal}  累计: &a{accrued}"
+  event-available: "&b{name}&7 -> {target} x{multiplier} {duration}分钟 {broadcast}"
+  event-active: "&b{name}&7 将在 &e{remaining}分钟&7 后结束"
+  delivery-detail: "&7  • &b{item}: &6{count}"
+  items-list-entry: "{status} &b{item} &7基:{base} 最低:{min} 最高:{max}"
+
+# =============================================================================
 # 错误消息  
 # =============================================================================
 errors:
@@ -527,3 +647,64 @@ time:
   remaining: "剩余 {time}"
   now: "刚刚"
   never: "从未"
+
+# =============================================================================
+# 商店编辑器 (SHOP EDITOR)
+# =============================================================================
+shop-editor:
+  no-permission: "&c您没有使用商店编辑器的权限！"
+  not-loaded: "&c自定义商店系统未加载。"
+  shop-not-found: "&c找不到商店：{shop}"
+  unsaved-warning: "&e⚠ 您有未保存的更改！请再次打开编辑器以保存。"
+  input-cancelled: "&e输入已取消。"
+  mode-changed: "&a商店模式已更改为 {mode}。运行 &e/endex reload&a 以应用。"
+  cannot-delete-main: "&c无法删除主商店！"
+  set-main-shop: "&a已将 '{shop}' 设置为主商店。"
+  category-settings-soon: "&e类别设置编辑器即将推出！"
+  mode-changed-layout: "&e模式已更改为：&f{mode}"
+  click-empty-slot: "&e请先点击空白槽位以放置类别"
+  fill-toggle-hint: "&e填充模式切换 - 目前请使用 config.yml"
+  drag-filler-hint: "&e从库存拖拽物品以设置填充材料"
+  border-mode-hint: "&e边框模式：点击槽位切换为边框"
+  unsaved-changes-warning: "&e警告：您有未保存的更改！"
+  opening-preview: "&d正在打开商店预览..."
+  undo-not-implemented: "&6撤销功能尚未实现"
+  editing-slot: "&e正在编辑槽位 {slot}（{type}）"
+  editing-slot-prompt: "&7请先输入新名称，然后将要求输入描述。"
+  removed-slot: "&c已移除槽位 {slot} 的内容"
+  click-move-target: "&e点击另一个槽位移动此 {type}，或再次点击此处取消"
+  moved-content: "&a已将内容移动到槽位 {slot}"
+  move-cancelled: "&7移动已取消"
+  placed-decoration: "&a已在槽位 {slot} 放置装饰"
+  cursor-item-hint: "&e将物品放在光标上以作为装饰放置"
+  slot-empty: "&c此槽位为空 - 无内容可编辑"
+  slot-already-empty: "&7槽位已经是空的"
+  shop-file-not-found: "&c找不到商店文件！"
+  layout-saved: "&a布局已保存至 shops/{shop}.yml"
+  placed-category: "&a已在槽位 {slot} 放置类别 '{category}'"
+  placed-button: "&a已在槽位 {slot} 放置 {button} 按钮"
+  item-settings-saved: "&a物品设置已保存！"
+  shop-exists: "&cID 为 '{shop}' 的商店已存在！"
+  shop-created: "&a已创建新商店：{name}（ID：{id}）"
+  category-creation-soon: "&a类别创建即将推出！"
+  invalid-price: "&c无效价格！请输入正数。"
+  buy-price-set: "&a购买价格已设置为 ${price}"
+  sell-price-set: "&a出售价格已设置为 ${price}"
+  permission-set: "&a权限已设置为：{permission}"
+  invalid-number: "&c无效数字！请输入整数。"
+  stock-limit-set: "&a库存限制已设置为：{limit}"
+  no-slot-selected: "&c未选择槽位！"
+  slot-is-empty: "&c槽位为空！"
+  slot-name-updated: "&a槽位名称已更新为：{name}"
+  keeping-current-name: "&7保持当前名称。"
+  slot-lore-updated: "&a槽位描述已更新！"
+  keeping-current-lore: "&7保持当前描述。"
+  item-added: "&a已将 {item} 添加到槽位 {slot}。点击设置价格！"
+  item-removed: "&e已从槽位 {slot} 移除 {item}"
+  items-saved: "&a已保存 {count} 个物品到类别 '{category}'！"
+  items-saved-note: "&7物品已添加到 items.yml 和 market.db"
+  shop-deleted: "&a已删除商店：{shop}"
+  shop-file-not-found-delete: "&c找不到商店文件！"
+  category-deleted: "&a已删除类别：{category}"
+  category-delete-failed: "&c删除类别失败：{error}"
+  shop-changes-saved: "&a商店更改已保存！"

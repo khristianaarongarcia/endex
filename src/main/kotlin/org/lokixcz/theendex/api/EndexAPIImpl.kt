@@ -6,7 +6,14 @@ import org.lokixcz.theendex.api.model.ActiveMarketEvent
 import org.lokixcz.theendex.api.model.PriceSample
 
 class EndexAPIImpl(private val plugin: Endex) : EndexAPI {
-    override fun listMaterials(): Set<Material> = plugin.marketManager.allItems().map { it.material }.toSet()
+    override fun listMaterials(): Set<Material> {
+        // Only return items enabled in items.yml (filter out orphaned DB entries)
+        val enabledMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
+        return plugin.marketManager.allItems()
+            .filter { it.material in enabledMaterials }
+            .map { it.material }
+            .toSet()
+    }
 
     override fun getBasePrice(material: Material): Double? = plugin.marketManager.get(material)?.basePrice
 

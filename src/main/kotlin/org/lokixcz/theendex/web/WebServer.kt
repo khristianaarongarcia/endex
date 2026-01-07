@@ -197,7 +197,9 @@ class WebServer(private val plugin: Endex) {
         app.get("/api/items") { ctx ->
             val session = validateSession(ctx) ?: return@get
             if (!checkRateLimit(ctx, session.token)) return@get
-            val items = plugin.marketManager.allItems().map { item ->
+            // Only show items that are enabled in items.yml (filter out orphaned DB entries)
+            val enabledMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
+            val items = plugin.marketManager.allItems().filter { it.material in enabledMaterials }.map { item ->
                 mapOf(
                     "material" to item.material.name,
                     "displayName" to item.material.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
@@ -891,7 +893,9 @@ class WebServer(private val plugin: Endex) {
     }
 
     private fun broadcastLiveTick() {
-        val snapshot = plugin.marketManager.allItems().map { item ->
+        // Only broadcast items that are enabled in items.yml (filter out orphaned DB entries)
+        val enabledMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
+        val snapshot = plugin.marketManager.allItems().filter { it.material in enabledMaterials }.map { item ->
             mapOf(
                 "material" to item.material.name,
                 "price" to (item.currentPrice * plugin.eventManager.multiplierFor(item.material))

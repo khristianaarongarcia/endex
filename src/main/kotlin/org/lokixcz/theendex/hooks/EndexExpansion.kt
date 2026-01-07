@@ -120,14 +120,14 @@ class EndexExpansion(private val plugin: Endex) : PlaceholderExpansion() {
         if (lower.startsWith("top_price_") && !lower.contains("_value")) {
             val n = lower.substring(10).toIntOrNull() ?: return null
             if (n < 1 || n > 10) return null
-            val sorted = plugin.marketManager.allItems().sortedByDescending { it.currentPrice }
+            val sorted = getEnabledItems().sortedByDescending { it.currentPrice }
             return sorted.getOrNull(n - 1)?.let { formatMaterialName(it.material.name) } ?: "N/A"
         }
 
         if (lower.startsWith("top_price_") && lower.endsWith("_value")) {
             val n = lower.substring(10, lower.length - 6).toIntOrNull() ?: return null
             if (n < 1 || n > 10) return null
-            val sorted = plugin.marketManager.allItems().sortedByDescending { it.currentPrice }
+            val sorted = getEnabledItems().sortedByDescending { it.currentPrice }
             return sorted.getOrNull(n - 1)?.let { priceFormat.format(it.currentPrice) } ?: "0"
         }
 
@@ -135,14 +135,14 @@ class EndexExpansion(private val plugin: Endex) : PlaceholderExpansion() {
         if (lower.startsWith("bottom_price_") && !lower.contains("_value")) {
             val n = lower.substring(13).toIntOrNull() ?: return null
             if (n < 1 || n > 10) return null
-            val sorted = plugin.marketManager.allItems().sortedBy { it.currentPrice }
+            val sorted = getEnabledItems().sortedBy { it.currentPrice }
             return sorted.getOrNull(n - 1)?.let { formatMaterialName(it.material.name) } ?: "N/A"
         }
 
         if (lower.startsWith("bottom_price_") && lower.endsWith("_value")) {
             val n = lower.substring(13, lower.length - 6).toIntOrNull() ?: return null
             if (n < 1 || n > 10) return null
-            val sorted = plugin.marketManager.allItems().sortedBy { it.currentPrice }
+            val sorted = getEnabledItems().sortedBy { it.currentPrice }
             return sorted.getOrNull(n - 1)?.let { priceFormat.format(it.currentPrice) } ?: "0"
         }
 
@@ -230,14 +230,14 @@ class EndexExpansion(private val plugin: Endex) : PlaceholderExpansion() {
         // === Market Statistics ===
         when (lower) {
             "total_items" -> {
-                return wholeFormat.format(plugin.marketManager.allItems().size)
+                return wholeFormat.format(getEnabledItems().size)
             }
             "total_volume" -> {
-                val total = plugin.marketManager.allItems().sumOf { it.currentPrice }
+                val total = getEnabledItems().sumOf { it.currentPrice }
                 return priceFormat.format(total)
             }
             "average_price" -> {
-                val items = plugin.marketManager.allItems()
+                val items = getEnabledItems()
                 if (items.isEmpty()) return "0"
                 val avg = items.sumOf { it.currentPrice } / items.size
                 return priceFormat.format(avg)
@@ -262,11 +262,21 @@ class EndexExpansion(private val plugin: Endex) : PlaceholderExpansion() {
 
     /**
      * Get all items with their price change percentage.
+     * Only includes items that are enabled in items.yml (filters out orphaned DB entries).
      */
     private fun getItemsByChange(): List<Pair<MarketItem, Double>> {
-        return plugin.marketManager.allItems().map { item ->
-            item to getChangePercent(item)
-        }
+        val enabledMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
+        return plugin.marketManager.allItems()
+            .filter { it.material in enabledMaterials }
+            .map { item -> item to getChangePercent(item) }
+    }
+    
+    /**
+     * Get all enabled market items (filters out orphaned DB entries).
+     */
+    private fun getEnabledItems(): Collection<MarketItem> {
+        val enabledMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
+        return plugin.marketManager.allItems().filter { it.material in enabledMaterials }
     }
 
     /**

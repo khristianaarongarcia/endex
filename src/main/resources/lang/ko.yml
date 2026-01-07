@@ -116,6 +116,7 @@ market:
     price-info: "&7{item}: &e개당 {price} &7(최대 구매: {max})"
     usage: "&c사용법: /market buy <아이템> <수량>"
     cancelled: "&c서버 정책에 의해 구매가 취소되었습니다."
+    cooldown-active: "&c{material}? ??? ? ???? - ?? ??????. ?? ?? ???: {seconds}? ??."
     capped: "&6인벤토리 공간 부족으로 {item} 구매가 {amount}개로 제한되었습니다 (요청: {requested})."
     capacity-hint: "&7팁: 대량 구매 시 인벤토리를 비우거나 개인 창고를 이용하세요."
     tax-info: "&8(세금: {percent}% 적용 시 {tax})"
@@ -132,6 +133,7 @@ market:
     nothing-to-sell: "&c판매할 아이템이 없습니다."
     usage: "&c사용법: /market sell <아이템> <수량>"
     cancelled: "&c서버 정책에 의해 판매가 취소되었습니다."
+    cooldown-active: "&c{material}? ??? ? ???? - ?? ??????. ?? ?? ???: {seconds}? ??."
 
   sellholdings:
     success: "&a창고의 {item} {amount}개를 {price}에 판매했습니다! (세금 {tax} / {percent}%)"
@@ -402,7 +404,15 @@ admin:
     
   remove:
     success: "&a{item}&a을 시장에서 제거했습니다."
+    orphaned: "&a고아 아이템 &e{item}&a을 시장 데이터베이스에서 제거했습니다."
+    config-only: "&a{item}&a을 아이템 설정에서 제거했습니다."
+    not-found: "&c{item}은 시장이나 설정에 없습니다."
     usage: "&c사용법: /market removeitem <아이템>"
+    
+  purge:
+    success: "&a{count}&a개의 고아 아이템을 시장 데이터베이스에서 제거했습니다."
+    none: "&a고아 아이템이 없습니다. 시장이 깨끗합니다!"
+    list: "&7제거됨: {items}"
     
   setbase:
     success: "&e{item}&a의 기준가를 &e{price}&a로 설정했습니다."
@@ -610,6 +620,7 @@ market-help:
     setprice: "&e/market setprice <아이템> <가격> &7- 현재가 강제 설정"
     toggle: "&e/market enable/disable <아이템> &7- 활성화 전환"
     items: "&e/market items [페이지] &7- 전체 아이템 목록 보기"
+    purge: "&e/market purge &7- 고아 아이템 삭제"
 
 # 시세 확인 명령어 (MARKET PRICE)
 market-price:
@@ -646,3 +657,64 @@ time:
   remaining: "{time} 남음"
   now: "지금"
   never: "없음"
+
+# =============================================================================
+# 상점 에디터 (SHOP EDITOR)
+# =============================================================================
+shop-editor:
+  no-permission: "&c상점 에디터를 사용할 권한이 없습니다!"
+  not-loaded: "&c커스텀 상점 시스템이 로드되지 않았습니다."
+  shop-not-found: "&c상점을 찾을 수 없습니다: {shop}"
+  unsaved-warning: "&e⚠ 저장하지 않은 변경 사항이 있습니다! 저장하려면 에디터를 다시 여세요."
+  input-cancelled: "&e입력이 취소되었습니다."
+  mode-changed: "&a상점 모드가 {mode}로 변경되었습니다. &e/endex reload&a를 실행하여 적용하세요."
+  cannot-delete-main: "&c메인 상점은 삭제할 수 없습니다!"
+  set-main-shop: "&a'{shop}'을 메인 상점으로 설정했습니다."
+  category-settings-soon: "&e카테고리 설정 에디터는 곧 추가될 예정입니다!"
+  mode-changed-layout: "&e모드 변경됨: &f{mode}"
+  click-empty-slot: "&e카테고리를 배치할 빈 슬롯을 먼저 클릭하세요"
+  fill-toggle-hint: "&e채우기 패턴 전환 - 현재 config.yml을 사용하세요"
+  drag-filler-hint: "&e인벤토리에서 아이템을 드래그하여 채우기 재료를 설정하세요"
+  border-mode-hint: "&e테두리 모드: 슬롯을 클릭하여 테두리로 전환"
+  unsaved-changes-warning: "&e경고: 저장하지 않은 변경 사항이 있습니다!"
+  opening-preview: "&d상점 미리보기를 여는 중..."
+  undo-not-implemented: "&6실행 취소는 아직 구현되지 않았습니다"
+  editing-slot: "&e슬롯 {slot} ({type}) 수정 중"
+  editing-slot-prompt: "&7먼저 새 이름을 입력한 후 설명을 입력하세요."
+  removed-slot: "&c슬롯 {slot}의 내용을 제거했습니다"
+  click-move-target: "&e다른 슬롯을 클릭하여 {type}을(를) 이동하거나, 여기를 다시 클릭하여 취소하세요"
+  moved-content: "&a슬롯 {slot}으로 내용을 이동했습니다"
+  move-cancelled: "&7이동이 취소되었습니다"
+  placed-decoration: "&a슬롯 {slot}에 장식을 배치했습니다"
+  cursor-item-hint: "&e커서에 아이템을 올려 장식으로 배치하세요"
+  slot-empty: "&c이 슬롯은 비어 있습니다 - 수정할 내용이 없습니다"
+  slot-already-empty: "&7슬롯이 이미 비어 있습니다"
+  shop-file-not-found: "&c상점 파일을 찾을 수 없습니다!"
+  layout-saved: "&a레이아웃이 shops/{shop}.yml에 저장되었습니다"
+  placed-category: "&a슬롯 {slot}에 카테고리 '{category}'를 배치했습니다"
+  placed-button: "&a슬롯 {slot}에 {button} 버튼을 배치했습니다"
+  item-settings-saved: "&a아이템 설정이 저장되었습니다!"
+  shop-exists: "&c'{shop}' ID의 상점이 이미 존재합니다!"
+  shop-created: "&a새 상점을 생성했습니다: {name} (ID: {id})"
+  category-creation-soon: "&a카테고리 생성은 곧 추가될 예정입니다!"
+  invalid-price: "&c유효하지 않은 가격입니다! 양수를 입력하세요."
+  buy-price-set: "&a구매가가 ${price}로 설정되었습니다"
+  sell-price-set: "&a판매가가 ${price}로 설정되었습니다"
+  permission-set: "&a권한이 설정되었습니다: {permission}"
+  invalid-number: "&c유효하지 않은 숫자입니다! 정수를 입력하세요."
+  stock-limit-set: "&a재고 한도가 설정되었습니다: {limit}"
+  no-slot-selected: "&c선택된 슬롯이 없습니다!"
+  slot-is-empty: "&c슬롯이 비어 있습니다!"
+  slot-name-updated: "&a슬롯 이름이 업데이트되었습니다: {name}"
+  keeping-current-name: "&7현재 이름을 유지합니다."
+  slot-lore-updated: "&a슬롯 설명이 업데이트되었습니다!"
+  keeping-current-lore: "&7현재 설명을 유지합니다."
+  item-added: "&a슬롯 {slot}에 {item}을(를) 추가했습니다. 클릭하여 가격을 설정하세요!"
+  item-removed: "&e슬롯 {slot}에서 {item}을(를) 제거했습니다"
+  items-saved: "&a카테고리 '{category}'에 {count}개의 아이템을 저장했습니다!"
+  items-saved-note: "&7아이템이 items.yml과 market.db에 추가되었습니다"
+  shop-deleted: "&a상점을 삭제했습니다: {shop}"
+  shop-file-not-found-delete: "&c상점 파일을 찾을 수 없습니다!"
+  category-deleted: "&a카테고리를 삭제했습니다: {category}"
+  category-delete-failed: "&c카테고리 삭제 실패: {error}"
+  shop-changes-saved: "&a상점 변경 사항이 저장되었습니다!"

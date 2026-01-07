@@ -151,17 +151,24 @@ object MarketActions {
     
     /**
      * Get all market items (for displaying in GUI).
+     * Only returns items enabled in items.yml (filters out orphaned DB entries).
      */
     fun getAllMarketItems(plugin: Endex): List<Material> {
-        return plugin.marketManager.allItems().map { it.material }
+        val enabledMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
+        return plugin.marketManager.allItems()
+            .filter { it.material in enabledMaterials }
+            .map { it.material }
     }
     
     /**
      * Get market items filtered by category.
      * Uses the same filtering logic as MarketGUI for consistency.
+     * Only returns items enabled in items.yml (filters out orphaned DB entries).
      */
     fun getMarketItemsByFilter(plugin: Endex, filter: MarketCategoryFilter): List<Material> {
+        val enabledMaterials = plugin.itemsConfigManager.allEnabled().map { it.material }.toSet()
         return plugin.marketManager.allItems()
+            .filter { it.material in enabledMaterials }
             .filter { mi ->
                 when (filter) {
                     MarketCategoryFilter.ALL -> true
